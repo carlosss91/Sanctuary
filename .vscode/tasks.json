@@ -1,0 +1,66 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🚀 Sanctuary: Levantar Todo (Docker + Backend + Flutter Web)",
+      "type": "shell",
+      "command": "bash start.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": true
+      }
+    },
+    {
+      "label": "⏹️ Sanctuary: Detener Todo (Docker y Servicios)",
+      "type": "shell",
+      "command": "bash stop.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "📱 Sanctuary: Compilar APK Android",
+      "type": "shell",
+      "command": "bash build_apk.sh",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "🌐 Sanctuary: Flutter Web (Modo Dev)",
+      "type": "shell",
+      "command": "flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "🔍 Sanctuary: Análisis de Código (Dart Analyze)",
+      "type": "shell",
+      "command": "flutter analyze",
+      "problemMatcher": [
+        "$dart-analyze"
+      ],
+      "group": {
+        "kind": "test"
+      }
+    }
+  ]
+}

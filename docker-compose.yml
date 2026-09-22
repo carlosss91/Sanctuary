@@ -1,0 +1,38 @@
+services:
+  sanctuary_db:
+    image: postgres:16-alpine
+    container_name: sanctuary_postgres
+    restart: unless-stopped
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_DB: sanctuary_db
+      POSTGRES_USER: sanctuary_user
+      POSTGRES_PASSWORD: sanctuary_secret
+    volumes:
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - sanctuary_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sanctuary_user -d sanctuary_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  sanctuary_api:
+    build: ./backend
+    container_name: sanctuary_api
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      PORT: 8088
+      DATABASE_URL: postgres://sanctuary_user:sanctuary_secret@sanctuary_db:5432/sanctuary_db
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      sanctuary_db:
+        condition: service_healthy
+
+volumes:
+  sanctuary_pgdata:
