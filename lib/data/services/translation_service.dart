@@ -56,6 +56,24 @@ class TranslationService {
     'Electricidad básica': 'Basic Electrical Work',
     'Soldadura ligera': 'Light Welding',
     'Pintura industrial': 'Industrial Coating & Painting',
+    'TRABAJO EN EQUIPO': 'TEAMWORK & COLLABORATION',
+    'PREVENCIÓN Y EPIS': 'SAFETY & PPE PROTOCOLS',
+    'PUNTUALIDAD Y SERIEDAD': 'PUNCTUALITY & RELIABILITY',
+    'MANEJO DE HERRAMIENTAS': 'TOOL & MACHINERY HANDLING',
+    'CAPACIDAD DE APRENDIZAJE': 'LEARNING AGILITY & ADAPTABILITY',
+    'MANTENIMIENTO PREVENTIVO': 'PREVENTIVE MAINTENANCE',
+    'JARDINERÍA BÁSICA': 'BASIC LANDSCAPING',
+    'REPARACIONES RÁPIDAS': 'FAST FACILITY REPAIRS',
+    'MANEJO DE MAQUINARIA': 'LIGHT MACHINERY HANDLING',
+    'Compañerismo y coordinación en cuadrilla': 'Teamwork and squad coordination',
+    'Seguridad y prevención de riesgos en obra': 'On-site safety protocols and occupational hazard prevention',
+    'Compromiso riguroso con horarios y tareas': 'Rigorous commitment to schedules and assigned duties',
+    'Destreza con útiles manuales y eléctricos': 'Proficiency with manual tools and power equipment',
+    'Asimilación rápida de nuevas técnicas': 'Rapid assimilation of new techniques and workflows',
+    'Revisión y conservación de instalaciones': 'Inspection and conservation of facilities',
+    'Poda y mantenimiento de zonas verdes': 'Pruning and upkeep of green areas',
+    'Solución eficaz de incidencias operativas': 'Effective resolution of operational incidents',
+    'Control de herramienta y maquinaria ligera': 'Control of tools and light machinery',
 
     // Degrees & Certifications
     'CERTIFICADO DE PROFESIONALIDAD (EN CURSO)': 'PROFESSIONAL CERTIFICATE (IN PROGRESS)',
@@ -137,6 +155,12 @@ class TranslationService {
         drivingLicense: translateText(profile.drivingLicense, true),
         summary: translateText(profile.summary, true),
         skills: profile.skills.map((s) => translateText(s, true)).toList(),
+        skillItems: profile.skillItems
+            .map((si) => si.copyWith(
+                  name: translateText(si.name, true),
+                  description: translateText(si.description, true),
+                ))
+            .toList(),
         experiences: profile.experiences
             .map((e) => e.copyWith(
                   jobTitle: translateText(e.jobTitle, true),
@@ -181,6 +205,12 @@ class TranslationService {
         drivingLicense: translateText(profile.drivingLicense, false),
         summary: translateText(profile.summary, false),
         skills: profile.skills.map((s) => translateText(s, false)).toList(),
+        skillItems: profile.skillItems
+            .map((si) => si.copyWith(
+                  name: translateText(si.name, false),
+                  description: translateText(si.description, false),
+                ))
+            .toList(),
         experiences: profile.experiences
             .map((e) => e.copyWith(
                   jobTitle: translateText(e.jobTitle, false),

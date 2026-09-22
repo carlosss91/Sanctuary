@@ -422,6 +422,8 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
   // 1. TEMPLATE: SIDEBAR DARK / COLUMNA LATERAL EJECUTIVA
   // ==============================================================================
   Widget _buildSidebarDarkLayout(Color accentColor, bool isEn) {
+    final skillsList = _getSkillsList();
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -454,45 +456,26 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                       _buildContactRowWhite(Icons.access_time, widget.profile.availability),
                       _buildContactRowWhite(Icons.directions_car, widget.profile.drivingLicense),
 
-                      const SizedBox(height: 14),
-
-                      _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.profile.summary,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.95),
-                          fontSize: 8.2,
-                          height: 1.45,
+                      if (widget.profile.summary.trim().isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.profile.summary,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.95),
+                            fontSize: 8.0,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.justify,
                         ),
-                        textAlign: TextAlign.justify,
-                      ),
+                      ],
 
-                      if (widget.profile.skills.isNotEmpty) ...[
+                      if (skillsList.isNotEmpty) ...[
                         const SizedBox(height: 14),
                         _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 5,
-                          children: widget.profile.skills.map((skill) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                skill,
-                                style: TextStyle(
-                                  fontSize: 7.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: accentColor,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
+                        const SizedBox(height: 10),
+                        ...skillsList.map((item) => _buildCompetencyRow(item)),
                       ],
                     ],
                   ),
@@ -509,54 +492,69 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.profile.moduleBadge.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
-                  ),
-                  child: Text(
-                    widget.profile.moduleBadge,
-                    style: const TextStyle(
-                      fontSize: 7.8,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 8),
-
-              Text(
-                widget.profile.fullName.isNotEmpty ? widget.profile.fullName : 'NOMBRE Y APELLIDOS',
-                style: TextStyle(
-                  fontFamily: widget.profile.fontFamily,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
+              // Header Banner with Name & Job Title
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
                   color: accentColor,
-                  letterSpacing: 0.3,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: widget.profile.watermarkOpacity.clamp(0.08, 0.25),
+                          child: CustomPaint(
+                            painter: WatermarkPainter(
+                              pattern: widget.profile.watermarkPattern,
+                              opacity: 0.18,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.profile.fullName.isNotEmpty
+                                ? widget.profile.fullName.toUpperCase()
+                                : 'NOMBRE Y APELLIDOS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: widget.profile.fontFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          if (widget.profile.jobTitle.isNotEmpty) ...[
+                            const SizedBox(height: 2.5),
+                            Text(
+                              widget.profile.jobTitle.toUpperCase(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 8.2,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
-              if (widget.profile.jobTitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  widget.profile.jobTitle.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF334155),
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 12),
-              Container(height: 2, color: const Color(0xFFE2E8F0)),
               const SizedBox(height: 12),
 
-              _buildSectionTitle(isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentColor),
+              _buildSectionPill(isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentColor),
               const SizedBox(height: 8),
               if (widget.profile.experiences.isEmpty)
                 Text(
@@ -564,11 +562,11 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                   style: const TextStyle(fontSize: 8.5, color: Colors.grey),
                 )
               else
-                ...widget.profile.experiences.map((exp) => _buildExperienceItem(exp, accentColor)),
+                ...widget.profile.experiences.map((exp) => _buildExperienceItemWithIcon(exp, accentColor)),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              _buildSectionTitle(isEn ? 'EDUCATION & TRAINING' : 'FORMACIÓN ACADÉMICA', accentColor),
+              _buildSectionPill(isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES', accentColor),
               const SizedBox(height: 8),
               if (widget.profile.educations.isEmpty)
                 Text(
@@ -576,7 +574,9 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                   style: const TextStyle(fontSize: 8.5, color: Colors.grey),
                 )
               else
-                ...widget.profile.educations.map((edu) => _buildEducationItem(edu, accentColor)),
+                ...widget.profile.educations.asMap().entries.map(
+                      (entry) => _buildEducationItemWithIcon(entry.value, accentColor, entry.key),
+                    ),
             ],
           ),
         ),
@@ -699,7 +699,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                     Wrap(
                       spacing: 5,
                       runSpacing: 5,
-                      children: widget.profile.skills.map((skill) {
+                      children: _getSkillsList().map((item) {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                           decoration: BoxDecoration(
@@ -707,9 +707,21 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: accentColor.withOpacity(0.35)),
                           ),
-                          child: Text(
-                            skill,
-                            style: TextStyle(fontSize: 7.8, fontWeight: FontWeight.bold, color: accentColor),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.name,
+                                style: TextStyle(fontSize: 7.8, fontWeight: FontWeight.bold, color: accentColor),
+                              ),
+                              const SizedBox(width: 4),
+                              _buildRatingDots(
+                                item.level,
+                                activeColor: const Color(0xFFF59E0B),
+                                inactiveColor: const Color(0xFFCBD5E1),
+                                dotSize: 3.8,
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),
@@ -824,7 +836,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
               Wrap(
                 spacing: 6,
                 runSpacing: 5,
-                children: widget.profile.skills.map((skill) {
+                children: _getSkillsList().map((item) {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                     decoration: BoxDecoration(
@@ -832,9 +844,21 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
-                    child: Text(
-                      skill,
-                      style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item.name,
+                          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                        ),
+                        const SizedBox(width: 4),
+                        _buildRatingDots(
+                          item.level,
+                          activeColor: const Color(0xFFF59E0B),
+                          inactiveColor: const Color(0xFFCBD5E1),
+                          dotSize: 3.8,
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
@@ -946,14 +970,26 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                       child: Wrap(
                         spacing: 4,
                         runSpacing: 4,
-                        children: widget.profile.skills.map((s) {
+                        children: _getSkillsList().map((item) {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
                               color: accentColor.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: Text(s, style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: accentColor)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(item.name, style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: accentColor)),
+                                const SizedBox(width: 4),
+                                _buildRatingDots(
+                                  item.level,
+                                  activeColor: const Color(0xFFF59E0B),
+                                  inactiveColor: accentColor.withOpacity(0.2),
+                                  dotSize: 3.6,
+                                ),
+                              ],
+                            ),
                           );
                         }).toList(),
                       ),
@@ -1047,6 +1083,334 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
             child: Text(
               '$label: $val',
               style: const TextStyle(fontSize: 8, color: Color(0xFF475569)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<CvSkillItem> _getSkillsList() {
+    if (widget.profile.skillItems.isNotEmpty) {
+      return widget.profile.skillItems;
+    }
+    if (widget.profile.skills.isNotEmpty) {
+      return widget.profile.skills
+          .map((s) => CvSkillItem(
+                name: s,
+                level: 5,
+                description: '',
+              ))
+          .toList();
+    }
+    return [];
+  }
+
+  IconData _getSkillIcon(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('equipo') || lower.contains('team') || lower.contains('compañer')) {
+      return Icons.groups_outlined;
+    }
+    if (lower.contains('seguridad') ||
+        lower.contains('epi') ||
+        lower.contains('prevenci') ||
+        lower.contains('riesgo') ||
+        lower.contains('safety')) {
+      return Icons.verified_user_outlined;
+    }
+    if (lower.contains('puntual') ||
+        lower.contains('seriedad') ||
+        lower.contains('horario') ||
+        lower.contains('tiempo') ||
+        lower.contains('time')) {
+      return Icons.schedule_outlined;
+    }
+    if (lower.contains('herramienta') ||
+        lower.contains('tool') ||
+        lower.contains('maquinaria') ||
+        lower.contains('util') ||
+        lower.contains('taller')) {
+      return Icons.build_outlined;
+    }
+    if (lower.contains('aprendiz') ||
+        lower.contains('capac') ||
+        lower.contains('learn') ||
+        lower.contains('asimil') ||
+        lower.contains('tecnic')) {
+      return Icons.psychology_outlined;
+    }
+    if (lower.contains('jardin') || lower.contains('plant')) {
+      return Icons.yard_outlined;
+    }
+    if (lower.contains('fontaner') || lower.contains('agua')) {
+      return Icons.plumbing_outlined;
+    }
+    if (lower.contains('electr')) {
+      return Icons.bolt_outlined;
+    }
+    return Icons.star_outline;
+  }
+
+  String _getSkillDescription(CvSkillItem item) {
+    if (item.description.isNotEmpty) return item.description;
+    final lower = item.name.toLowerCase();
+    if (lower.contains('equipo')) return 'Compañerismo y coordinación en cuadrilla';
+    if (lower.contains('epi') || lower.contains('prevenci')) return 'Seguridad y prevención de riesgos en obra';
+    if (lower.contains('puntual')) return 'Compromiso riguroso con horarios y tareas';
+    if (lower.contains('herramienta')) return 'Destreza con útiles manuales y eléctricos';
+    if (lower.contains('aprendiz')) return 'Asimilación rápida de nuevas técnicas';
+    return '';
+  }
+
+  Widget _buildRatingDots(
+    int level, {
+    Color activeColor = const Color(0xFFFBBF24),
+    Color inactiveColor = Colors.white24,
+    double dotSize = 4.6,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final isFilled = (index + 1) <= level;
+        return Container(
+          width: dotSize,
+          height: dotSize,
+          margin: const EdgeInsets.symmetric(horizontal: 1.1),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isFilled ? activeColor : inactiveColor,
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildCompetencyRow(CvSkillItem item) {
+    final icon = _getSkillIcon(item.name);
+    final desc = _getSkillDescription(item);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 12.5, color: Colors.white.withOpacity(0.95)),
+              const SizedBox(width: 4.5),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    item.name.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 7.6,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.15,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              _buildRatingDots(
+                item.level,
+                activeColor: const Color(0xFFFBBF24),
+                inactiveColor: Colors.white.withOpacity(0.25),
+                dotSize: 4.6,
+              ),
+            ],
+          ),
+          if (desc.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.only(left: 17),
+              child: Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 6.8,
+                  color: Colors.white.withOpacity(0.85),
+                  height: 1.25,
+                ),
+                maxLines: 2,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionPill(String title, Color accentColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+      decoration: BoxDecoration(
+        color: accentColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.15,
+              child: CustomPaint(
+                painter: WatermarkPainter(
+                  pattern: widget.profile.watermarkPattern,
+                  opacity: 0.15,
+                ),
+              ),
+            ),
+          ),
+          Text(
+            title.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 8.2,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExperienceItemWithIcon(CvExperience exp, Color accentColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1.5, right: 6),
+            child: Icon(Icons.business_center_outlined, size: 12.5, color: accentColor),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  exp.jobTitle.isNotEmpty ? exp.jobTitle.toUpperCase() : 'PUESTO / OFICIO',
+                  style: TextStyle(
+                    fontSize: 8.4,
+                    fontWeight: FontWeight.bold,
+                    color: accentColor,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 1.5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        exp.company,
+                        style: TextStyle(
+                          fontSize: 7.8,
+                          fontWeight: FontWeight.bold,
+                          color: accentColor,
+                        ),
+                      ),
+                    ),
+                    if (exp.period.isNotEmpty)
+                      Text(
+                        exp.period,
+                        style: const TextStyle(
+                          fontSize: 7.2,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                  ],
+                ),
+                if (exp.description.isNotEmpty) ...[
+                  const SizedBox(height: 2.5),
+                  Text(
+                    exp.description,
+                    style: const TextStyle(
+                      fontSize: 7.5,
+                      color: Color(0xFF475569),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEducationItemWithIcon(CvEducation edu, Color accentColor, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1.5, right: 6),
+            child: Icon(
+              index == 0 ? Icons.school_outlined : Icons.workspace_premium_outlined,
+              size: 12.5,
+              color: accentColor,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  edu.degree.isNotEmpty ? edu.degree.toUpperCase() : 'TITULACIÓN / CERTIFICADO',
+                  style: TextStyle(
+                    fontSize: 8.2,
+                    fontWeight: FontWeight.bold,
+                    color: accentColor,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 1.5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        edu.institution,
+                        style: TextStyle(
+                          fontSize: 7.8,
+                          fontWeight: FontWeight.bold,
+                          color: accentColor,
+                        ),
+                      ),
+                    ),
+                    if (edu.period.isNotEmpty)
+                      Text(
+                        edu.period,
+                        style: const TextStyle(
+                          fontSize: 7.2,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                  ],
+                ),
+                if (edu.details.isNotEmpty) ...[
+                  const SizedBox(height: 2.5),
+                  Text(
+                    edu.details,
+                    style: const TextStyle(
+                      fontSize: 7.5,
+                      color: Color(0xFF475569),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

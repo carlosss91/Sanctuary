@@ -232,36 +232,22 @@ class PdfExportService {
               if (profile.availability.isNotEmpty) _buildContactRowWhite('Disp:', profile.availability),
               if (profile.drivingLicense.isNotEmpty) _buildContactRowWhite('Permiso:', profile.drivingLicense),
 
-              pw.SizedBox(height: 12),
-              _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
-              pw.SizedBox(height: 6),
-              pw.Text(
-                profile.summary,
-                style: const pw.TextStyle(color: PdfColors.white, fontSize: 8, lineSpacing: 1.4),
-                textAlign: pw.TextAlign.justify,
-              ),
+              if (profile.summary.trim().isNotEmpty) ...[
+                pw.SizedBox(height: 12),
+                _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
+                pw.SizedBox(height: 6),
+                pw.Text(
+                  profile.summary,
+                  style: const pw.TextStyle(color: PdfColors.white, fontSize: 8, lineSpacing: 1.4),
+                  textAlign: pw.TextAlign.justify,
+                ),
+              ],
 
-              if (profile.skills.isNotEmpty) ...[
+              if (_getSkillsList(profile).isNotEmpty) ...[
                 pw.SizedBox(height: 12),
                 _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
-                pw.SizedBox(height: 6),
-                pw.Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: profile.skills.map((skill) {
-                    return pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                      decoration: const pw.BoxDecoration(
-                        color: PdfColors.white,
-                        borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-                      ),
-                      child: pw.Text(
-                        skill,
-                        style: pw.TextStyle(color: accentColor, fontSize: 7, fontWeight: pw.FontWeight.bold),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                pw.SizedBox(height: 8),
+                ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor)),
               ],
 
               pw.Spacer(),
@@ -598,14 +584,14 @@ class PdfExportService {
                       textAlign: pw.TextAlign.justify,
                     ),
 
-                    if (profile.skills.isNotEmpty) ...[
+                    if (_getSkillsList(profile).isNotEmpty) ...[
                       pw.SizedBox(height: 12),
                       _buildSectionUnderline(isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentColor),
                       pw.SizedBox(height: 6),
                       pw.Wrap(
                         spacing: 4,
                         runSpacing: 4,
-                        children: profile.skills.map((s) {
+                        children: _getSkillsList(profile).map((s) {
                           return pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                             decoration: pw.BoxDecoration(
@@ -613,9 +599,16 @@ class PdfExportService {
                               border: pw.Border.all(color: borderColor),
                               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                             ),
-                            child: pw.Text(
-                              s,
-                              style: pw.TextStyle(color: accentColor, fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                            child: pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.Text(
+                                  s.name,
+                                  style: pw.TextStyle(color: accentColor, fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                                ),
+                                pw.SizedBox(width: 3),
+                                _buildPdfRatingDots(s.level, inactiveColor: PdfColors.grey300),
+                              ],
                             ),
                           );
                         }).toList(),
@@ -789,23 +782,30 @@ class PdfExportService {
             );
           }),
 
-        if (profile.skills.isNotEmpty) ...[
+        if (_getSkillsList(profile).isNotEmpty) ...[
           pw.SizedBox(height: 10),
           _buildMinimalistHeading(isEn ? 'SKILLS & COMPETENCIES' : 'COMPETENCIAS Y HABILIDADES', accentColor),
           pw.SizedBox(height: 6),
           pw.Wrap(
             spacing: 6,
             runSpacing: 4,
-            children: profile.skills.map((s) {
+            children: _getSkillsList(profile).map((s) {
               return pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: pw.BoxDecoration(
                   border: pw.Border.all(color: accentColor, width: 0.8),
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
                 ),
-                child: pw.Text(
-                  s,
-                  style: pw.TextStyle(color: textDarkColor, fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text(
+                      s.name,
+                      style: pw.TextStyle(color: textDarkColor, fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                    ),
+                    pw.SizedBox(width: 3),
+                    _buildPdfRatingDots(s.level, inactiveColor: PdfColors.grey400),
+                  ],
                 ),
               );
             }).toList(),
@@ -1004,7 +1004,7 @@ class PdfExportService {
                     pw.SizedBox(height: 8),
 
                     // Skills Card
-                    if (profile.skills.isNotEmpty)
+                    if (_getSkillsList(profile).isNotEmpty)
                       _buildTechCardContainer(
                         title: isEn ? 'STACK & SKILLS' : 'STACK Y HABILIDADES',
                         accentColor: accentColor,
@@ -1013,7 +1013,7 @@ class PdfExportService {
                         child: pw.Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          children: profile.skills.map((s) {
+                          children: _getSkillsList(profile).map((s) {
                             return pw.Container(
                               padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                               decoration: pw.BoxDecoration(
@@ -1021,9 +1021,16 @@ class PdfExportService {
                                 border: pw.Border.all(color: borderColor),
                                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
                               ),
-                              child: pw.Text(
-                                s,
-                                style: pw.TextStyle(color: accentColor, fontSize: 7, fontWeight: pw.FontWeight.bold),
+                              child: pw.Row(
+                                mainAxisSize: pw.MainAxisSize.min,
+                                children: [
+                                  pw.Text(
+                                    s.name,
+                                    style: pw.TextStyle(color: accentColor, fontSize: 7, fontWeight: pw.FontWeight.bold),
+                                  ),
+                                  pw.SizedBox(width: 3),
+                                  _buildPdfRatingDots(s.level, inactiveColor: PdfColor(accentColor.red, accentColor.green, accentColor.blue, 0.25)),
+                                ],
                               ),
                             );
                           }).toList(),
@@ -1061,6 +1068,75 @@ class PdfExportService {
           fontWeight: pw.FontWeight.bold,
           letterSpacing: 0.5,
         ),
+      ),
+    );
+  }
+
+  static List<CvSkillItem> _getSkillsList(CvProfileModel profile) {
+    if (profile.skillItems.isNotEmpty) return profile.skillItems;
+    if (profile.skills.isNotEmpty) {
+      return profile.skills.map((s) => CvSkillItem(name: s, level: 5)).toList();
+    }
+    return [];
+  }
+
+  static pw.Widget _buildPdfRatingDots(
+    int level, {
+    PdfColor activeColor = const PdfColor.fromInt(0xFFF59E0B),
+    PdfColor inactiveColor = const PdfColor.fromInt(0x44FFFFFF),
+  }) {
+    return pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final isFilled = (index + 1) <= level;
+        return pw.Container(
+          width: 4.2,
+          height: 4.2,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 1.0),
+          decoration: pw.BoxDecoration(
+            shape: pw.BoxShape.circle,
+            color: isFilled ? activeColor : inactiveColor,
+          ),
+        );
+      }),
+    );
+  }
+
+  static pw.Widget _buildPdfCompetencyRow(CvSkillItem item, PdfColor accentColor) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 6.5),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Expanded(
+                child: pw.Text(
+                  item.name.toUpperCase(),
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 7.2,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.SizedBox(width: 4),
+              _buildPdfRatingDots(item.level),
+            ],
+          ),
+          if (item.description.isNotEmpty) ...[
+            pw.SizedBox(height: 1.5),
+            pw.Text(
+              item.description,
+              style: const pw.TextStyle(
+                color: PdfColors.white,
+                fontSize: 6.5,
+                lineSpacing: 1.2,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

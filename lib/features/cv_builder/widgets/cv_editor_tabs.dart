@@ -289,65 +289,422 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   }
 
   // --- TAB 4: COMPETENCIAS ---
+  List<CvSkillItem> _getActiveSkillItems() {
+    if (widget.profile.skillItems.isNotEmpty) {
+      return widget.profile.skillItems;
+    }
+    if (widget.profile.skills.isNotEmpty) {
+      return widget.profile.skills
+          .map((s) => CvSkillItem(
+                name: s,
+                level: 5,
+                description: _getAutoDescription(s),
+              ))
+          .toList();
+    }
+    return const [
+      CvSkillItem(name: 'TRABAJO EN EQUIPO', level: 2, description: 'Compañerismo y coordinación en cuadrilla'),
+      CvSkillItem(name: 'PREVENCIÓN Y EPIS', level: 5, description: 'Seguridad y prevención de riesgos en obra'),
+      CvSkillItem(name: 'PUNTUALIDAD Y SERIEDAD', level: 5, description: 'Compromiso riguroso con horarios y tareas'),
+      CvSkillItem(name: 'MANEJO DE HERRAMIENTAS', level: 4, description: 'Destreza con útiles manuales y eléctricos'),
+      CvSkillItem(name: 'CAPACIDAD DE APRENDIZAJE', level: 5, description: 'Asimilación rápida de nuevas técnicas'),
+    ];
+  }
+
+  void _updateSkillItems(List<CvSkillItem> newItems) {
+    _update(widget.profile.copyWith(
+      skillItems: newItems,
+      skills: newItems.map((e) => e.name).toList(),
+    ));
+  }
+
+  void _addSkillAtTop() {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    current.insert(0, const CvSkillItem(name: 'NUEVA COMPETENCIA', level: 5));
+    _updateSkillItems(current);
+  }
+
+  void _addSkillAtBottom() {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    current.add(const CvSkillItem(name: 'NUEVA COMPETENCIA', level: 5));
+    _updateSkillItems(current);
+  }
+
+  void _reorderSkill(int oldIndex, int newIndex) {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    if (newIndex < 0 || newIndex >= current.length) return;
+    final item = current.removeAt(oldIndex);
+    current.insert(newIndex, item);
+    _updateSkillItems(current);
+  }
+
+  void _updateSkillName(int index, String name) {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    if (index >= 0 && index < current.length) {
+      final old = current[index];
+      current[index] = old.copyWith(
+        name: name,
+        description: old.description.isEmpty ? _getAutoDescription(name) : old.description,
+      );
+      _updateSkillItems(current);
+    }
+  }
+
+  void _updateSkillLevel(int index, int level) {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    if (index >= 0 && index < current.length) {
+      current[index] = current[index].copyWith(level: level);
+      _updateSkillItems(current);
+    }
+  }
+
+  void _updateSkillDescription(int index, String desc) {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    if (index >= 0 && index < current.length) {
+      current[index] = current[index].copyWith(description: desc);
+      _updateSkillItems(current);
+    }
+  }
+
+  void _deleteSkill(int index) {
+    final current = List<CvSkillItem>.from(_getActiveSkillItems());
+    if (index >= 0 && index < current.length) {
+      current.removeAt(index);
+      _updateSkillItems(current);
+    }
+  }
+
+  static String _getAutoDescription(String name) {
+    final upper = name.toUpperCase().trim();
+    if (upper.contains('EQUIPO')) return 'Compañerismo y coordinación en cuadrilla';
+    if (upper.contains('PREVENCIÓN') || upper.contains('EPIS')) return 'Seguridad y prevención de riesgos en obra';
+    if (upper.contains('PUNTUALIDAD') || upper.contains('SERIEDAD')) return 'Compromiso riguroso con horarios y tareas';
+    if (upper.contains('HERRAMIENTA')) return 'Destreza con útiles manuales y eléctricos';
+    if (upper.contains('APRENDIZAJE')) return 'Asimilación rápida de nuevas técnicas';
+    if (upper.contains('ALBAÑIL')) return 'Técnicas de replanteo, tabiquería y enlucidos';
+    if (upper.contains('FONTANER')) return 'Instalación y mantenimiento de redes de fontanería';
+    if (upper.contains('PINTURA')) return 'Preparación de superficies y acabados de pintura';
+    if (upper.contains('MAQUINARIA')) return 'Manejo seguro de maquinaria y equipos ligeros';
+    if (upper.contains('JARDIN')) return 'Conservación de zonas verdes y podas';
+    if (upper.contains('ELECTRIC')) return 'Instalaciones básicas de baja tensión';
+    return '';
+  }
+
   Widget _buildCompetenciasTab(bool isDark) {
+    final items = _getActiveSkillItems();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Competencias Técnicas y Habilidades', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 14),
-
-          // Add competence field
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _skillInputCtrl,
-                  decoration: const InputDecoration(hintText: 'Nueva habilidad (ej. Soldadura, Pintura...)'),
-                  onSubmitted: (val) => _addSkill(val),
+          // Enclosing Card matching Image 2
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0D1322) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                width: 1.2,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with Star Icon, Title and Buttons matching Image 2
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.star_outline,
+                      color: AppTheme.emerald,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Competencias y Habilidades (Sin iconos)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.5,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const Spacer(),
+                    // "+ Añadir Arriba" Button
+                    InkWell(
+                      onTap: _addSkillAtTop,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.emerald, width: 1.2),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, size: 14, color: AppTheme.emerald),
+                            SizedBox(width: 4),
+                            Text(
+                              'Añadir Arriba',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.emerald,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // "+ Añadir al Final" Button
+                    InkWell(
+                      onTap: _addSkillAtBottom,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.add,
+                              size: 14,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Añadir al Final',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () => _addSkill(_skillInputCtrl.text),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Añadir'),
-              ),
-            ],
-          ),
 
-          const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: widget.profile.skills.map((skill) {
-              return Chip(
-                label: Text(skill, style: const TextStyle(fontSize: 12)),
-                backgroundColor: AppTheme.emerald.withOpacity(0.12),
-                side: BorderSide(color: AppTheme.emerald.withOpacity(0.3)),
-                deleteIcon: const Icon(Icons.close, size: 14, color: AppTheme.emerald),
-                onDeleted: () {
-                  final list = List<String>.from(widget.profile.skills)..remove(skill);
-                  _update(widget.profile.copyWith(skills: list));
-                },
-              );
-            }).toList(),
+                // Competency Items
+                if (items.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        'No hay competencias añadidas. Pulsa "Añadir al Final" para comenzar.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ...List.generate(items.length, (i) {
+                    final item = items[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF080D18) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                          width: 1.1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              // 1. Reorder Arrows (Up / Down)
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF111827) : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isDark ? const Color(0xFF374151) : const Color(0xFFCBD5E1),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    InkWell(
+                                      onTap: i > 0 ? () => _reorderSkill(i, i - 1) : null,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(3.0),
+                                        child: Icon(
+                                          Icons.keyboard_arrow_up,
+                                          size: 16,
+                                          color: i > 0
+                                              ? (isDark ? Colors.white70 : Colors.black87)
+                                              : Colors.white24,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 1,
+                                      height: 14,
+                                      color: isDark ? const Color(0xFF374151) : const Color(0xFFCBD5E1),
+                                    ),
+                                    InkWell(
+                                      onTap: i < items.length - 1 ? () => _reorderSkill(i, i + 1) : null,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(3.0),
+                                        child: Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 16,
+                                          color: i < items.length - 1
+                                              ? (isDark ? Colors.white70 : Colors.black87)
+                                              : Colors.white24,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              // 2. Skill Name Input Field
+                              Expanded(
+                                child: Container(
+                                  height: 38,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextFormField(
+                                      key: ValueKey('skill_name_${i}_${item.name}'),
+                                      initialValue: item.name,
+                                      textCapitalization: TextCapitalization.characters,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.4,
+                                        color: isDark ? Colors.white : Colors.black87,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        hintText: 'NOMBRE DE LA COMPETENCIA',
+                                      ),
+                                      onChanged: (val) => _updateSkillName(i, val.toUpperCase()),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              // 3. 5 Rating Dots (Yellow / Amber active, Dark blue/slate inactive)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: List.generate(5, (dotIndex) {
+                                    final dotNumber = dotIndex + 1;
+                                    final isFilled = dotNumber <= item.level;
+                                    return GestureDetector(
+                                      onTap: () => _updateSkillLevel(i, dotNumber),
+                                      child: MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: Container(
+                                          width: 14,
+                                          height: 14,
+                                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: isFilled
+                                                ? const Color(0xFFF59E0B) // Amber yellow from Image 2
+                                                : (isDark ? const Color(0xFF263348) : const Color(0xFFCBD5E1)),
+                                            boxShadow: isFilled
+                                                ? [
+                                                    BoxShadow(
+                                                      color: const Color(0xFFF59E0B).withOpacity(0.4),
+                                                      blurRadius: 3,
+                                                      spreadRadius: 0.5,
+                                                    )
+                                                  ]
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+
+                              const SizedBox(width: 6),
+
+                              // 4. Trash / Delete Icon
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                                tooltip: 'Eliminar',
+                                onPressed: () => _deleteSkill(i),
+                              ),
+                            ],
+                          ),
+
+                          // Optional Subtitle/Description row for rich A4 preview
+                          Padding(
+                            padding: const EdgeInsets.only(left: 48, right: 40, top: 4),
+                            child: TextFormField(
+                              key: ValueKey('skill_desc_${i}_${item.description}'),
+                              initialValue: item.description.isNotEmpty
+                                  ? item.description
+                                  : _getAutoDescription(item.name),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              ),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                                hintText: 'Subtítulo breve (ej. Compañerismo y coordinación en cuadrilla)...',
+                              ),
+                              onChanged: (val) => _updateSkillDescription(i, val),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
           ),
         ],
       ),
     );
-  }
-
-  void _addSkill(String text) {
-    final skill = text.trim();
-    if (skill.isEmpty) return;
-    if (!widget.profile.skills.contains(skill)) {
-      final list = List<String>.from(widget.profile.skills)..add(skill);
-      _update(widget.profile.copyWith(skills: list));
-    }
-    _skillInputCtrl.clear();
   }
 
   // --- TAB 5: EXPERIENCIA ---

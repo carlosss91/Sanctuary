@@ -90,6 +90,58 @@ class CvEducation {
   }
 }
 
+class CvSkillItem {
+  final String name;
+  final int level; // 1 to 5
+  final String description;
+
+  const CvSkillItem({
+    required this.name,
+    this.level = 5,
+    this.description = '',
+  });
+
+  factory CvSkillItem.fromJson(dynamic json) {
+    if (json is String) {
+      if (json.contains('|')) {
+        final parts = json.split('|');
+        return CvSkillItem(
+          name: parts[0].trim(),
+          level: parts.length > 1 ? (int.tryParse(parts[1].trim()) ?? 5) : 5,
+          description: parts.length > 2 ? parts[2].trim() : '',
+        );
+      }
+      return CvSkillItem(name: json);
+    }
+    if (json is Map) {
+      return CvSkillItem(
+        name: json['name'] as String? ?? '',
+        level: (json['level'] as num?)?.toInt() ?? 5,
+        description: json['description'] as String? ?? '',
+      );
+    }
+    return const CvSkillItem(name: '');
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'level': level,
+    'description': description,
+  };
+
+  CvSkillItem copyWith({
+    String? name,
+    int? level,
+    String? description,
+  }) {
+    return CvSkillItem(
+      name: name ?? this.name,
+      level: level ?? this.level,
+      description: description ?? this.description,
+    );
+  }
+}
+
 class CvProfileModel {
   final String id;
   final String moduleBadge;
@@ -108,6 +160,7 @@ class CvProfileModel {
   final String drivingLicense;
   final String summary;
   final List<String> skills;
+  final List<CvSkillItem> skillItems;
   final List<CvExperience> experiences;
   final List<CvEducation> educations;
   final String template;
@@ -137,6 +190,7 @@ class CvProfileModel {
     this.drivingLicense = '',
     this.summary = '',
     this.skills = const [],
+    this.skillItems = const [],
     this.experiences = const [],
     this.educations = const [],
     this.template = 'sidebar_dark',
@@ -150,6 +204,19 @@ class CvProfileModel {
   });
 
   factory CvProfileModel.fromJson(Map<String, dynamic> json) {
+    final rawSkillItems = (json['skillItems'] as List<dynamic>?)
+            ?.map((e) => CvSkillItem.fromJson(e))
+            .toList() ??
+        (json['skills'] as List<dynamic>?)
+            ?.map((e) => CvSkillItem.fromJson(e))
+            .toList() ??
+        [];
+
+    final rawSkills = (json['skills'] as List<dynamic>?)
+            ?.map((e) => e is Map ? (e['name']?.toString() ?? '') : e.toString())
+            .toList() ??
+        rawSkillItems.map((s) => s.name).toList();
+
     return CvProfileModel(
       id: json['id'] as String? ?? 'profile-${DateTime.now().millisecondsSinceEpoch}',
       moduleBadge: json['moduleBadge'] as String? ?? 'MÓDULO FC0003 · Inserción y Orientación Laboral',
@@ -167,7 +234,8 @@ class CvProfileModel {
       availability: json['availability'] as String? ?? '',
       drivingLicense: json['drivingLicense'] as String? ?? '',
       summary: json['summary'] as String? ?? '',
-      skills: (json['skills'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      skills: rawSkills,
+      skillItems: rawSkillItems,
       experiences: (json['experiences'] as List<dynamic>?)
               ?.map((e) => CvExperience.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
@@ -206,6 +274,7 @@ class CvProfileModel {
       'drivingLicense': drivingLicense,
       'summary': summary,
       'skills': skills,
+      'skillItems': skillItems.map((s) => s.toJson()).toList(),
       'experiences': experiences.map((e) => e.toJson()).toList(),
       'educations': educations.map((e) => e.toJson()).toList(),
       'template': template,
@@ -237,6 +306,7 @@ class CvProfileModel {
     String? drivingLicense,
     String? summary,
     List<String>? skills,
+    List<CvSkillItem>? skillItems,
     List<CvExperience>? experiences,
     List<CvEducation>? educations,
     String? template,
@@ -248,6 +318,13 @@ class CvProfileModel {
     double? watermarkOpacity,
     String? customWatermarkUrl,
   }) {
+    final effectiveSkillItems = skillItems ??
+        (skills != null
+            ? skills.map((s) => CvSkillItem(name: s)).toList()
+            : this.skillItems);
+
+    final effectiveSkills = skills ?? effectiveSkillItems.map((s) => s.name).toList();
+
     return CvProfileModel(
       id: id ?? this.id,
       moduleBadge: moduleBadge ?? this.moduleBadge,
@@ -265,7 +342,8 @@ class CvProfileModel {
       availability: availability ?? this.availability,
       drivingLicense: drivingLicense ?? this.drivingLicense,
       summary: summary ?? this.summary,
-      skills: skills ?? this.skills,
+      skills: effectiveSkills,
+      skillItems: effectiveSkillItems,
       experiences: experiences ?? this.experiences,
       educations: educations ?? this.educations,
       template: template ?? this.template,

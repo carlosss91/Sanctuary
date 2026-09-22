@@ -213,7 +213,7 @@ class DocxExportService {
     if (profile.drivingLicense.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'License' : 'Permiso', profile.drivingLicense);
 
     // Sobre Mí
-    if (profile.summary.isNotEmpty) {
+    if (profile.summary.trim().isNotEmpty) {
       _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ');
       docXml.write('''
           <w:p>
@@ -225,17 +225,33 @@ class DocxExportService {
     }
 
     // Competencias
-    if (profile.skills.isNotEmpty) {
+    final skillsList = _getSkillsList(profile);
+    if (skillsList.isNotEmpty) {
       _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS');
-      for (final skill in profile.skills) {
+      for (final item in skillsList) {
+        final dots = _formatRatingDots(item.level);
         docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="40"/></w:pPr>
+            <w:pPr><w:spacing w:before="60" w:after="20"/></w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="15"/><w:color w:val="$accentHex"/><w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/></w:rPr>
-              <w:t>  ${_escapeXml(skill)}  </w:t>
+              <w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:t>${_escapeXml(item.name.toUpperCase())}  </w:t>
+            </w:r>
+            <w:r>
+              <w:rPr><w:sz w:val="14"/><w:color w:val="FBBF24"/></w:rPr>
+              <w:t>$dots</w:t>
             </w:r>
           </w:p>''');
+        if (item.description.isNotEmpty) {
+          docXml.write('''
+          <w:p>
+            <w:pPr><w:spacing w:after="50"/></w:pPr>
+            <w:r>
+              <w:rPr><w:sz w:val="13"/><w:color w:val="E2E8F0"/></w:rPr>
+              <w:t>  ${_escapeXml(item.description)}</w:t>
+            </w:r>
+          </w:p>''');
+        }
       }
     }
 
@@ -401,10 +417,12 @@ class DocxExportService {
 ''');
 
     _addSectionHeader(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS CLAVE', accentHex);
-    for (final skill in profile.skills) {
+    for (final item in _getSkillsList(profile)) {
+      final dots = _formatRatingDots(item.level);
       docXml.write('''
-          <w:p><w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="17"/><w:color w:val="$accentHex"/></w:rPr><w:t>✔ ${_escapeXml(skill)}</w:t></w:r>
+          <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
+            <w:r><w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/></w:rPr><w:t>✔ ${_escapeXml(item.name)}  </w:t></w:r>
+            <w:r><w:rPr><w:sz w:val="14"/><w:color w:val="F59E0B"/></w:rPr><w:t>$dots</w:t></w:r>
           </w:p>''');
     }
 
@@ -481,9 +499,13 @@ class DocxExportService {
 
     // Skills
     _addSectionHeader(docXml, isEn ? 'SKILLS & COMPETENCIES' : 'HABILIDADES Y COMPETENCIAS', accentHex);
-    for (final s in profile.skills) {
+    for (final s in _getSkillsList(profile)) {
+      final dots = _formatRatingDots(s.level);
       docXml.write('''
-    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:t>• ${_escapeXml(s)}</w:t></w:r></w:p>''');
+    <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
+      <w:r><w:t>• ${_escapeXml(s.name)}  </w:t></w:r>
+      <w:r><w:rPr><w:sz w:val="14"/><w:color w:val="F59E0B"/></w:rPr><w:t>$dots</w:t></w:r>
+    </w:p>''');
     }
   }
 
@@ -540,9 +562,13 @@ class DocxExportService {
     <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
     _addSectionHeader(docXml, isEn ? 'COMPETENCIES' : 'COMPETENCIAS', accentHex);
-    for (final s in profile.skills) {
+    for (final s in _getSkillsList(profile)) {
+      final dots = _formatRatingDots(s.level);
       docXml.write('''
-    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="$accentHex"/></w:rPr><w:t>◆ ${_escapeXml(s)}</w:t></w:r></w:p>''');
+    <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
+      <w:r><w:rPr><w:b/><w:color w:val="$accentHex"/></w:rPr><w:t>◆ ${_escapeXml(s.name)}  </w:t></w:r>
+      <w:r><w:rPr><w:sz w:val="14"/><w:color w:val="F59E0B"/></w:rPr><w:t>$dots</w:t></w:r>
+    </w:p>''');
     }
 
     _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA', accentHex);
@@ -724,6 +750,19 @@ class DocxExportService {
             </w:r>
           </w:p>''');
     }
+  }
+
+  static List<CvSkillItem> _getSkillsList(CvProfileModel profile) {
+    if (profile.skillItems.isNotEmpty) return profile.skillItems;
+    if (profile.skills.isNotEmpty) {
+      return profile.skills.map((s) => CvSkillItem(name: s, level: 5)).toList();
+    }
+    return [];
+  }
+
+  static String _formatRatingDots(int level) {
+    final lvl = level.clamp(1, 5);
+    return '${'●' * lvl}${'○' * (5 - lvl)}';
   }
 
   static Future<void> downloadDocx(CvProfileModel profile) async {
