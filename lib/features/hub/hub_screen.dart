@@ -11,6 +11,7 @@ class HubScreen extends StatefulWidget {
   final ApiService apiService;
   final UserModel currentUser;
   final VoidCallback onOpenCvBuilder;
+  final VoidCallback? onOpenPdfSigner;
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
@@ -22,6 +23,7 @@ class HubScreen extends StatefulWidget {
     required this.apiService,
     required this.currentUser,
     required this.onOpenCvBuilder,
+    this.onOpenPdfSigner,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -559,6 +561,18 @@ class _HubScreenState extends State<HubScreen> {
                             gradient: const [Color(0xFF10B981), Color(0xFF047857)],
                             badge: 'A4 Live',
                             onTap: widget.onOpenCvBuilder,
+                          ),
+                          _buildIPhoneAppIcon(
+                            title: 'Firmador PDF',
+                            subtitle: 'Firma en Vivo',
+                            icon: Icons.draw_rounded,
+                            gradient: const [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                            badge: 'Nuevo',
+                            onTap: () {
+                              if (widget.onOpenPdfSigner != null) {
+                                widget.onOpenPdfSigner!();
+                              }
+                            },
                           ),
                           _buildIPhoneAppIcon(
                             title: 'Alumnos',

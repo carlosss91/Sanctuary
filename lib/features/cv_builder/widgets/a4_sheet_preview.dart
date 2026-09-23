@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/cv_profile_model.dart';
 
@@ -124,16 +125,57 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     );
   }
 
-  Widget _buildWatermarkOverlay() {
+  TextStyle _getTextStyle({
+    double fontSize = 9.0,
+    FontWeight fontWeight = FontWeight.normal,
+    Color? color,
+    double? letterSpacing,
+    double? height,
+    FontStyle? fontStyle,
+    TextDecoration? decoration,
+  }) {
+    final scaledSize = fontSize * widget.profile.fontSizeScale;
+    final effectiveSpacing = (letterSpacing ?? 0.0) + widget.profile.fontSpacing;
+    final effectiveHeight = height ?? widget.profile.lineSpacing;
+    final family = widget.profile.fontFamily.trim().isNotEmpty ? widget.profile.fontFamily : 'Inter';
+
+    try {
+      return GoogleFonts.getFont(
+        family,
+        fontSize: scaledSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: effectiveSpacing,
+        height: effectiveHeight,
+        fontStyle: fontStyle,
+        decoration: decoration,
+      );
+    } catch (_) {
+      return TextStyle(
+        fontFamily: family,
+        fontSize: scaledSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: effectiveSpacing,
+        height: effectiveHeight,
+        fontStyle: fontStyle,
+        decoration: decoration,
+      );
+    }
+  }
+
+  Widget _buildWatermarkOverlay({double? opacity}) {
     if (!widget.profile.showWatermark ||
-        widget.profile.watermarkPattern == 'none' ||
-        widget.profile.watermarkOpacity <= 0.0) {
+        widget.profile.watermarkPattern == 'none') {
       return const SizedBox.shrink();
     }
 
+    final effectiveOpacity = (opacity ?? widget.profile.watermarkOpacity).clamp(0.0, 1.0);
+    if (effectiveOpacity <= 0.0) return const SizedBox.shrink();
+
     if (widget.profile.watermarkPattern == 'custom' && widget.profile.customWatermarkUrl.isNotEmpty) {
       return Opacity(
-        opacity: widget.profile.watermarkOpacity.clamp(0.0, 1.0),
+        opacity: effectiveOpacity,
         child: Image.network(
           widget.profile.customWatermarkUrl,
           fit: BoxFit.cover,
@@ -147,7 +189,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     return CustomPaint(
       painter: WatermarkPainter(
         pattern: widget.profile.watermarkPattern,
-        opacity: widget.profile.watermarkOpacity,
+        opacity: effectiveOpacity,
       ),
     );
   }
@@ -280,7 +322,10 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                         ),
                       ],
                     ),
-                    child: _buildTemplateLayout(accentColor, isEn),
+                    child: DefaultTextStyle.merge(
+                      style: _getTextStyle(fontSize: 8.8, color: const Color(0xFF1E293B)),
+                      child: _buildTemplateLayout(accentColor, isEn),
+                    ),
                   ),
                 ),
               ),
@@ -506,15 +551,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                     alignment: Alignment.center,
                     children: [
                       Positioned.fill(
-                        child: Opacity(
-                          opacity: widget.profile.watermarkOpacity.clamp(0.08, 0.25),
-                          child: CustomPaint(
-                            painter: WatermarkPainter(
-                              pattern: widget.profile.watermarkPattern,
-                              opacity: 0.18,
-                            ),
-                          ),
-                        ),
+                        child: _buildWatermarkOverlay(),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
@@ -524,8 +561,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                                 ? widget.profile.fullName.toUpperCase()
                                 : 'NOMBRE Y APELLIDOS',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: widget.profile.fontFamily,
+                            style: _getTextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
@@ -537,10 +573,10 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                             Text(
                               widget.profile.jobTitle.toUpperCase(),
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 8.2,
+                              style: _getTextStyle(
+                                fontSize: 8.5,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: Colors.white.withOpacity(0.95),
                                 letterSpacing: 0.8,
                               ),
                             ),
@@ -1168,10 +1204,21 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     Color inactiveColor = Colors.white24,
     double dotSize = 4.6,
   }) {
+    final isStars = widget.profile.skillRatingStyle == 'stars';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(5, (index) {
         final isFilled = (index + 1) <= level;
+        if (isStars) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0.6),
+            child: Icon(
+              isFilled ? Icons.star : Icons.star_border,
+              size: dotSize * 1.6,
+              color: isFilled ? activeColor : inactiveColor,
+            ),
+          );
+        }
         return Container(
           width: dotSize,
           height: dotSize,
@@ -1251,31 +1298,26 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
         color: accentColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.15,
-              child: CustomPaint(
-                painter: WatermarkPainter(
-                  pattern: widget.profile.watermarkPattern,
-                  opacity: 0.15,
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: _buildWatermarkOverlay(),
+            ),
+            Text(
+              title.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: _getTextStyle(
+                color: Colors.white,
+                fontSize: 8.2,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
               ),
             ),
-          ),
-          Text(
-            title.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 8.2,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1628,7 +1670,7 @@ class WatermarkPainter extends CustomPainter {
         _drawTools(canvas, size, strokePaint, fillPaint);
         break;
       case 'geometric':
-        _drawHexagons(canvas, size, strokePaint);
+        _drawHexagons(canvas, size, strokePaint, fillPaint);
         break;
       case 'shield':
         _drawShield(canvas, size, strokePaint, fillPaint);
@@ -1637,82 +1679,296 @@ class WatermarkPainter extends CustomPainter {
         _drawBlueprintLines(canvas, size, strokePaint);
         break;
       case 'tech_dots':
-        _drawTechDots(canvas, size, fillPaint);
+        _drawTechDots(canvas, size, strokePaint, fillPaint);
         break;
       default:
         _drawGears(canvas, size, strokePaint, fillPaint);
     }
   }
 
-  void _drawTechDots(Canvas canvas, Size size, Paint fill) {
-    for (double y = size.height * 0.4; y < size.height; y += 18) {
-      for (double x = 12; x < size.width; x += 18) {
-        canvas.drawCircle(Offset(x, y), 2.2, fill);
+  void _drawTechDots(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    // 1. Circuit test points
+    for (double y = 16; y < size.height; y += 22) {
+      for (double x = 12; x < size.width; x += 22) {
+        canvas.drawCircle(Offset(x, y), 1.6, fill);
+        if (((x + y).toInt() % 44) == 0) {
+          canvas.drawCircle(Offset(x, y), 3.2, stroke..strokeWidth = 0.8);
+        }
+      }
+    }
+
+    // 2. High-tech orthogonal circuit traces with 45-degree chamfers
+    final tracePaint = stroke..strokeWidth = 1.0;
+    for (double y = 30; y < size.height - 30; y += 80) {
+      final p = Path()
+        ..moveTo(10, y)
+        ..lineTo(size.width * 0.35, y)
+        ..lineTo(size.width * 0.45, y + 14)
+        ..lineTo(size.width * 0.85, y + 14)
+        ..lineTo(size.width * 0.92, y + 26);
+      canvas.drawPath(p, tracePaint);
+      canvas.drawCircle(Offset(size.width * 0.92, y + 26), 2.5, fill);
+    }
+
+    // 3. Mini Micro-controller IC blocks
+    final icWidth = 24.0;
+    final icHeight = 16.0;
+    for (double y = 50; y < size.height - 40; y += 140) {
+      final rect = Rect.fromLTWH(size.width * 0.55 - icWidth / 2, y, icWidth, icHeight);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), stroke..strokeWidth = 1.0);
+      for (double px = rect.left + 4; px < rect.right - 2; px += 5) {
+        canvas.drawLine(Offset(px, rect.top), Offset(px, rect.top - 3), stroke..strokeWidth = 0.8);
+        canvas.drawLine(Offset(px, rect.bottom), Offset(px, rect.bottom + 3), stroke..strokeWidth = 0.8);
       }
     }
   }
 
   void _drawGears(Canvas canvas, Size size, Paint stroke, Paint fill) {
-    final c1 = Offset(size.width * 0.85, size.height * 0.88);
-    const r1 = 46.0;
-    canvas.drawCircle(c1, r1, fill);
-    canvas.drawCircle(c1, r1, stroke);
-    canvas.drawCircle(c1, 14.0, stroke);
+    // Multi-gear engineering arrangement across the layout
+    _drawSingleGear(canvas, Offset(size.width * 0.82, size.height * 0.08), 34.0, 10, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.96, size.height * 0.15), 18.0, 8, stroke, fill);
 
-    for (int i = 0; i < 12; i++) {
-      final angle = (i * 30) * math.pi / 180;
-      final p1 = Offset(c1.dx + math.cos(angle) * r1, c1.dy + math.sin(angle) * r1);
-      final p2 = Offset(c1.dx + math.cos(angle) * (r1 + 7), c1.dy + math.sin(angle) * (r1 + 7));
-      canvas.drawLine(p1, p2, stroke);
+    _drawSingleGear(canvas, Offset(size.width * 0.16, size.height * 0.28), 28.0, 9, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.05, size.height * 0.35), 16.0, 7, stroke, fill);
+
+    _drawSingleGear(canvas, Offset(size.width * 0.86, size.height * 0.50), 32.0, 10, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.20, size.height * 0.70), 30.0, 9, stroke, fill);
+
+    _drawSingleGear(canvas, Offset(size.width * 0.74, size.height * 0.88), 48.0, 12, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.26, size.height * 0.94), 30.0, 8, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.92), 20.0, 7, stroke, fill);
+  }
+
+  void _drawSingleGear(Canvas canvas, Offset center, double radius, int teeth, Paint stroke, Paint fill) {
+    // 1. Draw outer teeth with solid gear path
+    final path = Path();
+    final angleStep = (2 * math.pi) / teeth;
+    final toothDepth = radius * 0.18;
+    final innerR = radius - toothDepth;
+
+    for (int i = 0; i < teeth; i++) {
+      final a0 = i * angleStep;
+      final a1 = a0 + angleStep * 0.25;
+      final a2 = a0 + angleStep * 0.50;
+      final a3 = a0 + angleStep * 0.75;
+      final a4 = (i + 1) * angleStep;
+
+      final p0 = Offset(center.dx + math.cos(a0) * innerR, center.dy + math.sin(a0) * innerR);
+      final p1 = Offset(center.dx + math.cos(a1) * radius, center.dy + math.sin(a1) * radius);
+      final p2 = Offset(center.dx + math.cos(a2) * radius, center.dy + math.sin(a2) * radius);
+      final p3 = Offset(center.dx + math.cos(a3) * innerR, center.dy + math.sin(a3) * innerR);
+      final p4 = Offset(center.dx + math.cos(a4) * innerR, center.dy + math.sin(a4) * innerR);
+
+      if (i == 0) {
+        path.moveTo(p0.dx, p0.dy);
+      } else {
+        path.lineTo(p0.dx, p0.dy);
+      }
+      path.lineTo(p1.dx, p1.dy);
+      path.lineTo(p2.dx, p2.dy);
+      path.lineTo(p3.dx, p3.dy);
+      path.lineTo(p4.dx, p4.dy);
     }
+    path.close();
 
-    final c2 = Offset(size.width * 0.25, size.height * 0.94);
-    const r2 = 32.0;
-    canvas.drawCircle(c2, r2, fill);
-    canvas.drawCircle(c2, r2, stroke);
-    canvas.drawCircle(c2, 10.0, stroke);
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, stroke..strokeWidth = 1.4);
 
-    for (int i = 0; i < 8; i++) {
-      final angle = (i * 45) * math.pi / 180;
-      final p1 = Offset(c2.dx + math.cos(angle) * r2, c2.dy + math.sin(angle) * r2);
-      final p2 = Offset(c2.dx + math.cos(angle) * (r2 + 6), c2.dy + math.sin(angle) * (r2 + 6));
-      canvas.drawLine(p1, p2, stroke);
+    // 2. Pitch circle
+    canvas.drawCircle(center, innerR * 0.78, stroke..strokeWidth = 0.9);
+
+    // 3. Central axle hub
+    final hubR = innerR * 0.45;
+    canvas.drawCircle(center, hubR, stroke..strokeWidth = 1.4);
+    canvas.drawCircle(center, hubR * 0.45, fill);
+    canvas.drawCircle(center, hubR * 0.45, stroke..strokeWidth = 1.0);
+
+    // 4. Lightening holes in wheel body (4 spokes/holes)
+    final holeR = hubR * 0.38;
+    final holeDist = innerR * 0.62;
+    for (int h = 0; h < 4; h++) {
+      final ha = h * (math.pi / 2) + (math.pi / 4);
+      final hc = Offset(center.dx + math.cos(ha) * holeDist, center.dy + math.sin(ha) * holeDist);
+      canvas.drawCircle(hc, holeR, stroke..strokeWidth = 0.9);
     }
   }
 
   void _drawTools(Canvas canvas, Size size, Paint stroke, Paint fill) {
-    final c = Offset(size.width * 0.5, size.height * 0.88);
-    canvas.drawLine(Offset(c.dx - 30, c.dy - 30), Offset(c.dx + 30, c.dy + 30), stroke..strokeWidth = 3.5);
-    canvas.drawLine(Offset(c.dx + 30, c.dy - 30), Offset(c.dx - 30, c.dy + 30), stroke..strokeWidth = 3.5);
-    canvas.drawCircle(c, 24, fill);
-    canvas.drawCircle(c, 24, stroke..strokeWidth = 1.8);
+    _drawCrossedTools(canvas, Offset(size.width * 0.80, size.height * 0.10), 22, stroke, fill);
+    _drawCrossedTools(canvas, Offset(size.width * 0.22, size.height * 0.32), 24, stroke, fill);
+    _drawCrossedTools(canvas, Offset(size.width * 0.82, size.height * 0.54), 26, stroke, fill);
+    _drawCrossedTools(canvas, Offset(size.width * 0.25, size.height * 0.74), 24, stroke, fill);
+
+    // Bottom large engineering emblem
+    _drawCrossedTools(canvas, Offset(size.width * 0.50, size.height * 0.89), 36, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.89), 42.0, 12, stroke, fill);
   }
 
-  void _drawHexagons(Canvas canvas, Size size, Paint stroke) {
-    for (double y = size.height * 0.4; y < size.height; y += 32) {
-      for (double x = 10; x < size.width; x += 36) {
-        canvas.drawCircle(Offset(x, y), 14, stroke..strokeWidth = 1.0);
+  void _drawCrossedTools(Canvas canvas, Offset c, double radius, Paint stroke, Paint fill) {
+    // 1. Wrench tool silhouette
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(math.pi / 4);
+
+    // Wrench shaft & handle
+    final wrenchShaft = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: radius * 2.2, height: radius * 0.26),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(wrenchShaft, fill);
+    canvas.drawRRect(wrenchShaft, stroke..strokeWidth = 1.2);
+
+    // Wrench open head on right
+    final headRect = Rect.fromCircle(center: Offset(radius * 1.0, 0), radius: radius * 0.45);
+    canvas.drawArc(headRect, -math.pi / 2, math.pi, true, stroke..strokeWidth = 1.4);
+
+    // Wrench closed loop on left
+    canvas.drawCircle(Offset(-radius * 1.0, 0), radius * 0.38, stroke..strokeWidth = 1.2);
+    canvas.drawCircle(Offset(-radius * 1.0, 0), radius * 0.18, stroke..strokeWidth = 1.0);
+
+    canvas.restore();
+
+    // 2. Screwdriver / Hammer tool silhouette
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(-math.pi / 4);
+
+    // Tool shaft
+    final toolShaft = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: radius * 2.1, height: radius * 0.22),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(toolShaft, fill);
+    canvas.drawRRect(toolShaft, stroke..strokeWidth = 1.2);
+
+    // Handle grip on left
+    final handle = RRect.fromRectAndRadius(
+      Rect.fromLTWH(-radius * 1.1, -radius * 0.22, radius * 0.7, radius * 0.44),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(handle, fill);
+    canvas.drawRRect(handle, stroke..strokeWidth = 1.2);
+
+    // Screwdriver tip on right
+    final tip = Path()
+      ..moveTo(radius * 1.0, -radius * 0.1)
+      ..lineTo(radius * 1.2, -radius * 0.04)
+      ..lineTo(radius * 1.2, radius * 0.04)
+      ..lineTo(radius * 1.0, radius * 0.1)
+      ..close();
+    canvas.drawPath(tip, fill);
+    canvas.drawPath(tip, stroke..strokeWidth = 1.0);
+
+    canvas.restore();
+
+    // 3. Central fastening bolt
+    canvas.drawCircle(c, radius * 0.38, fill);
+    canvas.drawCircle(c, radius * 0.38, stroke..strokeWidth = 1.4);
+    canvas.drawCircle(c, radius * 0.16, stroke..strokeWidth = 1.0);
+  }
+
+  void _drawHexagons(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    const hexR = 14.0;
+    final wStep = hexR * 1.732;
+    final hStep = hexR * 1.5;
+
+    for (double y = 14; y < size.height + 20; y += hStep) {
+      final isOdd = ((y ~/ hStep) % 2 == 1);
+      final startX = isOdd ? (wStep / 2) : 0.0;
+
+      for (double x = startX - 10; x < size.width + 20; x += wStep) {
+        final center = Offset(x, y);
+        final path = Path();
+        for (int i = 0; i < 6; i++) {
+          final angle = (i * math.pi / 3) - (math.pi / 6);
+          final px = center.dx + hexR * math.cos(angle);
+          final py = center.dy + hexR * math.sin(angle);
+          if (i == 0) {
+            path.moveTo(px, py);
+          } else {
+            path.lineTo(px, py);
+          }
+        }
+        path.close();
+
+        canvas.drawPath(path, stroke..strokeWidth = 0.9);
+        canvas.drawCircle(center, 1.8, fill);
+
+        // Nested miniature hexagon in selected nodes
+        if (((x + y).toInt() % 48) == 0) {
+          canvas.drawCircle(center, hexR * 0.45, stroke..strokeWidth = 0.8);
+        }
       }
     }
   }
 
   void _drawShield(Canvas canvas, Size size, Paint stroke, Paint fill) {
-    final c = Offset(size.width * 0.5, size.height * 0.86);
-    final path = Path()
-      ..moveTo(c.dx, c.dy - 35)
-      ..lineTo(c.dx + 28, c.dy - 15)
-      ..lineTo(c.dx + 20, c.dy + 25)
-      ..lineTo(c.dx, c.dy + 38)
-      ..lineTo(c.dx - 20, c.dy + 25)
-      ..lineTo(c.dx - 28, c.dy - 15)
+    _drawSingleShield(canvas, Offset(size.width * 0.80, size.height * 0.10), 24, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.20, size.height * 0.32), 26, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.82, size.height * 0.53), 28, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.22, size.height * 0.74), 26, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.50, size.height * 0.88), 42, stroke, fill);
+  }
+
+  void _drawSingleShield(Canvas canvas, Offset c, double s, Paint stroke, Paint fill) {
+    // Outer shield contour
+    final outerPath = Path()
+      ..moveTo(c.dx, c.dy - s)
+      ..lineTo(c.dx + s * 0.85, c.dy - s * 0.45)
+      ..quadraticBezierTo(c.dx + s * 0.8, c.dy + s * 0.4, c.dx, c.dy + s)
+      ..quadraticBezierTo(c.dx - s * 0.8, c.dy + s * 0.4, c.dx - s * 0.85, c.dy - s * 0.45)
       ..close();
-    canvas.drawPath(path, fill);
-    canvas.drawPath(path, stroke);
+
+    canvas.drawPath(outerPath, fill);
+    canvas.drawPath(outerPath, stroke..strokeWidth = 1.6);
+
+    // Inner shield contour
+    final innerS = s * 0.78;
+    final innerPath = Path()
+      ..moveTo(c.dx, c.dy - innerS)
+      ..lineTo(c.dx + innerS * 0.85, c.dy - innerS * 0.45)
+      ..quadraticBezierTo(c.dx + innerS * 0.8, c.dy + innerS * 0.4, c.dx, c.dy + innerS)
+      ..quadraticBezierTo(c.dx - innerS * 0.8, c.dy + innerS * 0.4, c.dx - innerS * 0.85, c.dy - innerS * 0.45)
+      ..close();
+    canvas.drawPath(innerPath, stroke..strokeWidth = 0.9);
+
+    // Central 5-point star emblem
+    final starR = s * 0.35;
+    final starPath = Path();
+    for (int i = 0; i < 5; i++) {
+      final a1 = (i * 4 * math.pi / 5) - (math.pi / 2);
+      final px = c.dx + starR * math.cos(a1);
+      final py = c.dy + starR * math.sin(a1);
+      if (i == 0) {
+        starPath.moveTo(px, py);
+      } else {
+        starPath.lineTo(px, py);
+      }
+    }
+    starPath.close();
+    canvas.drawPath(starPath, fill);
+    canvas.drawPath(starPath, stroke..strokeWidth = 1.0);
   }
 
   void _drawBlueprintLines(Canvas canvas, Size size, Paint stroke) {
-    for (double y = size.height * 0.3; y < size.height; y += 18) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), stroke..strokeWidth = 0.8);
+    // Fine blueprint millimeter grid
+    for (double y = 12; y < size.height; y += 14) {
+      final isMajor = ((y ~/ 14) % 4 == 0);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), stroke..strokeWidth = isMajor ? 1.0 : 0.5);
+    }
+    for (double x = 12; x < size.width; x += 14) {
+      final isMajor = ((x ~/ 14) % 4 == 0);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), stroke..strokeWidth = isMajor ? 1.0 : 0.5);
+    }
+
+    // Engineering registration crosshairs at key vertices
+    final crossR = 6.0;
+    for (double y = 42; y < size.height - 20; y += 112) {
+      for (double x = 42; x < size.width - 20; x += 112) {
+        canvas.drawLine(Offset(x - crossR, y), Offset(x + crossR, y), stroke..strokeWidth = 1.2);
+        canvas.drawLine(Offset(x, y - crossR), Offset(x, y + crossR), stroke..strokeWidth = 1.2);
+        canvas.drawCircle(Offset(x, y), crossR * 0.7, stroke..strokeWidth = 0.8);
+      }
     }
   }
 

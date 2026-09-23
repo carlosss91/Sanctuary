@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/cv_profile_model.dart';
 import '../../../data/services/api_service.dart';
@@ -32,6 +33,11 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   late TextEditingController _availabilityCtrl;
   late TextEditingController _licenseCtrl;
   late TextEditingController _summaryCtrl;
+  late TextEditingController _q1Ctrl;
+  late TextEditingController _q2Ctrl;
+  late TextEditingController _q3Ctrl;
+  String? _previousSummaryBeforeAi;
+  bool _isAiDrafting = false;
   final TextEditingController _skillInputCtrl = TextEditingController();
 
   @override
@@ -53,6 +59,9 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     _availabilityCtrl = TextEditingController(text: widget.profile.availability);
     _licenseCtrl = TextEditingController(text: widget.profile.drivingLicense);
     _summaryCtrl = TextEditingController(text: widget.profile.summary);
+    _q1Ctrl = TextEditingController();
+    _q2Ctrl = TextEditingController();
+    _q3Ctrl = TextEditingController();
   }
 
   @override
@@ -82,8 +91,59 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     _availabilityCtrl.dispose();
     _licenseCtrl.dispose();
     _summaryCtrl.dispose();
+    _q1Ctrl.dispose();
+    _q2Ctrl.dispose();
+    _q3Ctrl.dispose();
     _skillInputCtrl.dispose();
     super.dispose();
+  }
+
+  void _draftSobreMiWithAi() async {
+    setState(() => _isAiDrafting = true);
+    await Future.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+
+    final q1 = _q1Ctrl.text.trim();
+    final q2 = _q2Ctrl.text.trim();
+    final q3 = _q3Ctrl.text.trim();
+
+    // Store previous version for instant undo
+    _previousSummaryBeforeAi = _summaryCtrl.text;
+
+    String aiBio = '';
+    if (q1.isNotEmpty || q2.isNotEmpty || q3.isNotEmpty) {
+      final part1 = q1.isNotEmpty
+          ? 'Profesional comprometido con una sólida metodología de trabajo: $q1.'
+          : 'Profesional cualificado con alto sentido de la responsabilidad, puntualidad rigurosa y vocación de servicio en equipo.';
+
+      final part2 = q2.isNotEmpty
+          ? 'Cuento con destreza contrastada en $q2, aplicando siempre las directrices de seguridad y buenas prácticas operativas.'
+          : 'Poseo dominio práctico en el uso de maquinaria, útiles del oficio y protocolos estrictos de prevención laboral y EPIs.';
+
+      final part3 = q3.isNotEmpty
+          ? 'Aporto $q3.'
+          : 'Aporto versatilidad, rápida capacidad de adaptación y plena disposición para afrontar nuevos retos operativos con dedicación y solvencia.';
+
+      aiBio = '$part1\n\n$part2\n\n$part3';
+    } else {
+      aiBio = 'Profesional responsable y dinámico con clara orientación práctica y capacidad demostrada para el trabajo en cuadrilla. '
+          'Domino las herramientas, útiles y maquinaria del oficio, priorizando en todo momento la prevención de riesgos laborales y el rigor en los tiempos de ejecución.\n\n'
+          'Aporto capacidad de aprendizaje ágil, polivalencia y constante iniciativa para resolver incidencias en el puesto de trabajo.';
+    }
+
+    _summaryCtrl.text = aiBio;
+    _update(widget.profile.copyWith(summary: aiBio));
+    setState(() => _isAiDrafting = false);
+  }
+
+  void _restorePreviousSummary() {
+    if (_previousSummaryBeforeAi != null) {
+      _summaryCtrl.text = _previousSummaryBeforeAi!;
+      _update(widget.profile.copyWith(summary: _previousSummaryBeforeAi!));
+      setState(() {
+        _previousSummaryBeforeAi = null;
+      });
+    }
   }
 
   void _update(CvProfileModel updated) {
@@ -268,20 +328,218 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Perfil Profesional / Sobre Mí', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 6),
-          Text(
-            'Describe brevemente tus fortalezas, vocación práctica, actitud laboral y compromiso.',
-            style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.psychology_outlined, color: AppTheme.emerald, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Perfil Profesional / Sobre Mí', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(
+                    'Responde a estas 3 preguntas y la IA generará una redacción profesional y de alto impacto.',
+                    style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Question 1
+          _buildQuestionCard(
+            isDark: isDark,
+            stepNumber: '1',
+            icon: Icons.work_outline,
+            question: '¿Cómo es tu forma de trabajar y qué valores te definen profesionalmente?',
+            hint: 'Ej: Metódico, puntual, alta capacidad de trabajo en equipo, compromiso y orientación a la seguridad.',
+            controller: _q1Ctrl,
           ),
           const SizedBox(height: 14),
+
+          // Question 2
+          _buildQuestionCard(
+            isDark: isDark,
+            stepNumber: '2',
+            icon: Icons.handyman_outlined,
+            question: '¿Qué habilidades principales, herramientas o métodos utilizas para hacer bien tu trabajo?',
+            hint: 'Ej: Manejo de maquinaria y herramientas del oficio, prevención de riesgos laborales (EPIs), control de calidad.',
+            controller: _q2Ctrl,
+          ),
+          const SizedBox(height: 14),
+
+          // Question 3
+          _buildQuestionCard(
+            isDark: isDark,
+            stepNumber: '3',
+            icon: Icons.rocket_launch_outlined,
+            question: '¿Qué valor extra aportas y qué buscas en tu próximo reto laboral?',
+            hint: 'Ej: Rápida asimilación de novedades, polivalencia y motivación para aportar soluciones en proyectos a largo plazo.',
+            controller: _q3Ctrl,
+          ),
+          const SizedBox(height: 18),
+
+          // AI Generate Button
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isAiDrafting ? null : _draftSobreMiWithAi,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 2,
+                  ),
+                  icon: _isAiDrafting
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.auto_awesome, size: 18),
+                  label: Text(
+                    _isAiDrafting ? 'Redactando perfil con IA...' : 'Redactar Sobre Mí con IA',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Undo / Restore Previous Version banner
+          if (_previousSummaryBeforeAi != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 18, color: AppTheme.emerald),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Se ha aplicado la versión generada por IA. ¿Prefieres tu versión anterior?',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _restorePreviousSummary,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.emerald,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.undo, size: 16),
+                    label: const Text('Volver a la versión anterior', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 22),
+          const Divider(),
+          const SizedBox(height: 14),
+
+          // Final editable text area
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Resultado final en el CV (Editable):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              if (_summaryCtrl.text.isNotEmpty)
+                Text(
+                  '${_summaryCtrl.text.length} caracteres',
+                  style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _summaryCtrl,
-            maxLines: 7,
+            maxLines: 6,
             decoration: const InputDecoration(
-              hintText: 'Soy un profesional comprometido y responsable, con vocación práctica...',
+              hintText: 'Aquí se mostrará el texto redactado por la IA o tu propio resumen profesional.',
             ),
             onChanged: (val) => _update(widget.profile.copyWith(summary: val)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard({
+    required bool isDark,
+    required String stepNumber,
+    required IconData icon,
+    required String question,
+    required String hint,
+    required TextEditingController controller,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  stepNumber,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.emerald,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(icon, size: 16, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  question,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            maxLines: 2,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.all(10),
+            ),
           ),
         ],
       ),
@@ -388,6 +646,39 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     if (upper.contains('JARDIN')) return 'Conservación de zonas verdes y podas';
     if (upper.contains('ELECTRIC')) return 'Instalaciones básicas de baja tensión';
     return '';
+  }
+
+  Widget _buildRatingStyleChoice(String style, String label, bool isDark) {
+    final isSelected = widget.profile.skillRatingStyle == style;
+    return InkWell(
+      onTap: () => _update(widget.profile.copyWith(skillRatingStyle: style)),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.emerald.withOpacity(0.18)
+              : (isDark ? const Color(0xFF0F172A) : Colors.white),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.emerald
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected
+                ? AppTheme.emerald
+                : (isDark ? Colors.white70 : Colors.black87),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildCompetenciasTab(bool isDark) {
@@ -497,7 +788,37 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+
+                // Rating Style Selector: Círculos vs Estrellas
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF080D18) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Estilo de valoración:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _buildRatingStyleChoice('dots', '● Círculos', isDark),
+                      const SizedBox(width: 8),
+                      _buildRatingStyleChoice('stars', '★ Estrellas', isDark),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
 
                 // Competency Items
                 if (items.isEmpty)
@@ -621,7 +942,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
 
                               const SizedBox(width: 12),
 
-                              // 3. 5 Rating Dots (Yellow / Amber active, Dark blue/slate inactive)
+                              // 3. 5 Rating Indicators (Circles or Stars)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                                 child: Row(
@@ -629,6 +950,27 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                   children: List.generate(5, (dotIndex) {
                                     final dotNumber = dotIndex + 1;
                                     final isFilled = dotNumber <= item.level;
+                                    final isStars = widget.profile.skillRatingStyle == 'stars';
+
+                                    if (isStars) {
+                                      return GestureDetector(
+                                        onTap: () => _updateSkillLevel(i, dotNumber),
+                                        child: MouseRegion(
+                                          cursor: SystemMouseCursors.click,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                                            child: Icon(
+                                              isFilled ? Icons.star : Icons.star_border,
+                                              size: 18,
+                                              color: isFilled
+                                                  ? const Color(0xFFF59E0B)
+                                                  : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
                                     return GestureDetector(
                                       onTap: () => _updateSkillLevel(i, dotNumber),
                                       child: MouseRegion(
@@ -1191,24 +1533,251 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
 
           const SizedBox(height: 20),
 
-          // 4. Tipografía
-          const Text('Tipografía', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          // 4. Tipografía y Estilo de Texto
+          Row(
+            children: [
+              const Icon(Icons.text_fields_outlined, size: 16, color: AppTheme.emerald),
+              const SizedBox(width: 8),
+              const Text('Tipografía y Formato de Texto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () {
+                  _update(widget.profile.copyWith(
+                    fontFamily: 'Inter',
+                    fontSizeScale: 1.0,
+                    fontSpacing: 0.2,
+                    lineSpacing: 1.35,
+                  ));
+                },
+                icon: const Icon(Icons.restart_alt, size: 14),
+                label: const Text('Restablecer', style: TextStyle(fontSize: 11)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.emerald,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
+
+          // Google Font Selector
           DropdownButtonFormField<String>(
-            value: widget.profile.fontFamily,
-            decoration: const InputDecoration(),
-            items: const [
-              DropdownMenuItem(value: 'Inter', child: Text('Inter (Moderna y Nítida)')),
-              DropdownMenuItem(value: 'Outfit', child: Text('Outfit (Geométrica Premium)')),
-              DropdownMenuItem(value: 'Roboto', child: Text('Roboto (Estándar Android)')),
+            value: [
+              'Inter', 'Outfit', 'Roboto', 'Montserrat', 'Poppins', 
+              'Merriweather', 'Raleway', 'Lora', 'Fira Code'
+            ].contains(widget.profile.fontFamily)
+                ? widget.profile.fontFamily
+                : 'Inter',
+            decoration: const InputDecoration(
+              labelText: 'Familia Tipográfica (Google Fonts)',
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            items: [
+              _buildFontDropdownItem('Inter', 'Inter (Moderna y Nítida · Defecto)'),
+              _buildFontDropdownItem('Outfit', 'Outfit (Geométrica Premium y Elegante)'),
+              _buildFontDropdownItem('Roboto', 'Roboto (Neutral y Técnica)'),
+              _buildFontDropdownItem('Montserrat', 'Montserrat (Titulares con Personalidad)'),
+              _buildFontDropdownItem('Poppins', 'Poppins (Contemporánea y Redondeada)'),
+              _buildFontDropdownItem('Merriweather', 'Merriweather (Serif Editorial Clásica)'),
+              _buildFontDropdownItem('Raleway', 'Raleway (Fina, Sofisticada y Exclusiva)'),
+              _buildFontDropdownItem('Lora', 'Lora (Serif Caligráfica Contemporánea)'),
+              _buildFontDropdownItem('Fira Code', 'Fira Code (Monoespaciada de Programador)'),
             ],
             onChanged: (val) {
               if (val != null) _update(widget.profile.copyWith(fontFamily: val));
             },
           ),
+
+          const SizedBox(height: 16),
+
+          // Tamaño de fuente (80% a 130%)
+          Row(
+            children: [
+              const Icon(Icons.format_size_outlined, size: 15, color: AppTheme.emerald),
+              const SizedBox(width: 8),
+              Text(
+                'Escala de Tamaño de Fuente: ${(widget.profile.fontSizeScale * 100).round()}%',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Text(
+                widget.profile.fontSizeScale == 1.0 ? 'Estándar' : (widget.profile.fontSizeScale > 1.0 ? 'Grande' : 'Compacto'),
+                style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppTheme.emerald,
+              thumbColor: AppTheme.emerald,
+              overlayColor: AppTheme.emerald.withOpacity(0.2),
+              trackHeight: 3,
+            ),
+            child: Slider(
+              value: widget.profile.fontSizeScale.clamp(0.80, 1.30),
+              min: 0.80,
+              max: 1.30,
+              divisions: 50,
+              onChanged: (val) {
+                _update(widget.profile.copyWith(fontSizeScale: double.parse(val.toStringAsFixed(2))));
+              },
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Espaciado entre letras (-0.5px a +2.0px)
+          Row(
+            children: [
+              const Icon(Icons.space_bar_outlined, size: 15, color: AppTheme.emerald),
+              const SizedBox(width: 8),
+              Text(
+                'Espaciado entre Letras (Tracking): ${widget.profile.fontSpacing.toStringAsFixed(2)} px',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Text(
+                widget.profile.fontSpacing > 0.5 ? 'Espaciado' : (widget.profile.fontSpacing < 0 ? 'Apretado' : 'Equilibrado'),
+                style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppTheme.emerald,
+              thumbColor: AppTheme.emerald,
+              overlayColor: AppTheme.emerald.withOpacity(0.2),
+              trackHeight: 3,
+            ),
+            child: Slider(
+              value: widget.profile.fontSpacing.clamp(-0.5, 2.0),
+              min: -0.5,
+              max: 2.0,
+              divisions: 50,
+              onChanged: (val) {
+                _update(widget.profile.copyWith(fontSpacing: double.parse(val.toStringAsFixed(2))));
+              },
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Interlineado (1.10x a 1.80x)
+          Row(
+            children: [
+              const Icon(Icons.format_line_spacing_outlined, size: 15, color: AppTheme.emerald),
+              const SizedBox(width: 8),
+              Text(
+                'Interlineado (Altura de línea): ${widget.profile.lineSpacing.toStringAsFixed(2)}x',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Text(
+                widget.profile.lineSpacing > 1.45 ? 'Aireado' : (widget.profile.lineSpacing < 1.25 ? 'Denso' : 'Normal'),
+                style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppTheme.emerald,
+              thumbColor: AppTheme.emerald,
+              overlayColor: AppTheme.emerald.withOpacity(0.2),
+              trackHeight: 3,
+            ),
+            child: Slider(
+              value: widget.profile.lineSpacing.clamp(1.10, 1.80),
+              min: 1.10,
+              max: 1.80,
+              divisions: 70,
+              onChanged: (val) {
+                _update(widget.profile.copyWith(lineSpacing: double.parse(val.toStringAsFixed(2))));
+              },
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Live Typography Preview Box
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.visibility_outlined, size: 14, color: AppTheme.emerald),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Muestra en vivo: ${widget.profile.fontFamily}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.profile.fullName.isNotEmpty ? widget.profile.fullName.toUpperCase() : 'NOMBRE Y APELLIDOS',
+                  style: _getSampleTextStyle(fontSize: 14.0 * widget.profile.fontSizeScale, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.profile.jobTitle.isNotEmpty ? widget.profile.jobTitle : 'Especialista en Desarrollo & Gestión Técnica',
+                  style: _getSampleTextStyle(fontSize: 11.5 * widget.profile.fontSizeScale, fontWeight: FontWeight.w600, color: AppTheme.emerald),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Curriculum Vitae profesional optimizado con tipografía ${widget.profile.fontFamily}. A4 milimétricamente ajustado.',
+                  style: _getSampleTextStyle(fontSize: 10.0 * widget.profile.fontSizeScale, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  DropdownMenuItem<String> _buildFontDropdownItem(String fontName, String label) {
+    return DropdownMenuItem<String>(
+      value: fontName,
+      child: Text(
+        label,
+        style: GoogleFonts.getFont(fontName, fontSize: 12),
+      ),
+    );
+  }
+
+  TextStyle _getSampleTextStyle({
+    required double fontSize,
+    FontWeight fontWeight = FontWeight.normal,
+    Color? color,
+  }) {
+    try {
+      return GoogleFonts.getFont(
+        widget.profile.fontFamily,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: widget.profile.fontSpacing,
+        height: widget.profile.lineSpacing,
+      );
+    } catch (_) {
+      return TextStyle(
+        fontFamily: widget.profile.fontFamily,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: widget.profile.fontSpacing,
+        height: widget.profile.lineSpacing,
+      );
+    }
   }
 
   Widget _buildTabPill(IconData icon, String text, int index, bool isDark) {

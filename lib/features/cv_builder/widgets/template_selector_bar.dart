@@ -23,6 +23,7 @@ class TemplateSelectorBar extends StatelessWidget {
   final String activeProfileId;
   final ValueChanged<String> onSelectProfile;
   final VoidCallback onAddProfile;
+  final VoidCallback? onImportCv;
 
   const TemplateSelectorBar({
     super.key,
@@ -32,6 +33,7 @@ class TemplateSelectorBar extends StatelessWidget {
     required this.activeProfileId,
     required this.onSelectProfile,
     required this.onAddProfile,
+    this.onImportCv,
   });
 
   static const List<TemplateOption> templates = [
@@ -323,6 +325,22 @@ class TemplateSelectorBar extends StatelessWidget {
               ),
             ),
           ),
+
+          if (onImportCv != null) ...[
+            const SizedBox(width: 10),
+            ElevatedButton.icon(
+              onPressed: onImportCv,
+              icon: const Icon(Icons.file_upload_outlined, size: 15),
+              label: const Text('Importar PDF o Word', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+                elevation: 1,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
         ],
       ),
     );

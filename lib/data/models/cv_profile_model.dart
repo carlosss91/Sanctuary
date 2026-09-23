@@ -161,11 +161,15 @@ class CvProfileModel {
   final String summary;
   final List<String> skills;
   final List<CvSkillItem> skillItems;
+  final String skillRatingStyle; // 'dots' | 'stars'
   final List<CvExperience> experiences;
   final List<CvEducation> educations;
   final String template;
   final String accentColor;
   final String fontFamily;
+  final double fontSizeScale;
+  final double fontSpacing;
+  final double lineSpacing;
   final bool isEnglishVersion;
   final bool showWatermark;
   final String watermarkPattern;
@@ -191,11 +195,15 @@ class CvProfileModel {
     this.summary = '',
     this.skills = const [],
     this.skillItems = const [],
+    this.skillRatingStyle = 'dots',
     this.experiences = const [],
     this.educations = const [],
     this.template = 'sidebar_dark',
     this.accentColor = '#10B981',
     this.fontFamily = 'Inter',
+    this.fontSizeScale = 1.0,
+    this.fontSpacing = 0.2,
+    this.lineSpacing = 1.35,
     this.isEnglishVersion = false,
     this.showWatermark = true,
     this.watermarkPattern = 'gears',
@@ -236,6 +244,7 @@ class CvProfileModel {
       summary: json['summary'] as String? ?? '',
       skills: rawSkills,
       skillItems: rawSkillItems,
+      skillRatingStyle: json['skillRatingStyle'] as String? ?? 'dots',
       experiences: (json['experiences'] as List<dynamic>?)
               ?.map((e) => CvExperience.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
@@ -247,6 +256,9 @@ class CvProfileModel {
       template: json['template'] as String? ?? 'sidebar_dark',
       accentColor: json['accentColor'] as String? ?? '#10B981',
       fontFamily: json['fontFamily'] as String? ?? 'Inter',
+      fontSizeScale: (json['fontSizeScale'] as num?)?.toDouble() ?? 1.0,
+      fontSpacing: (json['fontSpacing'] as num?)?.toDouble() ?? 0.2,
+      lineSpacing: (json['lineSpacing'] as num?)?.toDouble() ?? 1.35,
       isEnglishVersion: json['isEnglishVersion'] as bool? ?? false,
       showWatermark: json['showWatermark'] as bool? ?? true,
       watermarkPattern: json['watermarkPattern'] as String? ?? 'gears',
@@ -275,11 +287,15 @@ class CvProfileModel {
       'summary': summary,
       'skills': skills,
       'skillItems': skillItems.map((s) => s.toJson()).toList(),
+      'skillRatingStyle': skillRatingStyle,
       'experiences': experiences.map((e) => e.toJson()).toList(),
       'educations': educations.map((e) => e.toJson()).toList(),
       'template': template,
       'accentColor': accentColor,
       'fontFamily': fontFamily,
+      'fontSizeScale': fontSizeScale,
+      'fontSpacing': fontSpacing,
+      'lineSpacing': lineSpacing,
       'isEnglishVersion': isEnglishVersion,
       'showWatermark': showWatermark,
       'watermarkPattern': watermarkPattern,
@@ -307,11 +323,15 @@ class CvProfileModel {
     String? summary,
     List<String>? skills,
     List<CvSkillItem>? skillItems,
+    String? skillRatingStyle,
     List<CvExperience>? experiences,
     List<CvEducation>? educations,
     String? template,
     String? accentColor,
     String? fontFamily,
+    double? fontSizeScale,
+    double? fontSpacing,
+    double? lineSpacing,
     bool? isEnglishVersion,
     bool? showWatermark,
     String? watermarkPattern,
@@ -344,11 +364,15 @@ class CvProfileModel {
       summary: summary ?? this.summary,
       skills: effectiveSkills,
       skillItems: effectiveSkillItems,
+      skillRatingStyle: skillRatingStyle ?? this.skillRatingStyle,
       experiences: experiences ?? this.experiences,
       educations: educations ?? this.educations,
       template: template ?? this.template,
       accentColor: accentColor ?? this.accentColor,
       fontFamily: fontFamily ?? this.fontFamily,
+      fontSizeScale: fontSizeScale ?? this.fontSizeScale,
+      fontSpacing: fontSpacing ?? this.fontSpacing,
+      lineSpacing: lineSpacing ?? this.lineSpacing,
       isEnglishVersion: isEnglishVersion ?? this.isEnglishVersion,
       showWatermark: showWatermark ?? this.showWatermark,
       watermarkPattern: watermarkPattern ?? this.watermarkPattern,

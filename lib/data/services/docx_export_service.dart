@@ -22,6 +22,30 @@ class DocxExportService {
     return initials.isNotEmpty ? initials : 'CV';
   }
 
+  static String _getWatermarkMotif(CvProfileModel profile) {
+    if (!profile.showWatermark || profile.watermarkPattern == 'none') return '';
+    switch (profile.watermarkPattern) {
+      case 'gears':
+        return '⚙';
+      case 'tools':
+        return '🛠';
+      case 'shield':
+        return '🛡';
+      case 'geometric':
+        return '❖';
+      case 'tech_dots':
+        return '✦';
+      case 'lines':
+        return '═';
+      default:
+        return '⚙';
+    }
+  }
+
+  static int _scaleSz(int baseHalfPoints, double scale) {
+    return (baseHalfPoints * scale).round();
+  }
+
   static Future<Uint8List?> fetchOrDecodePhoto(String photoUrl) async {
     if (photoUrl.trim().isEmpty) return null;
 
@@ -112,14 +136,23 @@ class DocxExportService {
     archive.addFile(ArchiveFile('word/_rels/document.xml.rels', docRelsXml.length, utf8.encode(docRelsXml.toString())));
 
     // 4. word/styles.xml
-    const stylesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    final docFontFamily = profile.fontFamily.trim().isNotEmpty ? profile.fontFamily.trim() : 'Calibri';
+    final baseSz = _scaleSz(20, profile.fontSizeScale);
+    final trackingTwips = (profile.fontSpacing * 20).round();
+    final lineSpacingDxa = (240 * profile.lineSpacing).round();
+
+    final stylesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:docDefaults>
     <w:rPrDefault>
-      <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-      <w:sz w:val="20"/>
+      <w:rFonts w:ascii="$docFontFamily" w:hAnsi="$docFontFamily" w:cs="$docFontFamily"/>
+      <w:sz w:val="$baseSz"/>
+      <w:spacing w:val="$trackingTwips"/>
       <w:color w:val="1E293B"/>
     </w:rPrDefault>
+    <w:pPrDefault>
+      <w:spacing w:line="$lineSpacingDxa" w:lineRule="auto"/>
+    </w:pPrDefault>
   </w:docDefaults>
 </w:styles>''';
     archive.addFile(ArchiveFile('word/styles.xml', stylesXml.length, utf8.encode(stylesXml)));
@@ -205,7 +238,7 @@ class DocxExportService {
     _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: true, profile: profile, sizeDxa: 1100000, jc: 'center');
 
     // Datos de Contacto
-    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS');
+    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', profile);
     if (profile.phone.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'Tel' : 'Teléfono', profile.phone);
     if (profile.email.isNotEmpty) _addWhiteSidebarItem(docXml, 'Email', profile.email);
     if (profile.location.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'Location' : 'Ubicación', profile.location);
@@ -214,11 +247,12 @@ class DocxExportService {
 
     // Sobre Mí
     if (profile.summary.trim().isNotEmpty) {
-      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ');
+      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', profile);
+      final summarySz = _scaleSz(16, profile.fontSizeScale);
       docXml.write('''
           <w:p>
             <w:pPr><w:spacing w:after="100"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="16"/><w:color w:val="FFFFFF"/></w:rPr>
+            <w:r><w:rPr><w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.summary)}</w:t>
             </w:r>
           </w:p>''');
@@ -227,14 +261,16 @@ class DocxExportService {
     // Competencias
     final skillsList = _getSkillsList(profile);
     if (skillsList.isNotEmpty) {
-      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS');
+      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', profile);
       for (final item in skillsList) {
-        final dots = _formatRatingDots(item.level);
+        final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
+        final skillSz = _scaleSz(16, profile.fontSizeScale);
+        final descSz = _scaleSz(13, profile.fontSizeScale);
         docXml.write('''
           <w:p>
             <w:pPr><w:spacing w:before="60" w:after="20"/></w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:rPr><w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(item.name.toUpperCase())}  </w:t>
             </w:r>
             <w:r>
@@ -247,7 +283,7 @@ class DocxExportService {
           <w:p>
             <w:pPr><w:spacing w:after="50"/></w:pPr>
             <w:r>
-              <w:rPr><w:sz w:val="13"/><w:color w:val="E2E8F0"/></w:rPr>
+              <w:rPr><w:sz w:val="$descSz"/><w:color w:val="E2E8F0"/></w:rPr>
               <w:t>  ${_escapeXml(item.description)}</w:t>
             </w:r>
           </w:p>''');
@@ -269,49 +305,49 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    // Module badge
-    if (profile.moduleBadge.isNotEmpty) {
-      docXml.write('''
-          <w:p>
-            <w:pPr><w:spacing w:after="80"/></w:pPr>
-            <w:r>
-              <w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="475569"/><w:shd w:fill="F1F5F9"/></w:rPr>
-              <w:t>  ${_escapeXml(profile.moduleBadge)}  </w:t>
-            </w:r>
-          </w:p>''');
-    }
+    // Header Banner Box matching Screenshot 3
+    final motif = _getWatermarkMotif(profile);
+    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '';
+    final motifSuffix = motif.isNotEmpty ? '  $motif' : '';
+    final nameSz = _scaleSz(30, profile.fontSizeScale);
+    final jobSz = _scaleSz(18, profile.fontSizeScale);
 
-    // Name
     docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="42"/><w:color w:val="$accentHex"/></w:rPr>
-              <w:t>${_escapeXml(profile.fullName.isNotEmpty ? profile.fullName : 'NOMBRE Y APELLIDOS')}</w:t>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:spacing w:before="60" w:after="20"/>
+              <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:t>  $motifPrefix${_escapeXml(profile.fullName.isNotEmpty ? profile.fullName.toUpperCase() : 'NOMBRE Y APELLIDOS')}$motifSuffix  </w:t>
             </w:r>
           </w:p>''');
 
-    // Job Title
     if (profile.jobTitle.isNotEmpty) {
       docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="160"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="334155"/></w:rPr>
-              <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:spacing w:before="0" w:after="160"/>
+              <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:t>  $motifPrefix${_escapeXml(profile.jobTitle.toUpperCase())}$motifSuffix  </w:t>
             </w:r>
           </w:p>''');
     }
 
-    // Divider
-    _addHorizontalRule(docXml, 'E2E8F0');
-
-    // Experience
-    _addSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex);
+    // Experience with Boxed Recuadro Header matching Screenshot 3
+    _addBoxedSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile);
     for (final exp in profile.experiences) {
       _addDocxExperience(docXml, exp, accentHex);
     }
 
-    // Education
-    _addSectionHeader(docXml, isEn ? 'EDUCATION & TRAINING' : 'FORMACIÓN ACADÉMICA', accentHex);
+    // Education & Certifications with Boxed Recuadro Header matching Screenshot 3
+    _addBoxedSectionHeader(docXml, isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES', accentHex, profile);
     for (final edu in profile.educations) {
       _addDocxEducation(docXml, edu, accentHex);
     }
@@ -397,11 +433,11 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    _addSectionHeader(docXml, isEn ? 'PROFESSIONAL PROFILE' : 'PERFIL PROFESIONAL', accentHex);
+    _addSectionHeader(docXml, isEn ? 'PROFESSIONAL PROFILE' : 'PERFIL PROFESIONAL', accentHex, profile);
     docXml.write('''
           <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
-    _addSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex);
+    _addSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile);
     for (final exp in profile.experiences) {
       _addDocxExperience(docXml, exp, accentHex);
     }
@@ -416,9 +452,9 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    _addSectionHeader(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS CLAVE', accentHex);
+    _addSectionHeader(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS CLAVE', accentHex, profile);
     for (final item in _getSkillsList(profile)) {
-      final dots = _formatRatingDots(item.level);
+      final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
       docXml.write('''
           <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
             <w:r><w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/></w:rPr><w:t>✔ ${_escapeXml(item.name)}  </w:t></w:r>
@@ -426,7 +462,7 @@ class DocxExportService {
           </w:p>''');
     }
 
-    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex);
+    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex, profile);
     for (final edu in profile.educations) {
       _addDocxEducation(docXml, edu, accentHex);
     }
@@ -481,26 +517,26 @@ class DocxExportService {
     _addHorizontalRule(docXml, accentHex);
 
     // Profile
-    _addSectionHeader(docXml, isEn ? 'PROFILE' : 'PERFIL PROFESIONAL', accentHex);
+    _addSectionHeader(docXml, isEn ? 'PROFILE' : 'PERFIL PROFESIONAL', accentHex, profile);
     docXml.write('''
     <w:p><w:pPr><w:spacing w:after="140"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
     // Experience
-    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex);
+    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile);
     for (final exp in profile.experiences) {
       _addDocxExperience(docXml, exp, accentHex);
     }
 
     // Education
-    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex);
+    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex, profile);
     for (final edu in profile.educations) {
       _addDocxEducation(docXml, edu, accentHex);
     }
 
     // Skills
-    _addSectionHeader(docXml, isEn ? 'SKILLS & COMPETENCIES' : 'HABILIDADES Y COMPETENCIAS', accentHex);
+    _addSectionHeader(docXml, isEn ? 'SKILLS & COMPETENCIES' : 'HABILIDADES Y COMPETENCIAS', accentHex, profile);
     for (final s in _getSkillsList(profile)) {
-      final dots = _formatRatingDots(s.level);
+      final dots = _formatRatingDots(s.level, profile.skillRatingStyle);
       docXml.write('''
     <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
       <w:r><w:t>• ${_escapeXml(s.name)}  </w:t></w:r>
@@ -557,13 +593,13 @@ class DocxExportService {
     <w:p><w:pPr><w:spacing w:after="100"/></w:pPr></w:p>
 ''');
 
-    _addSectionHeader(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex);
+    _addSectionHeader(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile);
     docXml.write('''
     <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
-    _addSectionHeader(docXml, isEn ? 'COMPETENCIES' : 'COMPETENCIAS', accentHex);
+    _addSectionHeader(docXml, isEn ? 'COMPETENCIES' : 'COMPETENCIAS', accentHex, profile);
     for (final s in _getSkillsList(profile)) {
-      final dots = _formatRatingDots(s.level);
+      final dots = _formatRatingDots(s.level, profile.skillRatingStyle);
       docXml.write('''
     <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="$accentHex"/></w:rPr><w:t>◆ ${_escapeXml(s.name)}  </w:t></w:r>
@@ -571,12 +607,12 @@ class DocxExportService {
     </w:p>''');
     }
 
-    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA', accentHex);
+    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA', accentHex, profile);
     for (final e in profile.experiences) {
       _addDocxExperience(docXml, e, accentHex);
     }
 
-    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN', accentHex);
+    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN', accentHex, profile);
     for (final ed in profile.educations) {
       _addDocxEducation(docXml, ed, accentHex);
     }
@@ -650,13 +686,18 @@ class DocxExportService {
     }
   }
 
-  static void _addSidebarPill(StringBuffer docXml, String label) {
+  static void _addSidebarPill(StringBuffer docXml, String label, [CvProfileModel? profile]) {
+    final motif = profile != null ? _getWatermarkMotif(profile) : '';
+    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '';
+    final motifSuffix = motif.isNotEmpty ? '  $motif' : '';
+    final sz = profile != null ? _scaleSz(17, profile.fontSizeScale) : 17;
+
     docXml.write('''
           <w:p>
             <w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="80"/></w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="17"/><w:color w:val="FFFFFF"/><w:shd w:fill="FFFFFF" w:themeFillTint="33"/></w:rPr>
-              <w:t>  $label  </w:t>
+              <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/><w:shd w:fill="FFFFFF" w:themeFillTint="33"/></w:rPr>
+              <w:t>  $motifPrefix$label$motifSuffix  </w:t>
             </w:r>
           </w:p>''');
   }
@@ -670,7 +711,31 @@ class DocxExportService {
           </w:p>''');
   }
 
-  static void _addSectionHeader(StringBuffer docXml, String title, String accentHex) {
+  static void _addBoxedSectionHeader(StringBuffer docXml, String title, String accentHex, [CvProfileModel? profile]) {
+    final motif = profile != null ? _getWatermarkMotif(profile) : '';
+    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '';
+    final motifSuffix = motif.isNotEmpty ? '  $motif' : '';
+    final sz = profile != null ? _scaleSz(18, profile.fontSizeScale) : 18;
+
+    docXml.write('''
+          <w:p>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:spacing w:before="180" w:after="100"/>
+              <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:t>  $motifPrefix${_escapeXml(title)}$motifSuffix  </w:t>
+            </w:r>
+          </w:p>''');
+  }
+
+  static void _addSectionHeader(StringBuffer docXml, String title, String accentHex, [CvProfileModel? profile]) {
+    final motif = profile != null ? _getWatermarkMotif(profile) : '';
+    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '■  ';
+    final sz = profile != null ? _scaleSz(22, profile.fontSizeScale) : 22;
+
     docXml.write('''
           <w:p>
             <w:pPr>
@@ -678,8 +743,8 @@ class DocxExportService {
               <w:pBdr><w:bottom w:val="single" w:sz="10" w:space="4" w:color="$accentHex"/></w:pBdr>
             </w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="$accentHex"/></w:rPr>
-              <w:t>■ ${_escapeXml(title)}</w:t>
+              <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/></w:rPr>
+              <w:t>$motifPrefix${_escapeXml(title)}</w:t>
             </w:r>
           </w:p>''');
   }
@@ -760,8 +825,11 @@ class DocxExportService {
     return [];
   }
 
-  static String _formatRatingDots(int level) {
+  static String _formatRatingDots(int level, [String style = 'dots']) {
     final lvl = level.clamp(1, 5);
+    if (style == 'stars') {
+      return '${'★' * lvl}${'☆' * (5 - lvl)}';
+    }
     return '${'●' * lvl}${'○' * (5 - lvl)}';
   }
 

@@ -330,7 +330,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                                   decoration: BoxDecoration(
                                     shape: _shape == 'circle' ? BoxShape.circle : BoxShape.rectangle,
                                     borderRadius: _shape == 'square' ? BorderRadius.circular(20) : null,
-                                    border: Border.all(color: AppTheme.emerald, width: 2.5),
+                                    border: Border.all(color: Colors.white, width: 2.2),
                                   ),
                                 ),
                               ),

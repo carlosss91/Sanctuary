@@ -293,13 +293,16 @@ class _PhotoZoomPickerState extends State<PhotoZoomPicker> {
                 decoration: BoxDecoration(
                   shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
                   borderRadius: !isCircle ? BorderRadius.circular(16) : null,
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                  border: Border.all(color: AppTheme.emerald, width: 2.5),
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.emerald.withOpacity(0.25),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),

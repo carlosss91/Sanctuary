@@ -67,19 +67,35 @@ void main() {
       expect(bytes[0], equals(0x50));
       expect(bytes[1], equals(0x4B));
     });
+    test('Generates valid docx bytes with star rating style', () {
+      final profile = sampleProfile.copyWith(skillRatingStyle: 'stars');
+      final bytes = DocxExportService.generateDocxBytes(profile);
+      expect(bytes.isNotEmpty, isTrue);
+      expect(bytes[0], equals(0x50));
+      expect(bytes[1], equals(0x4B));
+    });
   });
 
   group('PdfExportService Tests', () {
-    test('Generates valid PDF bytes for all 4 templates', () async {
+    test('Generates valid PDF bytes for all 4 templates with stars', () async {
       final templates = ['sidebar_dark', 'modern_header', 'minimalist', 'tech_cards'];
       for (final tpl in templates) {
-        final profile = sampleProfile.copyWith(template: tpl);
+        final profile = sampleProfile.copyWith(template: tpl, skillRatingStyle: 'stars');
         final bytes = await PdfExportService.generatePdfBytes(profile);
         expect(bytes.isNotEmpty, isTrue, reason: 'Template $tpl should generate PDF bytes');
         // PDF header: %PDF
         final header = utf8.decode(bytes.sublist(0, 4));
         expect(header, equals('%PDF'), reason: 'Should start with %PDF header');
       }
+    });
+
+    test('CvProfileModel correctly serializes and deserializes skillRatingStyle', () {
+      final pStars = sampleProfile.copyWith(skillRatingStyle: 'stars');
+      final json = pStars.toJson();
+      expect(json['skillRatingStyle'], equals('stars'));
+
+      final restored = CvProfileModel.fromJson(json);
+      expect(restored.skillRatingStyle, equals('stars'));
     });
   });
 }

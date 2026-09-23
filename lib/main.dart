@@ -7,6 +7,7 @@ import 'data/services/api_service.dart';
 import 'features/auth/login_dialog.dart';
 import 'features/hub/hub_screen.dart';
 import 'features/cv_builder/cv_builder_screen.dart';
+import 'features/pdf_signer/pdf_signer_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +35,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
   late bool _isDark;
   late bool _isCosmicActive;
   UserModel? _currentUser;
-  String _currentRoute = 'hub'; // 'hub' or 'cv_builder'
+  String _currentRoute = 'hub'; // 'hub', 'cv_builder', or 'pdf_signer'
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
@@ -80,31 +81,49 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
       home: Builder(
         builder: (ctx) {
+          Widget currentScreen;
+          if (_currentUser == null) {
+            currentScreen = _buildLoggedOutView(ctx);
+          } else if (_currentRoute == 'cv_builder') {
+            currentScreen = CvBuilderScreen(
+              apiService: widget.apiService,
+              isDark: _isDark,
+              isCosmicActive: _isCosmicActive,
+              onBackToHub: () => setState(() => _currentRoute = 'hub'),
+              onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
+              onLogout: _logout,
+              onToggleTheme: _toggleTheme,
+              onToggleCosmic: _toggleCosmic,
+            );
+          } else if (_currentRoute == 'pdf_signer') {
+            currentScreen = PdfSignerScreen(
+              apiService: widget.apiService,
+              isDark: _isDark,
+              isCosmicActive: _isCosmicActive,
+              onBackToHub: () => setState(() => _currentRoute = 'hub'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onLogout: _logout,
+              onToggleTheme: _toggleTheme,
+              onToggleCosmic: _toggleCosmic,
+            );
+          } else {
+            currentScreen = HubScreen(
+              apiService: widget.apiService,
+              currentUser: _currentUser!,
+              isDark: _isDark,
+              isCosmicActive: _isCosmicActive,
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
+              onLogout: _logout,
+              onToggleTheme: _toggleTheme,
+              onToggleCosmic: _toggleCosmic,
+            );
+          }
+
           return CosmicBackground(
             isCosmicActive: _isCosmicActive,
             isDark: _isDark,
-            child: _currentUser == null
-                ? _buildLoggedOutView(ctx)
-                : (_currentRoute == 'cv_builder'
-                    ? CvBuilderScreen(
-                        apiService: widget.apiService,
-                        isDark: _isDark,
-                        isCosmicActive: _isCosmicActive,
-                        onBackToHub: () => setState(() => _currentRoute = 'hub'),
-                        onLogout: _logout,
-                        onToggleTheme: _toggleTheme,
-                        onToggleCosmic: _toggleCosmic,
-                      )
-                    : HubScreen(
-                        apiService: widget.apiService,
-                        currentUser: _currentUser!,
-                        isDark: _isDark,
-                        isCosmicActive: _isCosmicActive,
-                        onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
-                        onLogout: _logout,
-                        onToggleTheme: _toggleTheme,
-                        onToggleCosmic: _toggleCosmic,
-                      )),
+            child: currentScreen,
           );
         },
       ),

@@ -7,6 +7,7 @@ import '../../data/services/api_service.dart';
 import '../../data/services/pdf_export_service.dart';
 import '../../data/services/docx_export_service.dart';
 import '../../data/services/translation_service.dart';
+import '../../data/services/cv_document_parser_service.dart';
 import 'widgets/template_selector_bar.dart';
 import 'widgets/cv_editor_tabs.dart';
 import 'widgets/a4_sheet_preview.dart';
@@ -17,6 +18,7 @@ class CvBuilderScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
+  final VoidCallback? onOpenPdfSigner;
   final bool isDark;
   final bool isCosmicActive;
 
@@ -24,6 +26,7 @@ class CvBuilderScreen extends StatefulWidget {
     super.key,
     required this.apiService,
     required this.onBackToHub,
+    this.onOpenPdfSigner,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -292,6 +295,21 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
     );
   }
 
+  Future<void> _handleImportCvDocument(CvProfileModel activeProfile) async {
+    final parsed = await CvDocumentParserService.pickAndParseCvDocument(context, activeProfile);
+    if (parsed != null) {
+      _onProfileEdited(parsed);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Datos del CV importados y aplicados exitosamente!'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      }
+    }
+  }
+
   void _showTeacherManagementDialog() {
     showDialog(
       context: context,
@@ -389,6 +407,8 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
             onSelect: (itemKey) {
               if (itemKey == 'Inicio') {
                 widget.onBackToHub();
+              } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                widget.onOpenPdfSigner!();
               } else if (itemKey == 'Alumnos') {
                 _showTeacherManagementDialog();
               } else if (itemKey == 'Orientación') {
@@ -693,6 +713,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                                 await widget.apiService.storage.setActiveCvId(id);
                               },
                               onAddProfile: _addNewLearner,
+                              onImportCv: () => _handleImportCvDocument(activeProfile),
                             ),
 
                             const SizedBox(height: 10),

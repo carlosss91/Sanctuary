@@ -247,7 +247,7 @@ class PdfExportService {
                 pw.SizedBox(height: 12),
                 _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
                 pw.SizedBox(height: 8),
-                ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor)),
+                ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor, profile.skillRatingStyle == 'stars')),
               ],
 
               pw.Spacer(),
@@ -607,7 +607,7 @@ class PdfExportService {
                                   style: pw.TextStyle(color: accentColor, fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                                 ),
                                 pw.SizedBox(width: 3),
-                                _buildPdfRatingDots(s.level, inactiveColor: PdfColors.grey300),
+                                _buildPdfRatingDots(s.level, isStars: profile.skillRatingStyle == 'stars', inactiveColor: PdfColors.grey300),
                               ],
                             ),
                           );
@@ -804,7 +804,7 @@ class PdfExportService {
                       style: pw.TextStyle(color: textDarkColor, fontSize: 7.5, fontWeight: pw.FontWeight.bold),
                     ),
                     pw.SizedBox(width: 3),
-                    _buildPdfRatingDots(s.level, inactiveColor: PdfColors.grey400),
+                    _buildPdfRatingDots(s.level, isStars: profile.skillRatingStyle == 'stars', inactiveColor: PdfColors.grey400),
                   ],
                 ),
               );
@@ -1029,7 +1029,7 @@ class PdfExportService {
                                     style: pw.TextStyle(color: accentColor, fontSize: 7, fontWeight: pw.FontWeight.bold),
                                   ),
                                   pw.SizedBox(width: 3),
-                                  _buildPdfRatingDots(s.level, inactiveColor: PdfColor(accentColor.red, accentColor.green, accentColor.blue, 0.25)),
+                                  _buildPdfRatingDots(s.level, isStars: profile.skillRatingStyle == 'stars', inactiveColor: PdfColor(accentColor.red, accentColor.green, accentColor.blue, 0.25)),
                                 ],
                               ),
                             );
@@ -1082,6 +1082,7 @@ class PdfExportService {
 
   static pw.Widget _buildPdfRatingDots(
     int level, {
+    bool isStars = false,
     PdfColor activeColor = const PdfColor.fromInt(0xFFF59E0B),
     PdfColor inactiveColor = const PdfColor.fromInt(0x44FFFFFF),
   }) {
@@ -1089,6 +1090,16 @@ class PdfExportService {
       mainAxisSize: pw.MainAxisSize.min,
       children: List.generate(5, (index) {
         final isFilled = (index + 1) <= level;
+        if (isStars) {
+          return pw.Container(
+            margin: const pw.EdgeInsets.symmetric(horizontal: 0.8),
+            child: pw.SvgImage(
+              svg: '<svg viewBox="0 0 24 24"><polygon points="12,2 15,8.5 22,9.3 17,14.1 18.2,21 12,17.8 5.8,21 7,14.1 2,9.3 9,8.5" fill="${isFilled ? '#F59E0B' : '#94A3B8'}"/></svg>',
+              width: 5.5,
+              height: 5.5,
+            ),
+          );
+        }
         return pw.Container(
           width: 4.2,
           height: 4.2,
@@ -1102,7 +1113,7 @@ class PdfExportService {
     );
   }
 
-  static pw.Widget _buildPdfCompetencyRow(CvSkillItem item, PdfColor accentColor) {
+  static pw.Widget _buildPdfCompetencyRow(CvSkillItem item, PdfColor accentColor, [bool isStars = false]) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(bottom: 6.5),
       child: pw.Column(
@@ -1122,7 +1133,7 @@ class PdfExportService {
                 ),
               ),
               pw.SizedBox(width: 4),
-              _buildPdfRatingDots(item.level),
+              _buildPdfRatingDots(item.level, isStars: isStars),
             ],
           ),
           if (item.description.isNotEmpty) ...[

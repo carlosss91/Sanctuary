@@ -235,6 +235,16 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                 const SizedBox(height: 4),
 
                 _buildNavItem(
+                  icon: Icons.draw_outlined,
+                  title: 'Firmador de PDF',
+                  itemKey: 'PdfSigner',
+                  isDark: isDark,
+                  isActive: widget.activeItem == 'PdfSigner',
+                  badge: 'Nuevo',
+                ),
+                const SizedBox(height: 4),
+
+                _buildNavItem(
                   icon: Icons.school_outlined,
                   title: 'Gestión de Alumnos',
                   itemKey: 'Alumnos',

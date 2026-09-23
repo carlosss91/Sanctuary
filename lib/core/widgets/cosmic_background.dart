@@ -94,9 +94,20 @@ class _CosmicBackgroundState extends State<CosmicBackground> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     if (!widget.isCosmicActive) {
-      return Container(
-        color: widget.isDark ? const Color(0xFF070A10) : const Color(0xFFF1F5F9),
-        child: widget.child,
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: CosmicPainter(
+                animationValue: 0.0,
+                stars: _stars,
+                isDark: widget.isDark,
+                isStatic: true,
+              ),
+            ),
+          ),
+          widget.child,
+        ],
       );
     }
 
@@ -111,6 +122,7 @@ class _CosmicBackgroundState extends State<CosmicBackground> with SingleTickerPr
                   animationValue: _controller.value,
                   stars: _stars,
                   isDark: widget.isDark,
+                  isStatic: false,
                 ),
               );
             },
@@ -150,11 +162,13 @@ class CosmicPainter extends CustomPainter {
   final double animationValue;
   final List<CosmicStar> stars;
   final bool isDark;
+  final bool isStatic;
 
   CosmicPainter({
     required this.animationValue,
     required this.stars,
     required this.isDark,
+    this.isStatic = false,
   });
 
   @override
@@ -189,8 +203,10 @@ class CosmicPainter extends CustomPainter {
     // 3. Floating Celestial Sanctuary Ringed Planet & Moon with Pendular Back-and-Forth Oscillation
     _drawCelestialBodies(canvas, size);
 
-    // 4. Multidirectional Passing Comets / Meteors (Always travelling head-first)
-    _drawComets(canvas, size);
+    // 4. Multidirectional Passing Comets / Meteors (Only active when animated)
+    if (!isStatic) {
+      _drawComets(canvas, size);
+    }
 
     // 5. Fixed Starry Sky: Stars remain anchored (no drift jumps) with fast golden-rich twinkling
     for (final star in stars) {
@@ -620,6 +636,8 @@ class CosmicPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CosmicPainter oldDelegate) {
-    return oldDelegate.animationValue != animationValue || oldDelegate.isDark != isDark;
+    return oldDelegate.animationValue != animationValue ||
+        oldDelegate.isDark != isDark ||
+        oldDelegate.isStatic != isStatic;
   }
 }
