@@ -630,6 +630,37 @@ app.get('/api/slides/proxy', async (req, res) => {
   }
 });
 
+// Dedicated direct download endpoint with attachment header (forces save dialog)
+app.get('/api/slides/download', async (req, res) => {
+  const { url, filename } = req.query;
+  if (!url) {
+    return res.status(400).json({ success: false, message: 'URL requerida' });
+  }
+
+  try {
+    const fetchRes = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!fetchRes.ok) {
+      return res.status(fetchRes.status).json({ success: false, message: 'Error al descargar archivo' });
+    }
+
+    const safeName = (filename || 'video.mp4').replace(/[^\w\.-]/gi, '_');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    const contentType = fetchRes.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+
+    const buffer = await fetchRes.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    console.error('Error in /api/slides/download:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`✨ Sanctuary API running on port ${port}`);
 });

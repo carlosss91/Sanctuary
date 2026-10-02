@@ -738,4 +738,43 @@ class PreziService {
     onProgress?.call('Finalizando archivo PDF de alta definición...', 0.98, completedCount, total);
     return await pdf.save();
   }
+
+  /// Descarga los bytes directos de un video (usando proxy si está disponible o petición directa)
+  Future<Uint8List?> fetchVideoBytes(
+    String videoUrl, {
+    void Function(String message, double progress)? onProgress,
+  }) async {
+    if (backendBaseUrl != null && backendBaseUrl!.isNotEmpty) {
+      try {
+        final downloadUrl = '$backendBaseUrl/slides/download?url=${Uri.encodeComponent(videoUrl)}';
+        final res = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 45));
+        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+          return res.bodyBytes;
+        }
+      } catch (e) {
+        debugPrint('Aviso: proxy de descarga devolvió: $e');
+      }
+
+      try {
+        final proxyUrl = '$backendBaseUrl/slides/proxy?url=${Uri.encodeComponent(videoUrl)}';
+        final res = await http.get(Uri.parse(proxyUrl)).timeout(const Duration(seconds: 45));
+        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+          return res.bodyBytes;
+        }
+      } catch (e) {
+        debugPrint('Aviso: proxy genérico devolvió: $e');
+      }
+    }
+
+    try {
+      final res = await http.get(Uri.parse(videoUrl), headers: _standardHeaders).timeout(const Duration(seconds: 45));
+      if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+        return res.bodyBytes;
+      }
+    } catch (e) {
+      debugPrint('Aviso: descarga directa de video falló: $e');
+    }
+
+    return null;
+  }
 }
