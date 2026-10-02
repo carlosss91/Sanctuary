@@ -12,6 +12,7 @@ class HubScreen extends StatefulWidget {
   final UserModel currentUser;
   final VoidCallback onOpenCvBuilder;
   final VoidCallback? onOpenPdfSigner;
+  final VoidCallback? onOpenPreziDownloader;
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
@@ -24,6 +25,7 @@ class HubScreen extends StatefulWidget {
     required this.currentUser,
     required this.onOpenCvBuilder,
     this.onOpenPdfSigner,
+    this.onOpenPreziDownloader,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -155,6 +157,12 @@ class _HubScreenState extends State<HubScreen> {
   }
 
   Future<void> _openUrl(String url) async {
+    if (url == 'app://prezi2pdf' || url.contains('prezi2pdf')) {
+      if (widget.onOpenPreziDownloader != null) {
+        widget.onOpenPreziDownloader!();
+        return;
+      }
+    }
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -567,10 +575,22 @@ class _HubScreenState extends State<HubScreen> {
                             subtitle: 'Firma en Vivo',
                             icon: Icons.draw_rounded,
                             gradient: const [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                            badge: 'Nuevo',
+                            badge: 'PDF',
                             onTap: () {
                               if (widget.onOpenPdfSigner != null) {
                                 widget.onOpenPdfSigner!();
+                              }
+                            },
+                          ),
+                          _buildIPhoneAppIcon(
+                            title: 'Slide Downloader',
+                            subtitle: 'Presentaciones & Video',
+                            icon: Icons.present_to_all_rounded,
+                            gradient: const [Color(0xFFE11D48), Color(0xFF9333EA)],
+                            badge: 'Multi',
+                            onTap: () {
+                              if (widget.onOpenPreziDownloader != null) {
+                                widget.onOpenPreziDownloader!();
                               }
                             },
                           ),
@@ -588,14 +608,14 @@ class _HubScreenState extends State<HubScreen> {
                           ),
                           _buildIPhoneAppIcon(
                             title: 'Apps Web',
-                            subtitle: 'Microservicios',
+                            subtitle: 'Prezi2PDF & Tools',
                             icon: Icons.grid_view_rounded,
                             gradient: const [Color(0xFF0EA5E9), Color(0xFF0284C7)],
-                            badge: 'Pronto',
+                            badge: 'Activo',
                             onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Próximamente nuevas Web Apps en Sanctuary')),
-                              );
+                              if (widget.onOpenPreziDownloader != null) {
+                                widget.onOpenPreziDownloader!();
+                              }
                             },
                           ),
                           _buildIPhoneAppIcon(

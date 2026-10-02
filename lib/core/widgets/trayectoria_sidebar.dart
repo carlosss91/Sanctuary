@@ -240,7 +240,17 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                   itemKey: 'PdfSigner',
                   isDark: isDark,
                   isActive: widget.activeItem == 'PdfSigner',
-                  badge: 'Nuevo',
+                  badge: 'PDF',
+                ),
+                const SizedBox(height: 4),
+
+                _buildNavItem(
+                  icon: Icons.present_to_all_outlined,
+                  title: 'Slide Downloader',
+                  itemKey: 'Prezi2Pdf',
+                  isDark: isDark,
+                  isActive: widget.activeItem == 'Prezi2Pdf',
+                  badge: 'Multi',
                 ),
                 const SizedBox(height: 4),
 

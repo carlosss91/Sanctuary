@@ -19,6 +19,7 @@ class CvBuilderScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
   final VoidCallback? onOpenPdfSigner;
+  final VoidCallback? onOpenPreziDownloader;
   final bool isDark;
   final bool isCosmicActive;
 
@@ -27,6 +28,7 @@ class CvBuilderScreen extends StatefulWidget {
     required this.apiService,
     required this.onBackToHub,
     this.onOpenPdfSigner,
+    this.onOpenPreziDownloader,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -409,6 +411,8 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                 widget.onBackToHub();
               } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
                 widget.onOpenPdfSigner!();
+              } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                widget.onOpenPreziDownloader!();
               } else if (itemKey == 'Alumnos') {
                 _showTeacherManagementDialog();
               } else if (itemKey == 'Orientación') {

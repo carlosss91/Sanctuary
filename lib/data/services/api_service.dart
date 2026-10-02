@@ -16,6 +16,8 @@ class ApiService {
   }) : baseUrl = customBaseUrl ?? _determineBaseUrl();
 
   static String _determineBaseUrl() {
+    const envUrl = String.fromEnvironment('API_URL');
+    if (envUrl.isNotEmpty) return envUrl;
     if (kIsWeb) {
       return 'http://localhost:8088/api';
     }
@@ -51,9 +53,11 @@ class ApiService {
           await storage.setCurrentUser(user);
           return {'success': true, 'user': user, 'source': 'backend'};
         }
-      } else {
+      } else if (res.statusCode == 401 || res.statusCode == 400) {
         final data = jsonDecode(res.body);
         return {'success': false, 'message': data['message'] ?? 'Credenciales inválidas'};
+      } else {
+        debugPrint('Backend API login status ${res.statusCode}, probando credenciales locales...');
       }
     } catch (e) {
       debugPrint('Backend API login error, falling back to local storage: $e');
@@ -84,9 +88,11 @@ class ApiService {
         await storage.saveLocalUser(user, password);
         await storage.setCurrentUser(user);
         return {'success': true, 'user': user};
-      } else {
+      } else if (res.statusCode == 409 || res.statusCode == 400) {
         final data = jsonDecode(res.body);
         return {'success': false, 'message': data['message'] ?? 'Error al registrar'};
+      } else {
+        debugPrint('Backend API register status ${res.statusCode}, guardando en local...');
       }
     } catch (e) {
       debugPrint('Backend API register error, saving locally: $e');

@@ -1,10 +1,18 @@
 {
   "version": "2.0.0",
+  "options": {
+    "env": {
+      "PATH": "C:\\src\\flutter\\bin;C:\\src\\flutter\\bin\\cache\\dart-sdk\\bin;C:\\Program Files\\nodejs;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd;C:\\Program Files\\Git\\usr\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;${env:PATH}"
+    }
+  },
   "tasks": [
     {
       "label": "🚀 Sanctuary: Levantar Todo (Docker + Backend + Flutter Web)",
       "type": "shell",
       "command": "bash start.sh",
+      "windows": {
+        "command": "powershell -ExecutionPolicy Bypass -File .\\start.ps1"
+      },
       "isBackground": true,
       "problemMatcher": [],
       "group": {
@@ -21,6 +29,9 @@
       "label": "⏹️ Sanctuary: Detener Todo (Docker y Servicios)",
       "type": "shell",
       "command": "bash stop.sh",
+      "windows": {
+        "command": "powershell -ExecutionPolicy Bypass -File .\\stop.ps1"
+      },
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -31,6 +42,9 @@
       "label": "📱 Sanctuary: Compilar APK Android",
       "type": "shell",
       "command": "bash build_apk.sh",
+      "windows": {
+        "command": "flutter build apk"
+      },
       "problemMatcher": [],
       "group": {
         "kind": "build"
@@ -44,6 +58,9 @@
       "label": "🌐 Sanctuary: Flutter Web (Modo Dev)",
       "type": "shell",
       "command": "flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0",
+      "windows": {
+        "command": "flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0"
+      },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {

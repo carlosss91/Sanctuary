@@ -89,50 +89,55 @@ printf "  ${C_EMERALD}[OK]${C_RESET}\n\n"
 
 echo -e " ${C_BOLD}${C_PURPLE}▶ Paso 1/5:${C_RESET} Verificando dependencias del sistema..."
 # Check Docker
-if command -v docker &> /dev/null; then
-    echo -e "   ${C_EMERALD}✔${C_RESET} Docker detectado: $(docker --version | awk '{print $3}' | tr -d ',')"
+HAS_DOCKER=false
+if command -v docker &> /dev/null && docker info &> /dev/null; then
+    HAS_DOCKER=true
+    echo -e "   ${C_EMERALD}✔${C_RESET} Docker detectado y activo: $(docker --version 2>/dev/null | awk '{print $3}' | tr -d ',')"
 else
-    echo -e "   ${C_RED}✘ Docker no está instalado.${C_RESET}"
-    exit 1
-fi
-
-# Check Docker Compose
-if docker compose version &> /dev/null; then
-    echo -e "   ${C_EMERALD}✔${C_RESET} Docker Compose detectado: $(docker compose version | awk '{print $4}')"
-else
-    echo -e "   ${C_RED}✘ Docker Compose no está disponible.${C_RESET}"
-    exit 1
+    echo -e "   ${C_YELLOW}ℹ Docker no disponible o inactivo. Se usará Backend nativo (Node.js).${C_RESET}"
 fi
 
 # Check Flutter
 if command -v flutter &> /dev/null; then
     echo -e "   ${C_EMERALD}✔${C_RESET} Flutter SDK detectado: $(flutter --version | head -n 1 | awk '{print $2}')"
+elif [ -f "C:/src/flutter/bin/flutter" ] || [ -f "/c/src/flutter/bin/flutter" ]; then
+    export PATH="/c/src/flutter/bin:C:/src/flutter/bin:$PATH"
+    echo -e "   ${C_EMERALD}✔${C_RESET} Flutter SDK detectado en C:/src/flutter/bin"
 else
     echo -e "   ${C_RED}✘ Flutter no encontrado en PATH.${C_RESET}"
     exit 1
 fi
 echo ""
 
-echo -e " ${C_BOLD}${C_PURPLE}▶ Paso 2/5:${C_RESET} Levantando contenedores Docker (PostgreSQL 16 & Backend API)..."
-docker compose up -d --build > /dev/null 2>&1 &
-DOCKER_PID=$!
+if [ "$HAS_DOCKER" = true ]; then
+    echo -e " ${C_BOLD}${C_PURPLE}▶ Paso 2/5:${C_RESET} Levantando contenedores Docker (PostgreSQL 16 & Backend API)..."
+    docker compose up -d --build > /dev/null 2>&1 &
+    DOCKER_PID=$!
 
-# Animación de progreso mientras Docker arranca
-steps=0
-spin_chars=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
-while kill -0 $DOCKER_PID 2> /dev/null; do
-    idx=$(( steps % 10 ))
-    pct=$(( (steps * 4) % 95 + 5 ))
-    printf "\r  ${C_CYAN}${spin_chars[$idx]}${C_RESET}  ${C_BOLD}Construyendo e iniciando servicios...${C_RESET} "
-    progress_bar "$pct"
-    steps=$(( steps + 1 ))
-    sleep 0.2
-done
-wait $DOCKER_PID
+    # Animación de progreso mientras Docker arranca
+    steps=0
+    spin_chars=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+    while kill -0 $DOCKER_PID 2> /dev/null; do
+        idx=$(( steps % 10 ))
+        pct=$(( (steps * 4) % 95 + 5 ))
+        printf "\r  ${C_CYAN}${spin_chars[$idx]}${C_RESET}  ${C_BOLD}Construyendo e iniciando servicios...${C_RESET} "
+        progress_bar "$pct"
+        steps=$(( steps + 1 ))
+        sleep 0.2
+    done
+    wait $DOCKER_PID
 
-printf "\r  ${C_EMERALD}✔${C_RESET}  ${C_BOLD}Contenedores Docker iniciados        ${C_RESET} "
-progress_bar 100
-printf "  ${C_EMERALD}[OK]${C_RESET}\n\n"
+    printf "\r  ${C_EMERALD}✔${C_RESET}  ${C_BOLD}Contenedores Docker iniciados        ${C_RESET} "
+    progress_bar 100
+    printf "  ${C_EMERALD}[OK]${C_RESET}\n\n"
+else
+    echo -e " ${C_BOLD}${C_PURPLE}▶ Paso 2/5:${C_RESET} Iniciando Backend local en Node.js (puerto 8088)..."
+    (cd backend && node server.js > /dev/null 2>&1 &)
+    sleep 1
+    printf "  ${C_EMERALD}✔${C_RESET}  ${C_BOLD}Backend local iniciado en segundo plano${C_RESET} "
+    progress_bar 100
+    printf "  ${C_EMERALD}[OK]${C_RESET}\n\n"
+fi
 
 echo -e " ${C_BOLD}${C_PURPLE}▶ Paso 3/5:${C_RESET} Verificando conectividad con PostgreSQL y Backend API..."
 DB_READY=0

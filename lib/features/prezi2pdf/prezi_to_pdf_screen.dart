@@ -1,0 +1,1523 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/services/api_service.dart';
+import 'models/prezi_model.dart';
+import 'services/prezi_service.dart';
+
+class PreziToPdfScreen extends StatefulWidget {
+  final ApiService apiService;
+  final VoidCallback onBackToHub;
+  final VoidCallback onLogout;
+  final VoidCallback onToggleTheme;
+  final VoidCallback onToggleCosmic;
+  final bool isDark;
+  final bool isCosmicActive;
+
+  const PreziToPdfScreen({
+    super.key,
+    required this.apiService,
+    required this.onBackToHub,
+    required this.onLogout,
+    required this.onToggleTheme,
+    required this.onToggleCosmic,
+    required this.isDark,
+    required this.isCosmicActive,
+  });
+
+  @override
+  State<PreziToPdfScreen> createState() => _PreziToPdfScreenState();
+}
+
+class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
+  late final PreziService _preziService;
+  final TextEditingController _urlController = TextEditingController();
+
+  bool _filterTransitions = true;
+  bool _filterDuplicates = true;
+
+  SlidePlatform _detectedPlatform = SlidePlatform.prezi;
+  PreziConversionState _state = const PreziConversionState();
+  List<PreziVideoItem> _detectedVideos = [];
+
+  // Master checkbox state
+  bool get _isAllVideosSelected =>
+      _detectedVideos.isNotEmpty && _detectedVideos.every((v) => v.isSelected);
+
+  int get _selectedVideosCount =>
+      _detectedVideos.where((v) => v.isSelected).length;
+
+  @override
+  void initState() {
+    super.initState();
+    _preziService = PreziService(backendBaseUrl: widget.apiService.baseUrl);
+    _urlController.text = 'https://prezi.com/view/fa_waqixoa-l/';
+    _updateDetectedPlatform(_urlController.text);
+    _urlController.addListener(() {
+      _updateDetectedPlatform(_urlController.text);
+    });
+  }
+
+  void _updateDetectedPlatform(String text) {
+    final platform = _preziService.detectPlatform(text);
+    if (platform != _detectedPlatform) {
+      setState(() {
+        _detectedPlatform = platform;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSelectAllVideos(bool? value) {
+    final select = value ?? false;
+    setState(() {
+      for (final video in _detectedVideos) {
+        video.isSelected = select;
+      }
+    });
+  }
+
+  void _toggleSingleVideo(PreziVideoItem video, bool? value) {
+    setState(() {
+      video.isSelected = value ?? false;
+    });
+  }
+
+  void _applySampleUrl(SlidePlatform platform) {
+    String sample;
+    switch (platform) {
+      case SlidePlatform.prezi:
+        sample = 'https://prezi.com/view/fa_waqixoa-l/';
+        break;
+      case SlidePlatform.googleSlides:
+        sample = 'https://docs.google.com/presentation/d/1_sample_deck/edit';
+        break;
+      case SlidePlatform.slideShare:
+        sample = 'https://www.slideshare.net/slideshow/git-basics/12345';
+        break;
+      case SlidePlatform.speakerDeck:
+        sample = 'https://speakerdeck.com/user/presentation-sample';
+        break;
+      case SlidePlatform.directPdf:
+        sample = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+        break;
+      default:
+        sample = 'https://prezi.com/view/fa_waqixoa-l/';
+    }
+    setState(() {
+      _urlController.text = sample;
+      _updateDetectedPlatform(sample);
+    });
+  }
+
+  Future<void> _startConversion() async {
+    final input = _urlController.text.trim();
+    if (input.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, introduce un enlace de presentación válido.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _detectedVideos = [];
+      _state = PreziConversionState(
+        phase: PreziProcessPhase.analyzing,
+        progress: 0.05,
+        message: 'Detectando plataforma y analizando estructura de la presentación...',
+      );
+    });
+
+    try {
+      // 1. Resolver información según la plataforma
+      final info = await _preziService.resolvePresentationInfo(input);
+      final platform = (info['platform'] as SlidePlatform?) ?? _detectedPlatform;
+      final oid = (info['oid'] as String?) ?? 'deck';
+      final title = (info['title'] as String?) ?? 'Presentación';
+
+      setState(() {
+        _state = _state.copyWith(
+          phase: PreziProcessPhase.fetchingStoryboard,
+          progress: 0.15,
+          message: 'Conectando con ${platform.displayName}...',
+          presentationInfo: PreziPresentationInfo(
+            id: oid,
+            platform: platform,
+            title: title,
+            originalUrl: input,
+          ),
+        );
+      });
+
+      // =======================================================================
+      // A. FLUJO GOOGLE SLIDES (EXPORTACIÓN DIRECTA A PDF OFICIAL)
+      // =======================================================================
+      if (platform == SlidePlatform.googleSlides) {
+        final exportUrl = info['exportPdfUrl'] as String;
+        setState(() {
+          _state = _state.copyWith(
+            phase: PreziProcessPhase.downloadingSlides,
+            progress: 0.35,
+            message: 'Generando y descargando PDF oficial desde Google Docs...',
+          );
+        });
+
+        final pdfBytes = await _preziService.fetchBinary(exportUrl);
+        if (pdfBytes == null || pdfBytes.isEmpty) {
+          throw Exception('No se pudo exportar la presentación. Asegúrate de que el enlace sea público o con acceso para lectores.');
+        }
+
+        final safeTitle = title.replaceAll(RegExp(r'[\\/*?:"<>|]'), '').trim();
+        setState(() {
+          _state = _state.copyWith(
+            phase: PreziProcessPhase.completed,
+            progress: 1.0,
+            message: '¡Presentación de Google Slides descargada con éxito en PDF vectorial!',
+            generatedPdfBytes: pdfBytes,
+            generatedPdfFilename: '$safeTitle.pdf',
+          );
+        });
+        return;
+      }
+
+      // =======================================================================
+      // B. FLUJO DOCUMENTO PDF DIRECTO
+      // =======================================================================
+      if (platform == SlidePlatform.directPdf) {
+        setState(() {
+          _state = _state.copyWith(
+            phase: PreziProcessPhase.downloadingSlides,
+            progress: 0.4,
+            message: 'Descargando documento de diapositivas PDF...',
+          );
+        });
+
+        final pdfBytes = await _preziService.fetchBinary(input);
+        if (pdfBytes == null || pdfBytes.isEmpty) {
+          throw Exception('No se pudo descargar el archivo PDF desde la dirección URL proporcionada.');
+        }
+
+        final safeTitle = title.replaceAll(RegExp(r'[\\/*?:"<>|]'), '').trim();
+        setState(() {
+          _state = _state.copyWith(
+            phase: PreziProcessPhase.completed,
+            progress: 1.0,
+            message: '¡Documento PDF de diapositivas listo para visualizar y guardar!',
+            generatedPdfBytes: pdfBytes,
+            generatedPdfFilename: '$safeTitle.pdf',
+          );
+        });
+        return;
+      }
+
+      // =======================================================================
+      // C. FLUJO SLIDESHARE O SPEAKER DECK (DESDE IMÁGENES DE DIAPOSITIVAS)
+      // =======================================================================
+      if (platform == SlidePlatform.slideShare || platform == SlidePlatform.speakerDeck) {
+        final pdfDirectUrl = info['pdfUrl'] as String?;
+        if (pdfDirectUrl != null && pdfDirectUrl.isNotEmpty) {
+          final pdfBytes = await _preziService.fetchBinary(pdfDirectUrl);
+          if (pdfBytes != null && pdfBytes.isNotEmpty) {
+            final safeTitle = title.replaceAll(RegExp(r'[\\/*?:"<>|]'), '').trim();
+            setState(() {
+              _state = _state.copyWith(
+                phase: PreziProcessPhase.completed,
+                progress: 1.0,
+                message: '¡Presentación descargada con éxito en formato PDF!',
+                generatedPdfBytes: pdfBytes,
+                generatedPdfFilename: '$safeTitle.pdf',
+              );
+            });
+            return;
+          }
+        }
+
+        final slideImages = (info['slideImageUrls'] as List<String>?) ?? [];
+        if (slideImages.isNotEmpty) {
+          final pdfBytes = await _preziService.buildPdfFromImageUrls(
+            imageUrls: slideImages,
+            title: title,
+            onProgress: (msg, pct, curr, total) {
+              setState(() {
+                _state = _state.copyWith(
+                  message: msg,
+                  progress: pct,
+                  currentItem: curr,
+                  totalItems: total,
+                  phase: pct >= 0.9 ? PreziProcessPhase.compilingPdf : PreziProcessPhase.downloadingSlides,
+                );
+              });
+            },
+          );
+
+          final safeTitle = title.replaceAll(RegExp(r'[\\/*?:"<>|]'), '').trim();
+          setState(() {
+            _state = _state.copyWith(
+              phase: PreziProcessPhase.completed,
+              progress: 1.0,
+              message: '¡Presentación de ${platform.displayName} compilada en PDF (${slideImages.length} diapositivas)!',
+              generatedPdfBytes: pdfBytes,
+              generatedPdfFilename: '$safeTitle.pdf',
+            );
+          });
+          return;
+        }
+      }
+
+      // =======================================================================
+      // D. FLUJO PREZI Y PREZI VIDEO
+      // =======================================================================
+      final prezilink = info['prezilink'] as String?;
+      final isVideo = (info['isVideo'] as bool?) ?? false;
+
+      if (isVideo) {
+        final videoContent = await _preziService.fetchPreziVideoContent(oid);
+        String? videoSignedUrl;
+        String videoTitle = title;
+        if (videoContent != null && videoContent['meta'] is Map) {
+          final meta = videoContent['meta'] as Map<String, dynamic>;
+          videoTitle = (meta['title'] as String?) ?? title;
+          videoSignedUrl = meta['video_signed_url_with_title'] as String?;
+        }
+
+        final videoItem = PreziVideoItem(
+          id: 'prezi_video_$oid',
+          stepIndex: 1,
+          service: 'prezi_video',
+          url: videoSignedUrl ?? input,
+          title: videoTitle,
+          isSelected: true,
+        );
+
+        setState(() {
+          _detectedVideos = [videoItem];
+          _state = _state.copyWith(
+            phase: PreziProcessPhase.completed,
+            progress: 1.0,
+            message: '¡Prezi Video detectado con éxito!',
+            presentationInfo: _state.presentationInfo?.copyWith(
+              title: videoTitle,
+              videos: [videoItem],
+              signedVideoUrl: videoSignedUrl,
+            ),
+          );
+        });
+        return;
+      }
+
+      // Storyboard estándar de Prezi
+      final storyboard = await _preziService.fetchStoryboard(
+        id: oid,
+        prezilink: prezilink,
+        onProgress: (msg, pct) {
+          setState(() {
+            _state = _state.copyWith(message: msg, progress: pct);
+          });
+        },
+      );
+
+      final rawSteps = storyboard['steps'] as List<dynamic>? ?? [];
+      if (rawSteps.isEmpty) {
+        throw Exception('La presentación no contiene ninguna diapositiva procesable.');
+      }
+
+      final originalCount = rawSteps.length;
+      final extractedVideos = _preziService.extractEmbeddedVideos(rawSteps);
+      setState(() {
+        _detectedVideos = extractedVideos;
+      });
+
+      List<Map<String, dynamic>> stepsToProcess;
+      int skippedTransitions = 0;
+      if (_filterTransitions) {
+        stepsToProcess = _preziService.filterTransitionSteps(rawSteps);
+        skippedTransitions = originalCount - stepsToProcess.length;
+      } else {
+        stepsToProcess = rawSteps.whereType<Map<String, dynamic>>().toList();
+      }
+
+      setState(() {
+        _state = _state.copyWith(
+          phase: PreziProcessPhase.downloadingSlides,
+          progress: 0.25,
+          totalItems: stepsToProcess.length,
+          currentItem: 0,
+          message: 'Descargando ${stepsToProcess.length} diapositivas en alta resolución...',
+          presentationInfo: _state.presentationInfo?.copyWith(
+            totalSteps: originalCount,
+            filteredStepsCount: stepsToProcess.length,
+            videos: extractedVideos,
+          ),
+        );
+      });
+
+      final pdfBytes = await _preziService.downloadSlidesAndBuildPdf(
+        steps: stepsToProcess,
+        presentationTitle: title,
+        filterDuplicates: _filterDuplicates,
+        onProgress: (msg, pct, curr, total) {
+          setState(() {
+            _state = _state.copyWith(
+              message: msg,
+              progress: pct,
+              currentItem: curr,
+              totalItems: total,
+              phase: pct >= 0.90 ? PreziProcessPhase.compilingPdf : PreziProcessPhase.downloadingSlides,
+            );
+          });
+        },
+      );
+
+      final safeTitle = title.replaceAll(RegExp(r'[\\/*?:"<>|]'), '').trim();
+      final filename = '$safeTitle.pdf';
+
+      setState(() {
+        _state = _state.copyWith(
+          phase: PreziProcessPhase.completed,
+          progress: 1.0,
+          message: '¡Presentación convertida con éxito a PDF! ($skippedTransitions transiciones depuradas)',
+          generatedPdfBytes: pdfBytes,
+          generatedPdfFilename: filename,
+        );
+      });
+    } catch (e) {
+      setState(() {
+        _state = _state.copyWith(
+          phase: PreziProcessPhase.error,
+          progress: 0.0,
+          errorMessage: e.toString().replaceAll('Exception: ', ''),
+        );
+      });
+    }
+  }
+
+  Future<void> _shareOrDownloadPdf() async {
+    if (_state.generatedPdfBytes == null) return;
+    try {
+      await Printing.sharePdf(
+        bytes: _state.generatedPdfBytes!,
+        filename: _state.generatedPdfFilename ?? 'Presentacion_Slides.pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al descargar PDF: $e'), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  Future<void> _previewPdf() async {
+    if (_state.generatedPdfBytes == null) return;
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) async => _state.generatedPdfBytes!,
+        name: _state.generatedPdfFilename ?? 'Presentacion_Slides.pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al visualizar PDF: $e'), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  Future<void> _downloadSelectedVideos() async {
+    final selected = _detectedVideos.where((v) => v.isSelected).toList();
+    if (selected.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay ningún video seleccionado para descargar.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (selected.length == 1) {
+      _openVideoUrl(selected.first.url);
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.download_for_offline_rounded, color: AppTheme.emerald),
+              const SizedBox(width: 10),
+              Text(
+                'Descarga de ${selected.length} Videos',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Haz clic en cualquier video para abrir su enlace o descargarlo directamente en máxima resolución:',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey),
+                ),
+                const SizedBox(height: 14),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: selected.length,
+                    separatorBuilder: (_, __) => const Divider(height: 8),
+                    itemBuilder: (context, idx) {
+                      final vid = selected[idx];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: AppTheme.emerald.withOpacity(0.15),
+                          child: Text(
+                            '${idx + 1}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                          ),
+                        ),
+                        title: Text(
+                          vid.title,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${vid.serviceDisplayName} · ${vid.url}',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.open_in_new, size: 18, color: AppTheme.emerald),
+                          tooltip: 'Abrir enlace de descarga',
+                          onPressed: () => _openVideoUrl(vid.url),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cerrar'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.file_download_outlined, size: 18),
+              label: const Text('Abrir Todos'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                for (final vid in selected) {
+                  await _openVideoUrl(vid.url);
+                  await Future.delayed(const Duration(milliseconds: 300));
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openVideoUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo abrir el enlace: $e'), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: _buildAppBar(isDark),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1150),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. HERO BANNER
+                _buildHeroBanner(isDark),
+
+                const SizedBox(height: 24),
+
+                // 2. INPUT CARD CON SELECTOR DE PLATAFORMAS
+                _buildInputCard(isDark),
+
+                const SizedBox(height: 24),
+
+                // 3. PROGRESS SECTION
+                if (_state.isProcessing || _state.hasError || _state.isDone)
+                  _buildProgressCard(isDark),
+
+                // 4. PDF RESULT CARD
+                if (_state.generatedPdfBytes != null) ...[
+                  const SizedBox(height: 24),
+                  _buildPdfResultCard(isDark),
+                ],
+
+                // 5. VIDEOS EXTRACTION & SELECTION SECTION
+                if (_detectedVideos.isNotEmpty) ...[
+                  const SizedBox(height: 32),
+                  _buildVideosSection(isDark),
+                ],
+
+                const SizedBox(height: 48),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(bool isDark) {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded),
+        tooltip: 'Volver al Inicio (Santuario)',
+        onPressed: widget.onBackToHub,
+      ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE11D48), Color(0xFF9333EA)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.present_to_all_rounded, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'Slide Downloader',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'Multiplataforma',
+              style: TextStyle(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
+          icon: Icon(
+            widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+            color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
+            size: 20,
+          ),
+          onPressed: widget.onToggleCosmic,
+        ),
+        IconButton(
+          tooltip: isDark ? 'Cambiar a Tema Claro' : 'Cambiar a Tema Oscuro',
+          icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
+          onPressed: widget.onToggleTheme,
+        ),
+        const SizedBox(width: 12),
+      ],
+    );
+  }
+
+  Widget _buildHeroBanner(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(26),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF1E1B4B).withOpacity(0.8), const Color(0xFF0F172A).withOpacity(0.9)]
+              : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? const Color(0xFF312E81).withOpacity(0.6) : const Color(0xFFCBD5E1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE11D48).withOpacity(0.08),
+            blurRadius: 28,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE11D48), Color(0xFF9333EA), Color(0xFF3B82F6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE11D48).withOpacity(0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 30),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE11D48).withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'SANCTUARY DIGITAL SUITE',
+                        style: TextStyle(
+                          color: Color(0xFFE11D48),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'SLIDE DOWNLOADER PRO',
+                        style: TextStyle(
+                          color: AppTheme.emerald,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Slide Downloader · Presentaciones a PDF & Videos',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Descarga presentaciones de Prezi, Google Slides, SlideShare, Speaker Deck o documentos PDF en archivos de alta nitidez con extracción opcional de videos.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputCard(bool isDark) {
+    final platformColor = _detectedPlatform.brandColor;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'ENLACE DE LA PRESENTACIÓN',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+              ),
+              const Spacer(),
+              // Badge de detección automática de plataforma
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: platformColor.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: platformColor.withOpacity(0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_detectedPlatform.iconData, size: 14, color: platformColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Detectado: ${_detectedPlatform.displayName}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: platformColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _urlController,
+                  enabled: !_state.isProcessing,
+                  decoration: InputDecoration(
+                    hintText: 'Introduce el enlace (Prezi, Google Slides, SlideShare, Speaker Deck o PDF)...',
+                    prefixIcon: Icon(_detectedPlatform.iconData, color: platformColor),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_urlController.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            tooltip: 'Limpiar',
+                            onPressed: () {
+                              setState(() {
+                                _urlController.clear();
+                                _updateDetectedPlatform('');
+                              });
+                            },
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.content_paste_rounded, size: 18),
+                          tooltip: 'Pegar desde el portapapeles',
+                          onPressed: () async {
+                            final data = await Clipboard.getData('text/plain');
+                            if (data?.text != null) {
+                              final text = data!.text!.trim();
+                              setState(() {
+                                _urlController.text = text;
+                                _updateDetectedPlatform(text);
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  onSubmitted: (_) => _startConversion(),
+                ),
+              ),
+              const SizedBox(width: 14),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _state.isProcessing ? null : _startConversion,
+                  icon: _state.isProcessing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.download_for_offline_rounded, size: 20),
+                  label: Text(
+                    _state.isProcessing ? 'Procesando...' : 'Descargar Diapositivas',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE11D48),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    elevation: 3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // CHIPS DE PLATAFORMAS SOPORTADAS CON ENLACES DE EJEMPLO
+          Row(
+            children: [
+              const Text(
+                'Plataformas compatibles:',
+                style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      SlidePlatform.prezi,
+                      SlidePlatform.googleSlides,
+                      SlidePlatform.slideShare,
+                      SlidePlatform.speakerDeck,
+                      SlidePlatform.directPdf,
+                    ].map((platform) {
+                      final isSelected = _detectedPlatform == platform;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          avatar: Icon(platform.iconData, size: 14, color: platform.brandColor),
+                          label: Text(
+                            platform.displayName,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? platform.brandColor : null,
+                            ),
+                          ),
+                          backgroundColor: isSelected ? platform.brandColor.withOpacity(0.15) : null,
+                          side: BorderSide(
+                            color: isSelected ? platform.brandColor : Colors.grey.withOpacity(0.2),
+                          ),
+                          onPressed: () => _applySampleUrl(platform),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Opciones y Switches de optimización
+          Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: _filterTransitions,
+                    activeColor: AppTheme.emerald,
+                    onChanged: _state.isProcessing ? null : (val) => setState(() => _filterTransitions = val),
+                  ),
+                  const SizedBox(width: 6),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Modo diapositivas completas (Prezi)',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'Omite transiciones y zooms intermedios para guardar solo pantallas finales',
+                        style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: _filterDuplicates,
+                    activeColor: AppTheme.emerald,
+                    onChanged: _state.isProcessing ? null : (val) => setState(() => _filterDuplicates = val),
+                  ),
+                  const SizedBox(width: 6),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Evitar duplicados idénticos',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'Descarta capturas consecutivas con bytes exactamente iguales',
+                        style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(bool isDark) {
+    final state = _state;
+    final isDone = state.isDone;
+    final hasError = state.hasError;
+
+    Color accentColor = AppTheme.emerald;
+    if (hasError) {
+      accentColor = Colors.redAccent;
+    } else if (state.isProcessing) {
+      accentColor = const Color(0xFFE11D48);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: accentColor.withOpacity(0.4),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                hasError
+                    ? Icons.error_outline_rounded
+                    : (isDone ? Icons.check_circle_rounded : Icons.sync_rounded),
+                color: accentColor,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  hasError
+                      ? 'Error en la conversión'
+                      : (isDone ? '¡Proceso completado con éxito!' : 'Progreso de descarga y conversión'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.5,
+                    color: accentColor,
+                  ),
+                ),
+              ),
+              Text(
+                '${(state.progress * 100).toInt()}%',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: hasError ? 1.0 : state.progress,
+              minHeight: 10,
+              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  hasError ? (state.errorMessage ?? 'Ocurrió un error inesperado.') : state.message,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: hasError ? Colors.redAccent : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
+                  ),
+                ),
+              ),
+              if (state.totalItems > 0 && !hasError)
+                Text(
+                  'Diapositivas: ${state.currentItem} / ${state.totalItems}',
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPdfResultCard(bool isDark) {
+    final bytes = _state.generatedPdfBytes!;
+    final sizeKb = (bytes.lengthInBytes / 1024).toStringAsFixed(1);
+    final sizeMb = (bytes.lengthInBytes / (1024 * 1024)).toStringAsFixed(2);
+    final sizeText = bytes.lengthInBytes > 1024 * 1024 ? '$sizeMb MB' : '$sizeKb KB';
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF064E3B).withOpacity(0.25) : const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.emerald, size: 36),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _state.generatedPdfFilename ?? 'Presentacion_Slides.pdf',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Documento PDF generado · Tamaño: $sizeText · Páginas nítidas en formato apaisado',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          OutlinedButton.icon(
+            onPressed: _previewPdf,
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            label: const Text('Visualizar / Imprimir'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.emerald,
+              side: const BorderSide(color: AppTheme.emerald),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton.icon(
+            onPressed: _shareOrDownloadPdf,
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: const Text('Descargar PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideosSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.video_library_rounded, color: Color(0xFF8B5CF6), size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'VIDEOS DETECTADOS EN LA PRESENTACIÓN',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${_detectedVideos.length}',
+                            style: const TextStyle(
+                              color: Color(0xFF8B5CF6),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_selectedVideosCount de ${_detectedVideos.length} seleccionados para descarga',
+                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+
+              // TICK MASTER: SELECCIONAR / MARCAR TODOS
+              InkWell(
+                onTap: () => _toggleSelectAllVideos(!_isAllVideosSelected),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _isAllVideosSelected
+                        ? AppTheme.emerald.withOpacity(0.15)
+                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isAllVideosSelected ? AppTheme.emerald : Colors.grey.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Checkbox(
+                        value: _isAllVideosSelected,
+                        activeColor: AppTheme.emerald,
+                        onChanged: _toggleSelectAllVideos,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isAllVideosSelected ? 'Desmarcar todos' : 'Marcar todos',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: _isAllVideosSelected ? AppTheme.emerald : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              ElevatedButton.icon(
+                onPressed: _selectedVideosCount > 0 ? _downloadSelectedVideos : null,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: Text(
+                  'Descargar ($_selectedVideosCount)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 360,
+              mainAxisExtent: 250,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: _detectedVideos.length,
+            itemBuilder: (context, idx) {
+              final video = _detectedVideos[idx];
+              return _buildVideoCard(video, isDark);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoCard(PreziVideoItem video, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF131D2E) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: video.isSelected
+              ? AppTheme.emerald
+              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+          width: video.isSelected ? 2 : 1,
+        ),
+        boxShadow: [
+          if (video.isSelected)
+            BoxShadow(
+              color: AppTheme.emerald.withOpacity(0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: SizedBox(
+                  height: 125,
+                  width: double.infinity,
+                  child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                      ? Image.network(
+                          video.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderThumbnail(),
+                        )
+                      : _buildPlaceholderThumbnail(),
+                ),
+              ),
+              Positioned.fill(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.65),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Checkbox(
+                    value: video.isSelected,
+                    activeColor: AppTheme.emerald,
+                    onChanged: (val) => _toggleSingleVideo(video, val),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        video.isYouTube
+                            ? Icons.smart_display_rounded
+                            : (video.isVimeo ? Icons.live_tv_rounded : Icons.movie_creation_rounded),
+                        size: 13,
+                        color: video.isYouTube ? Colors.redAccent : AppTheme.emerald,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        video.serviceDisplayName,
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Paso #${video.stepIndex}',
+                    style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        video.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        video.url,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                        label: const Text('Ver video', style: TextStyle(fontSize: 11)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () => _openVideoUrl(video.url),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.download_rounded,
+                          size: 18,
+                          color: video.isSelected ? AppTheme.emerald : Colors.grey,
+                        ),
+                        tooltip: 'Descargar este video',
+                        onPressed: () => _openVideoUrl(video.url),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderThumbnail() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.movie_filter_rounded, color: Colors.white38, size: 36),
+      ),
+    );
+  }
+}

@@ -21,6 +21,7 @@ class PdfSignerScreen extends StatefulWidget {
   final ApiService apiService;
   final VoidCallback onBackToHub;
   final VoidCallback? onOpenCvBuilder;
+  final VoidCallback? onOpenPreziDownloader;
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
@@ -32,6 +33,7 @@ class PdfSignerScreen extends StatefulWidget {
     required this.apiService,
     required this.onBackToHub,
     this.onOpenCvBuilder,
+    this.onOpenPreziDownloader,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -627,6 +629,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   } else {
                     widget.onBackToHub();
                   }
+                } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                  widget.onOpenPreziDownloader!();
                 }
               },
               onToggleCollapse: () {

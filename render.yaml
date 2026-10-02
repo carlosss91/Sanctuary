@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sanctuary-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8088
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sanctuary-db
+          property: connectionString
+
+databases:
+  - name: sanctuary-db
+    plan: free
+    databaseName: sanctuary_db
+    user: sanctuary_user

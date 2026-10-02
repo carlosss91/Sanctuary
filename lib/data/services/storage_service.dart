@@ -216,6 +216,14 @@ class StorageService {
         ),
         const RepoLinkModel(
           id: 3,
+          title: 'Slide Downloader',
+          url: 'app://prezi2pdf',
+          description: 'Descargador universal de diapositivas (Prezi, Google Slides, SlideShare, Speaker Deck y PDF)',
+          category: 'Web Apps',
+          iconName: 'present_to_all',
+        ),
+        const RepoLinkModel(
+          id: 4,
           title: 'Web Apps & Proyectos',
           url: 'https://github.com/carlosss91',
           description: 'Directorio de aplicaciones interactivas y utilidades',

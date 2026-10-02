@@ -51,3 +51,4 @@ app.*.map.json
 node_modules/
 backend/node_modules/
 backend/uploads/
+backend/data/
