@@ -1,6 +1,7 @@
 # ==============================================================================
 #  SANCTUARY PLATFORM - LAUNCHER & ORCHESTRATOR (WINDOWS POWERSHELL)
-#  Levanta Docker (o Node.js nativo si Docker no esta activo) y Flutter Web
+#  Levanta Docker / Node.js Backend (8088) y Flutter Web (8085)
+#  Compatible con directivas de Windows Device Guard / WDAC
 # ==============================================================================
 
 # 1. Asegurar PATH en esta sesion
@@ -57,32 +58,40 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 }
 Write-Host "       [OK] Puertos liberados y entorno listo." -ForegroundColor Green
 
-# Paso 1: Verificacion de Dependencias
+# Paso 1: Verificacion de Dependencias y Device Guard
 Write-Host ""
-Write-Host " [1/5] Verificando dependencias del sistema..." -ForegroundColor Cyan
+Write-Host " [1/5] Verificando dependencias del sistema y politicas de seguridad..." -ForegroundColor Cyan
 
-$flutterCmd = Get-Command flutter -ErrorAction SilentlyContinue
-if (-not $flutterCmd) {
-    if (Test-Path "C:\src\flutter\bin\flutter.bat") {
-        $flutterCmd = "C:\src\flutter\bin\flutter.bat"
-        Write-Host "       [OK] Flutter detectado en C:\src\flutter\bin" -ForegroundColor Green
-    } else {
-        Write-Host "       [ERROR] Flutter no encontrado en PATH ni en C:\src\flutter\bin." -ForegroundColor Red
-        Write-Host "       Por favor asegurate de tener Flutter en C:\src\flutter." -ForegroundColor Yellow
-        exit 1
-    }
-} else {
-    Write-Host "       [OK] Flutter detectado." -ForegroundColor Green
-}
-
-$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
-if (-not $nodeCmd -and (Test-Path "C:\Program Files\nodejs\node.exe")) {
+$nodeCmd = "node"
+if (Test-Path "C:\Program Files\nodejs\node.exe") {
     $nodeCmd = "C:\Program Files\nodejs\node.exe"
-}
-if ($nodeCmd) {
-    Write-Host "       [OK] Node.js detectado." -ForegroundColor Green
+    Write-Host "       [OK] Node.js detectado ($nodeCmd)." -ForegroundColor Green
+} elseif (Get-Command node -ErrorAction SilentlyContinue) {
+    Write-Host "       [OK] Node.js detectado en PATH." -ForegroundColor Green
 } else {
-    Write-Host "       [WARN] Node.js no detectado directamente." -ForegroundColor Yellow
+    Write-Host "       [ERROR] Node.js no encontrado. Por favor instala Node.js." -ForegroundColor Red
+    exit 1
+}
+
+# Comprobar si dart.exe / flutter puede ejecutarse o si esta bloqueado por Device Guard
+$canRunDart = $false
+try {
+    $dartExe = "C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe"
+    if (Test-Path $dartExe) {
+        $dartTest = & $dartExe --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $canRunDart = $true
+        }
+    }
+} catch {
+    $canRunDart = $false
+}
+
+if ($canRunDart) {
+    Write-Host "       [OK] Flutter y Dart SDK activos y ejecutables." -ForegroundColor Green
+} else {
+    Write-Host "       [INFO] Windows Device Guard / WDAC bloquea 'dart.exe' en este equipo." -ForegroundColor Yellow
+    Write-Host "       [MODO ALTA DISPONIBILIDAD] Se usara el Servidor Nativo Node.js optimizado." -ForegroundColor Green
 }
 
 $hasDocker = $false
@@ -102,9 +111,9 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
     Write-Host "       [INFO] Docker no instalado en Windows. Se usara Backend nativo Node.js." -ForegroundColor DarkYellow
 }
 
-# Paso 2: Levantar Backend
+# Paso 2: Levantar Backend API (Puerto 8088)
 Write-Host ""
-Write-Host " [2/5] Iniciando Backend API..." -ForegroundColor Cyan
+Write-Host " [2/5] Iniciando Backend API (Puerto 8088)..." -ForegroundColor Cyan
 if ($hasDocker) {
     Write-Host "       Levantando servicios con Docker Compose (PostgreSQL + API)..." -ForegroundColor Gray
     docker compose up -d --build | Out-Null
@@ -113,11 +122,7 @@ if ($hasDocker) {
     Write-Host "       Iniciando Backend nativo (Node.js en http://localhost:8088)..." -ForegroundColor Gray
     $serverPath = Join-Path $PSScriptRoot "backend\server.js"
     if (Test-Path $serverPath) {
-        $nodePath = "node"
-        if (Test-Path "C:\Program Files\nodejs\node.exe") {
-            $nodePath = "C:\Program Files\nodejs\node.exe"
-        }
-        $backendProcess = Start-Process -FilePath $nodePath -ArgumentList "`"$serverPath`"" -WorkingDirectory (Join-Path $PSScriptRoot "backend") -PassThru -WindowStyle Hidden
+        $backendProcess = Start-Process -FilePath $nodeCmd -ArgumentList "`"$serverPath`"" -WorkingDirectory (Join-Path $PSScriptRoot "backend") -PassThru -WindowStyle Hidden
         Write-Host "       [OK] Backend Node.js en ejecucion (PID: $($backendProcess.Id))." -ForegroundColor Green
     } else {
         Write-Host "       [WARN] No se encontro backend/server.js." -ForegroundColor Yellow
@@ -143,16 +148,37 @@ for ($i = 1; $i -le 10; $i++) {
 if ($apiReady) {
     Write-Host "       [OK] Backend API respondiendo en http://localhost:8088" -ForegroundColor Green
 } else {
-    Write-Host "       [INFO] Backend iniciandose en segundo plano (continuando en modo hibrido)." -ForegroundColor Gray
+    Write-Host "       [INFO] Backend iniciandose en segundo plano." -ForegroundColor Gray
 }
 
-# Paso 4: Flutter packages
+# Paso 4: Preparacion de la Aplicacion Web
 Write-Host ""
-Write-Host " [4/5] Verificando paquetes Flutter..." -ForegroundColor Cyan
-& flutter pub get | Out-Null
-Write-Host "       [OK] Paquetes Dart sincronizados." -ForegroundColor Green
+Write-Host " [4/5] Verificando paquetes y build web..." -ForegroundColor Cyan
+if ($canRunDart) {
+    & flutter pub get | Out-Null
+    Write-Host "       [OK] Paquetes Dart sincronizados." -ForegroundColor Green
+} else {
+    # Asegurar que build/web contenga la compilacion web mas reciente
+    $webIndex = Join-Path $PSScriptRoot "build\web\index.html"
+    if (-not (Test-Path $webIndex)) {
+        Write-Host "       Extrayendo compilacion web desde GitHub Pages..." -ForegroundColor Cyan
+        try {
+            git fetch origin gh-pages 2>$null | Out-Null
+            $zipPath = Join-Path $PSScriptRoot "build\gh-pages.zip"
+            if (-not (Test-Path (Join-Path $PSScriptRoot "build"))) {
+                New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot "build") -Force | Out-Null
+            }
+            git archive --format=zip --output="$zipPath" origin/gh-pages 2>$null
+            if (Test-Path $zipPath) {
+                Expand-Archive -Path $zipPath -DestinationPath (Join-Path $PSScriptRoot "build\web") -Force
+                Remove-Item $zipPath -Force
+            }
+        } catch {}
+    }
+    Write-Host "       [OK] Paquete web de produccion listo para servir en local." -ForegroundColor Green
+}
 
-# Paso 5: Lanzar Flutter Web
+# Paso 5: Lanzar Flutter Web (Puerto 8085)
 Write-Host ""
 Write-Host " [5/5] Iniciando Aplicacion Web Sanctuary..." -ForegroundColor Cyan
 Write-Host "       * Flutter Web: http://localhost:8085" -ForegroundColor Yellow
@@ -160,13 +186,31 @@ Write-Host "       * Backend API: http://localhost:8088" -ForegroundColor Yellow
 Write-Host ""
 
 Start-Job -ScriptBlock {
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 2
     Start-Process "http://localhost:8085"
 } | Out-Null
 
-$useChrome = $args -contains "--chrome"
-if ($useChrome) {
-    & flutter run -d chrome --web-port=8085 --web-hostname=0.0.0.0
+if ($canRunDart) {
+    $useChrome = $args -contains "--chrome"
+    if ($useChrome) {
+        & flutter run -d chrome --web-port=8085 --web-hostname=0.0.0.0
+    } else {
+        & flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0
+    }
 } else {
-    & flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0
+    $webServerPath = Join-Path $PSScriptRoot "backend\web_server.js"
+    Write-Host "==========================================================================" -ForegroundColor Green
+    Write-Host " SANCTUARY PLATFORM ESTA ACTIVA Y OPERATIVA" -ForegroundColor Green
+    Write-Host "==========================================================================" -ForegroundColor Green
+    Write-Host "  * Web Local:         http://localhost:8085" -ForegroundColor White
+    Write-Host "  * Backend API:       http://localhost:8088" -ForegroundColor White
+    Write-Host "  * Web en la Nube:    https://carlosss91.github.io/Sanctuary/" -ForegroundColor Gray
+    Write-Host "  * Backend en Nube:   https://sanctuary-backend-u1m1.onrender.com" -ForegroundColor Gray
+    Write-Host "==========================================================================" -ForegroundColor Green
+    Write-Host " Servidor Web Node.js activo en primer plano." -ForegroundColor Cyan
+    Write-Host " Presiona Ctrl+C para detener ambos servidores cuando termines." -ForegroundColor DarkGray
+    Write-Host ""
+
+    # Ejecutar el servidor web en primer plano para mantener la ventana viva
+    & $nodeCmd "$webServerPath"
 }

@@ -59,7 +59,7 @@
       "type": "shell",
       "command": "flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0",
       "windows": {
-        "command": "flutter run -d web-server --web-port=8085 --web-hostname=0.0.0.0"
+        "command": "powershell -ExecutionPolicy Bypass -File .\\start.ps1"
       },
       "isBackground": true,
       "problemMatcher": [],
