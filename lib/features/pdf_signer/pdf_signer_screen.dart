@@ -9,7 +9,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -732,11 +731,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-
-          // Sanctuary Celestial Planet Logo Badge
-          const SanctuaryPlanetLogo(size: 32, showGlow: true),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
 
           // Document Title and Status Badge
           Expanded(
@@ -1013,9 +1008,9 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             value: 'admin_panel',
             child: Row(
               children: [
-                Icon(Icons.admin_panel_settings_rounded, size: 17, color: const Color(0xFF06B6D4)),
-                const SizedBox(width: 10),
-                const Text(
+                Icon(Icons.admin_panel_settings_rounded, size: 17, color: Color(0xFF06B6D4)),
+                SizedBox(width: 10),
+                Text(
                   'Panel de Administración',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
                 ),
@@ -1067,17 +1062,17 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
-              radius: 12,
+              radius: 13,
               backgroundColor: AppTheme.emerald,
               backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
                   ? NetworkImage(user.avatarUrl!)
@@ -1085,17 +1080,17 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
                   ? Text(
                       user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
-                      style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                     )
                   : null,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               user.username,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(width: 2),
-            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
           ],
         ),
       ),

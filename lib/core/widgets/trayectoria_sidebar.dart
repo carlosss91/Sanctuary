@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import 'sanctuary_planet_logo.dart';
 
 class GitHubRepo {
   final String name;
@@ -94,36 +95,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF06B6D4)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'S',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 17,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
+                  const SanctuaryPlanetLogo(size: 34, showGlow: true),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -170,24 +142,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF06B6D4)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'S',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
-                      ),
-                    ),
-                  ),
+                  const SanctuaryPlanetLogo(size: 32, showGlow: true),
                   const SizedBox(height: 8),
                   if (widget.onToggleCollapse != null)
                     IconButton(

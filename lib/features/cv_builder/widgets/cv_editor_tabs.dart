@@ -163,28 +163,33 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Tab Bar (matching the step-by-step pill buttons in screenshot)
+          // Tab Bar (occupies full width of the editor panel)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder)),
             ),
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorColor: Colors.transparent,
-              dividerColor: Colors.transparent,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-              tabs: [
-                _buildTabPill(Icons.person_outline, '1. Identidad', 0, isDark),
-                _buildTabPill(Icons.phone_outlined, '2. Contacto', 1, isDark),
-                _buildTabPill(Icons.article_outlined, '3. Sobre Mí', 2, isDark),
-                _buildTabPill(Icons.star_outline, '4. Competencias', 3, isDark),
-                _buildTabPill(Icons.work_outline, '5. Experiencia', 4, isDark),
-                _buildTabPill(Icons.school_outlined, '6. Formación', 5, isDark),
-                _buildTabPill(Icons.palette_outlined, '7. Diseño y Color', 6, isDark),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 680;
+                return TabBar(
+                  controller: _tabController,
+                  isScrollable: isNarrow,
+                  tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
+                  indicatorColor: Colors.transparent,
+                  dividerColor: Colors.transparent,
+                  labelPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 2),
+                  tabs: [
+                    _buildTabPill(Icons.person_outline, '1. Identidad', 0, isDark, isExpanded: !isNarrow),
+                    _buildTabPill(Icons.phone_outlined, '2. Contacto', 1, isDark, isExpanded: !isNarrow),
+                    _buildTabPill(Icons.article_outlined, '3. Sobre Mí', 2, isDark, isExpanded: !isNarrow),
+                    _buildTabPill(Icons.star_outline, '4. Competencias', 3, isDark, isExpanded: !isNarrow),
+                    _buildTabPill(Icons.work_outline, '5. Experiencia', 4, isDark, isExpanded: !isNarrow),
+                    _buildTabPill(Icons.school_outlined, '6. Formación', 5, isDark, isExpanded: !isNarrow),
+                    _buildTabPill(Icons.palette_outlined, '7. Diseño', 6, isDark, isExpanded: !isNarrow),
+                  ],
+                );
+              },
             ),
           ),
 
@@ -1780,13 +1785,15 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     }
   }
 
-  Widget _buildTabPill(IconData icon, String text, int index, bool isDark) {
+  Widget _buildTabPill(IconData icon, String text, int index, bool isDark, {bool isExpanded = true}) {
     final isSelected = _tabController.index == index;
 
     return Tab(
       height: 36,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        width: isExpanded ? double.infinity : null,
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: isExpanded ? 4 : 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark ? const Color(0xFF132A26) : const Color(0xFFE6F4EA))
@@ -1808,22 +1815,28 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
           ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: isExpanded ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Icon(
               icon,
               size: 14,
               color: isSelected ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
             ),
-            const SizedBox(width: 6),
-            Text(
-              text,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                fontSize: 11.5,
-                color: isSelected
-                    ? AppTheme.emerald
-                    : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 11.5,
+                  color: isSelected
+                      ? AppTheme.emerald
+                      : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
+                ),
               ),
             ),
           ],

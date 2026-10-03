@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -751,11 +750,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               ),
             ),
           ),
-          const SizedBox(width: 10),
-
-          // Sanctuary Celestial Planet Logo Badge
-          const SanctuaryPlanetLogo(size: 32, showGlow: true),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
 
           // Admin Icon Badge
           Container(
@@ -2115,27 +2110,36 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         ),
       ],
       child: Container(
-        width: 36,
-        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
         ),
-        child: Center(
-          child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(user.avatarUrl!, width: 28, height: 28, fit: BoxFit.cover),
-                )
-              : Text(
-                  user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 13,
+              backgroundColor: const Color(0xFF06B6D4),
+              backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                  ? NetworkImage(user.avatarUrl!)
+                  : null,
+              child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                  ? Text(
+                      user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              user.username,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+          ],
         ),
       ),
     );

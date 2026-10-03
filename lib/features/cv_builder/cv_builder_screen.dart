@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
+import '../hub/user_profile_dialog.dart';
 import '../../data/models/cv_profile_model.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/pdf_export_service.dart';
@@ -479,11 +479,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-
-                      // Sanctuary Celestial Planet Logo Badge
-                      const SanctuaryPlanetLogo(size: 32, showGlow: true),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
 
                       // Module tag / Title
                       Text(
@@ -629,6 +625,15 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                             widget.onOpenAdminPanel?.call();
                           } else if (val == 'teacher') {
                             _showTeacherManagementDialog();
+                          } else if (val == 'edit_profile' && currentUser != null) {
+                            UserProfileDialog.show(
+                              context,
+                              user: currentUser,
+                              apiService: widget.apiService,
+                              onUserUpdated: (updated) {
+                                setState(() {});
+                              },
+                            );
                           }
                         },
                         itemBuilder: (context) => [
@@ -640,10 +645,15 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                                 CircleAvatar(
                                   radius: 16,
                                   backgroundColor: AppTheme.emerald,
-                                  child: Text(
-                                    userInitial,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
+                                  backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
+                                      ? NetworkImage(currentUser.avatarUrl!)
+                                      : null,
+                                  child: (currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty)
+                                      ? Text(
+                                          userInitial,
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(width: 10),
                                 Column(
@@ -667,6 +677,17 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                             ),
                           ),
                           const PopupMenuDivider(),
+
+                          const PopupMenuItem<String>(
+                            value: 'edit_profile',
+                            child: Row(
+                              children: [
+                                Icon(Icons.manage_accounts_outlined, size: 16, color: AppTheme.emerald),
+                                SizedBox(width: 10),
+                                Text('Editar Perfil y Foto', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
 
                           const PopupMenuItem<String>(
                             value: 'teacher',
@@ -741,22 +762,36 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
                         ],
                         child: Container(
-                          width: 36,
-                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
                             color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                            border: Border.all(color: AppTheme.emerald.withOpacity(0.5), width: 1.5),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
                           ),
-                          child: Center(
-                            child: Text(
-                              userInitial,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: AppTheme.emerald,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 13,
+                                backgroundColor: AppTheme.emerald,
+                                backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
+                                    ? NetworkImage(currentUser.avatarUrl!)
+                                    : null,
+                                child: (currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty)
+                                    ? Text(
+                                        userInitial,
+                                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      )
+                                    : null,
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Text(
+                                username,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                            ],
                           ),
                         ),
                       ),
