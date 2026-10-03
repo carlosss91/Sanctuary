@@ -20,6 +20,7 @@ class CvBuilderScreen extends StatefulWidget {
   final VoidCallback onToggleCosmic;
   final VoidCallback? onOpenPdfSigner;
   final VoidCallback? onOpenPreziDownloader;
+  final VoidCallback? onOpenAdminPanel;
   final bool isDark;
   final bool isCosmicActive;
 
@@ -29,6 +30,7 @@ class CvBuilderScreen extends StatefulWidget {
     required this.onBackToHub,
     this.onOpenPdfSigner,
     this.onOpenPreziDownloader,
+    this.onOpenAdminPanel,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -413,6 +415,8 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                 widget.onOpenPdfSigner!();
               } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
                 widget.onOpenPreziDownloader!();
+              } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                widget.onOpenAdminPanel!();
               } else if (itemKey == 'Alumnos') {
                 _showTeacherManagementDialog();
               } else if (itemKey == 'Orientación') {
@@ -438,7 +442,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                 // TOP NAVIGATION BAR (Clean with Back button, title, language, install and user menu)
                 Container(
                   height: 58,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF0E131F) : const Color(0xFFFFFFFF),
                     border: Border(
@@ -450,35 +454,31 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                   ),
                   child: Row(
                     children: [
-                      // PERMANENT "ATRÁS" BUTTON (Takes user back to Hub)
-                      InkWell(
-                        onTap: widget.onBackToHub,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.arrow_back, size: 16, color: isDark ? Colors.white : Colors.black87),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Atrás',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
+                      // PERMANENT "ATRÁS" BUTTON (Solo flecha compacta, sin texto)
+                      Tooltip(
+                        message: 'Volver al Santuario Hub',
+                        child: InkWell(
+                          onTap: widget.onBackToHub,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_back_rounded,
+                                size: 18,
+                                color: isDark ? Colors.white : Colors.black87,
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
 
                       // Module tag / Title
                       Text(
@@ -523,8 +523,6 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                       ),
                       const SizedBox(width: 12),
 
-                      const SizedBox(width: 8),
-
                       // "Instalar App" Button (matching screenshot)
                       OutlinedButton.icon(
                         onPressed: _showInstallDialog,
@@ -547,27 +545,64 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
 
-                      // Cosmic Animation Toggle
-                      IconButton(
-                        tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-                        icon: Icon(
-                          widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                          color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
-                          size: 19,
+                      // Cosmic Animation Toggle (Consistent 36x36 style)
+                      Tooltip(
+                        message: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+                        child: InkWell(
+                          onTap: widget.onToggleCosmic,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: widget.isCosmicActive
+                                  ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
+                                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                                size: 18,
+                                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                              ),
+                            ),
+                          ),
                         ),
-                        onPressed: widget.onToggleCosmic,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 7),
 
-                      // Theme Toggle
-                      IconButton(
-                        tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-                        icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 19),
-                        onPressed: widget.onToggleTheme,
+                      // Theme Toggle (Consistent 36x36 style)
+                      Tooltip(
+                        message: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+                        child: InkWell(
+                          onTap: widget.onToggleTheme,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                                size: 18,
+                                color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 10),
 
                       // USER CIRCLE AVATAR WITH DROPDOWN MENU
                       PopupMenuButton<String>(

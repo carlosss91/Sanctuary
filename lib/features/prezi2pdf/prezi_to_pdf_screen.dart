@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
 import '../hub/user_profile_dialog.dart';
@@ -17,6 +18,9 @@ class PreziToPdfScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
+  final VoidCallback? onOpenCvBuilder;
+  final VoidCallback? onOpenPdfSigner;
+  final VoidCallback? onOpenAdminPanel;
   final bool isDark;
   final bool isCosmicActive;
 
@@ -24,6 +28,9 @@ class PreziToPdfScreen extends StatefulWidget {
     super.key,
     required this.apiService,
     required this.onBackToHub,
+    this.onOpenCvBuilder,
+    this.onOpenPdfSigner,
+    this.onOpenAdminPanel,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -39,6 +46,7 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
   late final PreziService _preziService;
   final TextEditingController _urlController = TextEditingController();
 
+  bool _isSidebarCollapsed = false;
   bool _filterTransitions = true;
   bool _filterDuplicates = true;
 
@@ -939,62 +947,131 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: _buildAppBar(isDark),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1150),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Collapsible Sanctuary Sidebar
+          TrayectoriaSidebar(
+            isDark: isDark,
+            isCollapsed: _isSidebarCollapsed,
+            activeItem: 'Prezi2Pdf',
+            onSelect: (item) {
+              if (item == 'Inicio') {
+                widget.onBackToHub();
+              } else if (item == 'Orientación') {
+                if (widget.onOpenCvBuilder != null) {
+                  widget.onOpenCvBuilder!();
+                } else {
+                  widget.onBackToHub();
+                }
+              } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                widget.onOpenPdfSigner!();
+              } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                widget.onOpenAdminPanel!();
+              }
+            },
+            onToggleCollapse: () {
+              setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
+            },
+          ),
+
+          // 2. Main Workspace
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. HERO BANNER
-                _buildHeroBanner(isDark),
+                _buildTopBar(isDark),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1150),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // 1. HERO BANNER
+                            _buildHeroBanner(isDark),
 
-                const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                // 2. INPUT CARD CON SELECTOR DE PLATAFORMAS
-                _buildInputCard(isDark),
+                            // 2. INPUT CARD CON SELECTOR DE PLATAFORMAS
+                            _buildInputCard(isDark),
 
-                const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                // 3. PROGRESS SECTION
-                if (_state.isProcessing || _state.hasError || _state.isDone)
-                  _buildProgressCard(isDark),
+                            // 3. PROGRESS SECTION
+                            if (_state.isProcessing || _state.hasError || _state.isDone)
+                              _buildProgressCard(isDark),
 
-                // 4. PDF RESULT CARD
-                if (_state.generatedPdfBytes != null) ...[
-                  const SizedBox(height: 24),
-                  _buildPdfResultCard(isDark),
-                ],
+                            // 4. PDF RESULT CARD
+                            if (_state.generatedPdfBytes != null) ...[
+                              const SizedBox(height: 24),
+                              _buildPdfResultCard(isDark),
+                            ],
 
-                // 5. VIDEOS EXTRACTION & SELECTION SECTION
-                if (_detectedVideos.isNotEmpty) ...[
-                  const SizedBox(height: 32),
-                  _buildVideosSection(isDark),
-                ],
+                            // 5. VIDEOS EXTRACTION & SELECTION SECTION
+                            if (_detectedVideos.isNotEmpty) ...[
+                              const SizedBox(height: 32),
+                              _buildVideosSection(isDark),
+                            ],
 
-                const SizedBox(height: 48),
+                            const SizedBox(height: 48),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(bool isDark) {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
-        tooltip: 'Volver al Inicio (Santuario)',
-        onPressed: widget.onBackToHub,
+  Widget _buildTopBar(bool isDark) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+        ),
       ),
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
+          // Back Button to Hub (Solo flecha compacta, sin texto)
+          Tooltip(
+            message: 'Volver al Santuario Hub',
+            child: InkWell(
+              onTap: widget.onBackToHub,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    size: 18,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // App Title
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
@@ -1008,7 +1085,7 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
           const SizedBox(width: 10),
           const Text(
             'Slide Downloader',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
           ),
           const SizedBox(width: 8),
           Container(
@@ -1022,27 +1099,70 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               style: TextStyle(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
             ),
           ),
+
+          const Spacer(),
+
+          // Cosmic Animation Toggle (Consistent 36x36 style)
+          Tooltip(
+            message: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+            child: InkWell(
+              onTap: widget.onToggleCosmic,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: widget.isCosmicActive
+                      ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
+                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                    width: 1.2,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                    size: 18,
+                    color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+
+          // Theme Toggle (Consistent 36x36 style)
+          Tooltip(
+            message: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+            child: InkWell(
+              onTap: widget.onToggleTheme,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                ),
+                child: Center(
+                  child: Icon(
+                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                    size: 18,
+                    color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Profile Dropdown
+          _buildProfileDropdown(isDark),
         ],
       ),
-      actions: [
-        IconButton(
-          tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
-          icon: Icon(
-            widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-            color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
-            size: 20,
-          ),
-          onPressed: widget.onToggleCosmic,
-        ),
-        IconButton(
-          tooltip: isDark ? 'Cambiar a Tema Claro' : 'Cambiar a Tema Oscuro',
-          icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
-          onPressed: widget.onToggleTheme,
-        ),
-        const SizedBox(width: 4),
-        _buildProfileDropdown(isDark),
-        const SizedBox(width: 10),
-      ],
     );
   }
 
@@ -1142,30 +1262,27 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 12,
-              backgroundColor: AppTheme.emerald,
-              child: Text(
-                user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
-                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              user.username,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-            const Icon(Icons.arrow_drop_down, size: 16),
-          ],
+        child: Center(
+          child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(user.avatarUrl!, width: 28, height: 28, fit: BoxFit.cover),
+                )
+              : Text(
+                  user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
         ),
       ),
     );

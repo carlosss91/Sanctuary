@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
 import '../hub/user_profile_dialog.dart';
@@ -11,6 +12,9 @@ class AdminPanelScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
+  final VoidCallback? onOpenCvBuilder;
+  final VoidCallback? onOpenPdfSigner;
+  final VoidCallback? onOpenPreziDownloader;
   final bool isDark;
   final bool isCosmicActive;
 
@@ -19,6 +23,9 @@ class AdminPanelScreen extends StatefulWidget {
     required this.apiService,
     required this.currentUser,
     required this.onBackToHub,
+    this.onOpenCvBuilder,
+    this.onOpenPdfSigner,
+    this.onOpenPreziDownloader,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -32,6 +39,7 @@ class AdminPanelScreen extends StatefulWidget {
 
 class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isSidebarCollapsed = false;
   List<UserModel> _users = [];
   Map<String, dynamic> _stats = {};
   List<Map<String, dynamic>> _chatMessages = [];
@@ -638,112 +646,265 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        titleSpacing: 10,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Volver al Inicio (Hub)',
-          onPressed: widget.onBackToHub,
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: const Color(0xFF06B6D4).withOpacity(0.18),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
-              ),
-              child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF06B6D4), size: 20),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Collapsible Sanctuary Sidebar
+          TrayectoriaSidebar(
+            isDark: isDark,
+            isCollapsed: _isSidebarCollapsed,
+            activeItem: 'AdminPanel',
+            onSelect: (item) {
+              if (item == 'Inicio') {
+                widget.onBackToHub();
+              } else if (item == 'Orientación') {
+                if (widget.onOpenCvBuilder != null) {
+                  widget.onOpenCvBuilder!();
+                } else {
+                  widget.onBackToHub();
+                }
+              } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                widget.onOpenPdfSigner!();
+              } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                widget.onOpenPreziDownloader!();
+              }
+            },
+            onToggleCollapse: () {
+              setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
+            },
+          ),
+
+          // 2. Main Admin Workspace
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
-                  children: [
-                    Text('PANEL DE CONTROL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.2)),
-                    SizedBox(width: 8),
-                    Badge(
-                      label: Text('SUPER ADMIN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
-                      backgroundColor: Color(0xFF06B6D4),
-                    ),
-                  ],
-                ),
-                Text(
-                  'Gestión integral de usuarios, chat, módulos y estado del sistema',
-                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                _buildTopBar(isDark),
+                _buildTabBar(isDark),
+                Expanded(
+                  child: _isLoading
+                      ? const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                              SizedBox(height: 16),
+                              Text('Cargando datos administrativos...', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            ],
+                          ),
+                        )
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildUsersTab(isDark),
+                            _buildChatModerationTab(isDark),
+                            _buildModulesTab(isDark),
+                            _buildSystemStatusTab(isDark),
+                          ],
+                        ),
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          // Refresh button
-          IconButton(
-            icon: const Icon(Icons.refresh, size: 20),
-            tooltip: 'Recargar datos',
-            onPressed: _loadAllAdminData,
           ),
-          // Cosmic Animation Toggle
-          IconButton(
-            tooltip: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
-            icon: Icon(
-              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-              color: widget.isCosmicActive ? const Color(0xFF06B6D4) : Colors.grey,
-              size: 20,
-            ),
-            onPressed: widget.onToggleCosmic,
-          ),
-          // Light / Dark Theme Toggle
-          IconButton(
-            tooltip: isDark ? 'Tema Claro' : 'Tema Oscuro',
-            icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
-            onPressed: widget.onToggleTheme,
-          ),
-          const SizedBox(width: 6),
-          // User Profile Dropdown Menu (Standardized right side)
-          _buildProfileDropdown(isDark),
-          const SizedBox(width: 8),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicatorColor: const Color(0xFF06B6D4),
-          labelColor: const Color(0xFF06B6D4),
-          unselectedLabelColor: isDark ? Colors.grey : Colors.blueGrey,
-          tabs: [
-            const Tab(icon: Icon(Icons.manage_accounts_rounded, size: 18), text: 'Usuarios y Roles'),
-            Tab(
-              icon: const Icon(Icons.forum_rounded, size: 18),
-              text: 'Chat y Moderación (${_chatMessages.length})',
-            ),
-            const Tab(icon: Icon(Icons.dashboard_customize_rounded, size: 18), text: 'Módulos y Web Apps'),
-            const Tab(icon: Icon(Icons.dns_rounded, size: 18), text: 'Servidor y Base de Datos'),
-          ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar(bool isDark) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
+      child: Row(
+        children: [
+          // Back Button to Hub (Solo flecha compacta, sin texto)
+          Tooltip(
+            message: 'Volver al Santuario Hub',
+            child: InkWell(
+              onTap: widget.onBackToHub,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    size: 18,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Admin Icon Badge
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: const Color(0xFF06B6D4).withOpacity(0.18),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
+            ),
+            child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF06B6D4), size: 19),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: Color(0xFF06B6D4)),
-                  SizedBox(height: 16),
-                  Text('Cargando datos administrativos...', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const Text('PANEL DE CONTROL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1.1)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF06B6D4),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('SUPER ADMIN', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
                 ],
               ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildUsersTab(isDark),
-                _buildChatModerationTab(isDark),
-                _buildModulesTab(isDark),
-                _buildSystemStatusTab(isDark),
-              ],
+              Text(
+                'Gestión integral de usuarios, chat, módulos y estado del sistema',
+                style: TextStyle(fontSize: 9.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              ),
+            ],
+          ),
+
+          const Spacer(),
+
+          // Refresh button (Consistent 36x36 style)
+          Tooltip(
+            message: 'Recargar datos administrativos',
+            child: InkWell(
+              onTap: _loadAllAdminData,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                ),
+                child: Center(
+                  child: Icon(Icons.refresh, size: 18, color: isDark ? Colors.white70 : const Color(0xFF334155)),
+                ),
+              ),
             ),
+          ),
+          const SizedBox(width: 7),
+
+          // Cosmic Animation Toggle (Consistent 36x36 style)
+          Tooltip(
+            message: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
+            child: InkWell(
+              onTap: widget.onToggleCosmic,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: widget.isCosmicActive
+                      ? (isDark ? const Color(0xFF06B6D4).withOpacity(0.18) : const Color(0xFF06B6D4).withOpacity(0.12))
+                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: widget.isCosmicActive ? const Color(0xFF06B6D4).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                    width: 1.2,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                    size: 18,
+                    color: widget.isCosmicActive ? const Color(0xFF06B6D4) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+
+          // Light / Dark Theme Toggle (Consistent 36x36 style)
+          Tooltip(
+            message: isDark ? 'Tema Claro' : 'Tema Oscuro',
+            child: InkWell(
+              onTap: widget.onToggleTheme,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                ),
+                child: Center(
+                  child: Icon(
+                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                    size: 18,
+                    color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Profile Dropdown
+          _buildProfileDropdown(isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0A0F1A) : const Color(0xFFF8FAFC),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+        ),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        indicatorColor: const Color(0xFF06B6D4),
+        indicatorWeight: 3,
+        labelColor: const Color(0xFF06B6D4),
+        unselectedLabelColor: isDark ? Colors.grey : Colors.blueGrey,
+        tabs: [
+          const Tab(icon: Icon(Icons.manage_accounts_rounded, size: 18), text: 'Usuarios y Roles'),
+          Tab(
+            icon: const Icon(Icons.forum_rounded, size: 18),
+            text: 'Chat y Moderación (${_chatMessages.length})',
+          ),
+          const Tab(icon: Icon(Icons.dashboard_customize_rounded, size: 18), text: 'Módulos y Web Apps'),
+          const Tab(icon: Icon(Icons.dns_rounded, size: 18), text: 'Servidor y Base de Datos'),
+        ],
+      ),
     );
   }
 
@@ -1871,30 +2032,27 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 12,
-              backgroundColor: const Color(0xFF06B6D4),
-              child: Text(
-                user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
-                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              user.username,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-            const Icon(Icons.arrow_drop_down, size: 16),
-          ],
+        child: Center(
+          child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(user.avatarUrl!, width: 28, height: 28, fit: BoxFit.cover),
+                )
+              : Text(
+                  user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
         ),
       ),
     );

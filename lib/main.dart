@@ -92,6 +92,9 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
+              onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
               onLogout: _logout,
               onToggleTheme: _toggleTheme,
               onToggleCosmic: _toggleCosmic,
@@ -104,6 +107,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
               onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
               onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
+              onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),
               onLogout: _logout,
               onToggleTheme: _toggleTheme,
               onToggleCosmic: _toggleCosmic,
@@ -127,6 +131,9 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
+              onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),
               onLogout: _logout,
               onToggleTheme: _toggleTheme,
               onToggleCosmic: _toggleCosmic,
@@ -153,7 +160,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
             child: Stack(
               children: [
                 currentScreen,
-                if (_currentUser != null && (_currentRoute == 'hub' || _currentRoute == 'admin_panel'))
+                if (_currentUser != null)
                   Positioned(
                     right: 22,
                     bottom: 22,

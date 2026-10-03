@@ -284,11 +284,12 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                 const SizedBox(height: 4),
 
                 _buildNavItem(
-                  icon: Icons.settings_outlined,
-                  title: 'Ajustes del Sistema',
-                  itemKey: 'Ajustes',
+                  icon: Icons.admin_panel_settings_outlined,
+                  title: 'Panel de Control',
+                  itemKey: 'AdminPanel',
                   isDark: isDark,
-                  isActive: widget.activeItem == 'Ajustes',
+                  isActive: widget.activeItem == 'AdminPanel' || widget.activeItem == 'Ajustes',
+                  badge: 'Admin',
                 ),
 
                 const SizedBox(height: 18),

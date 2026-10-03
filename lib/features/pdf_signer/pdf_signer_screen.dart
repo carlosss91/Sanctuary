@@ -637,6 +637,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   }
                 } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
                   widget.onOpenPreziDownloader!();
+                } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                  widget.onOpenAdminPanel!();
                 }
               },
               onToggleCollapse: () {
@@ -705,7 +707,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       ),
       child: Row(
         children: [
-          // Back Button to Hub (Solo flecha compacta, sin texto largo)
+          // Back Button to Hub (Solo flecha compacta, sin texto)
           Tooltip(
             message: 'Volver al Santuario Hub',
             child: InkWell(
@@ -717,10 +719,14 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
                 ),
-                child: const Center(
-                  child: Icon(Icons.arrow_back_rounded, size: 18),
+                child: Center(
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    size: 18,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
               ),
             ),
@@ -779,44 +785,46 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Action Buttons: Icon-Only with Hover Tooltips (compact, standard height & width)
+          // Coherent Top Action Buttons (All 36x36, rounded 10, themed surface)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Verified Security Standards Icon Button
+                // 1. Verified Security Standards
                 _buildTopIconButton(
                   icon: Icons.verified_user_rounded,
                   tooltip: 'Seguridad Verificada eIDAS / PAdES (RFC 3161)',
                   onTap: () => SecurityStandardsDialog.show(context, _document),
-                  backgroundColor: const Color(0xFF059669),
-                  iconColor: Colors.white,
+                  backgroundColor: isDark ? const Color(0xFF059669).withOpacity(0.18) : const Color(0xFF059669).withOpacity(0.12),
+                  iconColor: const Color(0xFF059669),
+                  border: Border.all(color: const Color(0xFF059669).withOpacity(0.55), width: 1.2),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
 
-                // 2. Attach PDF Icon Button
+                // 2. Attach PDF
                 _buildTopIconButton(
                   icon: Icons.upload_file_rounded,
                   tooltip: 'Adjuntar documento PDF a firmar',
                   onTap: _pickPdfFile,
                   backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  iconColor: isDark ? Colors.white : const Color(0xFF334155),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                  iconColor: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
 
                 // 3. Sign Document (Emerald)
                 _buildTopIconButton(
                   icon: Icons.draw_rounded,
                   tooltip: 'Firmar documento (Rúbrica Biométrica Digital)',
                   onTap: _openSignModal,
-                  backgroundColor: AppTheme.emerald,
-                  iconColor: Colors.white,
+                  backgroundColor: isDark ? const Color(0xFF10B981).withOpacity(0.20) : const Color(0xFF10B981).withOpacity(0.14),
+                  iconColor: AppTheme.emerald,
+                  border: Border.all(color: AppTheme.emerald.withOpacity(0.6), width: 1.2),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
 
-                // 4. Share Document (Blue)
+                // 4. Share Document (Cyan/Blue)
                 _buildTopIconButton(
                   icon: Icons.share_rounded,
                   tooltip: 'Compartir enlace y firmantes acreditados',
@@ -825,40 +833,51 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                     _document,
                     onSimulateGuestSigner: _simulateExternalGuestSigner,
                   ),
-                  backgroundColor: const Color(0xFF2563EB),
-                  iconColor: Colors.white,
+                  backgroundColor: isDark ? const Color(0xFF06B6D4).withOpacity(0.20) : const Color(0xFF06B6D4).withOpacity(0.14),
+                  iconColor: const Color(0xFF06B6D4),
+                  border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.6), width: 1.2),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
 
                 // 5. Download Signed Document (Purple)
                 _buildTopIconButton(
                   icon: Icons.download_rounded,
                   tooltip: 'Descargar documento firmado (.pdf)',
                   onTap: _exportSignedPdf,
-                  backgroundColor: const Color(0xFF7C3AED),
-                  iconColor: Colors.white,
+                  backgroundColor: isDark ? const Color(0xFF8B5CF6).withOpacity(0.20) : const Color(0xFF8B5CF6).withOpacity(0.14),
+                  iconColor: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
+                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.6), width: 1.2),
                 ),
                 const SizedBox(width: 10),
 
-                // Theme and Cosmic toggles
-                IconButton(
-                  icon: Icon(widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 18),
-                  tooltip: 'Cambiar tema',
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(),
-                  onPressed: widget.onToggleTheme,
+                // 6. Cosmic Animation Toggle (Consistent 36x36 style)
+                _buildTopIconButton(
+                  icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                  tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+                  onTap: widget.onToggleCosmic,
+                  backgroundColor: widget.isCosmicActive
+                      ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
+                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                  iconColor: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  border: Border.all(
+                    color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                    width: 1.2,
+                  ),
                 ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: Icon(widget.isCosmicActive ? Icons.auto_awesome : Icons.blur_off, size: 18),
-                  tooltip: 'Animación cósmica',
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(),
-                  onPressed: widget.onToggleCosmic,
-                ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
 
-                // Profile Dropdown
+                // 7. Light / Dark Theme Toggle (Consistent 36x36 style)
+                _buildTopIconButton(
+                  icon: widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  tooltip: widget.isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+                  onTap: widget.onToggleTheme,
+                  backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  iconColor: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                ),
+                const SizedBox(width: 10),
+
+                // 8. Profile Dropdown (Consistent 36x36 style)
                 _buildProfileDropdown(isDark),
               ],
             ),
@@ -882,22 +901,15 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          width: 38,
-          height: 38,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(10),
             border: border,
-            boxShadow: [
-              BoxShadow(
-                color: backgroundColor.withOpacity(0.32),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Center(
-            child: Icon(icon, size: 19, color: iconColor),
+            child: Icon(icon, size: 18, color: iconColor),
           ),
         ),
       ),
