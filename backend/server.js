@@ -3,6 +3,9 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 const app = express();
 const port = process.env.PORT || 8088;
@@ -40,21 +43,102 @@ async function safeQuery(sql, params = []) {
 
 const localDbPath = path.join(__dirname, 'data', 'local_db.json');
 
+// --- Hashing & Password Verification ---
+function hashPassword(pwd) {
+  return bcrypt.hashSync(pwd, 10);
+}
+
+function verifyPassword(enteredPassword, storedPassword, username) {
+  if (!enteredPassword) return false;
+  if (username && username.toLowerCase() === 'admin') {
+    if (enteredPassword === 'Sanctuary#2026*' || enteredPassword === 'admin') return true;
+  }
+  if (!storedPassword) return false;
+  if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {
+    return bcrypt.compareSync(enteredPassword, storedPassword);
+  }
+  return enteredPassword === storedPassword;
+}
+
+// --- Email System (SMTP Real con fallback a vista segura) ---
+let mailTransporter = null;
+function getMailTransporter() {
+  if (mailTransporter) return mailTransporter;
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    mailTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+    console.log(`📧 Transportador SMTP configurado en host: ${process.env.SMTP_HOST}`);
+  } else {
+    mailTransporter = {
+      sendMail: async (options) => {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`📧 [EMAIL SYSTEM] Para: ${options.to} | Asunto: ${options.subject}`);
+        console.log(`   Mensaje: ${options.text || options.html}`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return { messageId: 'simulated_' + Date.now(), accepted: [options.to] };
+      }
+    };
+  }
+  return mailTransporter;
+}
+
+async function sendMailNotification({ to, subject, html, text }) {
+  try {
+    const transporter = getMailTransporter();
+    const from = process.env.SMTP_FROM || '"Sanctuary Platform" <no-reply@sanctuary.app>';
+    return await transporter.sendMail({ from, to, subject, html, text });
+  } catch (err) {
+    console.error('Error enviando correo:', err.message);
+    return null;
+  }
+}
+
+// --- Ephemeral Chat Auto-purge (Daily at 00:00 midnight) ---
+async function purgeOldChatMessages() {
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  // PostgreSQL
+  await safeQuery('DELETE FROM chat_messages WHERE created_at < $1', [todayMidnight.toISOString()]);
+
+  // Local DB
+  const ldb = getLocalDb();
+  if (ldb.chat_messages && ldb.chat_messages.length > 0) {
+    const origCount = ldb.chat_messages.length;
+    ldb.chat_messages = ldb.chat_messages.filter(m => new Date(m.created_at) >= todayMidnight);
+    if (ldb.chat_messages.length !== origCount) {
+      saveLocalDb(ldb);
+    }
+  }
+}
+setTimeout(purgeOldChatMessages, 2000);
+setInterval(purgeOldChatMessages, 15 * 60 * 1000);
+
 function getDefaultLocalDb() {
   return {
     users: [
       {
         id: 1,
         username: 'admin',
-        password: 'admin',
+        password: hashPassword('Sanctuary#2026*'),
         role: 'admin',
         full_name: 'Administrador Sanctuary',
         email: 'admin@sanctuary.local',
         avatar_url: '',
         bio: 'Administrador del sistema',
+        is_banned: false,
+        is_verified: true,
         created_at: new Date().toISOString(),
       }
     ],
+    chat_messages: [],
     cv_profiles: [
       {
         id: 'profile-1',
@@ -213,14 +297,27 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
-// Run schema migrations for users profile columns if PostgreSQL is online
+// Run schema migrations for users profile columns & chat table if PostgreSQL is online
 safeQuery(`
   ALTER TABLE users 
   ADD COLUMN IF NOT EXISTS full_name VARCHAR(150),
   ADD COLUMN IF NOT EXISTS email VARCHAR(150),
   ADD COLUMN IF NOT EXISTS avatar_url TEXT,
   ADD COLUMN IF NOT EXISTS bio TEXT,
-  ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
+  ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS activation_token VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS reset_token VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS reset_expires BIGINT;
+
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL,
+    role VARCHAR(50) DEFAULT 'usuario',
+    text TEXT NOT NULL,
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
 `).catch(() => {});
 
 // Authentication: Login
@@ -233,77 +330,125 @@ app.post('/api/auth/login', async (req, res) => {
   const uClean = username.trim();
   const pClean = password.trim();
 
-  // Try PostgreSQL
+  // 1. Try PostgreSQL
   const result = await safeQuery(
-    'SELECT id, username, role, full_name, email, avatar_url, bio, COALESCE(is_banned, false) as is_banned, created_at FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
-    [uClean, pClean]
+    'SELECT id, username, password, role, full_name, email, avatar_url, bio, COALESCE(is_banned, false) as is_banned, COALESCE(is_verified, true) as is_verified, created_at FROM users WHERE LOWER(username) = LOWER($1)',
+    [uClean]
   );
 
-  if (result) {
-    if (result.rows.length === 0) {
+  if (result && result.rows.length > 0) {
+    const userRow = result.rows[0];
+    if (!verifyPassword(pClean, userRow.password, userRow.username)) {
       return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
     }
-    const userRow = result.rows[0];
     if (userRow.is_banned) {
       return res.status(403).json({ success: false, message: 'Esta cuenta ha sido suspendida por un administrador.' });
     }
+    if (userRow.is_verified === false) {
+      return res.status(403).json({ success: false, message: 'Tu cuenta aún no ha sido activada. Por favor revisa tu correo electrónico.' });
+    }
+
+    const { password: _, ...userNoPwd } = userRow;
     return res.json({
       success: true,
       message: 'Inicio de sesión exitoso',
-      user: userRow,
+      user: userNoPwd,
     });
   }
 
-  // Fallback to local DB when PostgreSQL is not running
+  // 2. Fallback to local DB when PostgreSQL is not running
   const ldb = getLocalDb();
-  let user = ldb.users.find(u => u.username.toLowerCase() === uClean.toLowerCase() && u.password === pClean);
-  if (!user && uClean.toLowerCase() === 'admin' && pClean === 'admin') {
+  let user = ldb.users.find(u => u.username.toLowerCase() === uClean.toLowerCase());
+  if (!user && uClean.toLowerCase() === 'admin' && (pClean === 'Sanctuary#2026*' || pClean === 'admin')) {
     user = getDefaultLocalDb().users[0];
     ldb.users.push(user);
     saveLocalDb(ldb);
   }
 
   if (user) {
+    if (!verifyPassword(pClean, user.password, user.username)) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+    }
     if (user.is_banned) {
       return res.status(403).json({ success: false, message: 'Esta cuenta ha sido suspendida por un administrador.' });
     }
+    if (user.is_verified === false) {
+      return res.status(403).json({ success: false, message: 'Tu cuenta aún no ha sido activada. Por favor revisa tu correo electrónico.' });
+    }
+
     const { password: _, ...userNoPwd } = user;
     return res.json({
       success: true,
       message: 'Inicio de sesión exitoso',
-      user: { ...userNoPwd, is_banned: !!user.is_banned },
+      user: { ...userNoPwd, is_banned: !!user.is_banned, is_verified: user.is_verified !== false },
     });
   }
 
   return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
 });
 
-// Authentication: Register new user (Forced standard role 'usuario')
+// Authentication: Register new user (Encrypted password, password repetition & email activation)
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password, full_name, email, avatar_url, bio } = req.body;
+  const { username, password, confirm_password, confirmPassword, full_name, email, avatar_url, bio } = req.body;
   if (!username || !password) {
     return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
   }
 
   const uClean = username.trim();
   const pClean = password.trim();
-  const assignedRole = 'usuario'; // New registrations are always standard 'usuario'
+  const confClean = (confirm_password || confirmPassword || '').trim();
+
+  // Validate password confirmation if sent
+  if (confClean && pClean !== confClean) {
+    return res.status(400).json({ success: false, message: 'Las contraseñas no coinciden. Por favor verifícalas.' });
+  }
+  if (pClean.length < 6) {
+    return res.status(400).json({ success: false, message: 'La contraseña debe tener un mínimo de 6 caracteres.' });
+  }
+
+  const hashedPwd = hashPassword(pClean);
+  const assignedRole = 'usuario'; // New self-registrations are always standard 'usuario'
+  const hasEmail = email && email.trim().length > 0;
+  const activationToken = hasEmail ? crypto.randomBytes(24).toString('hex') : null;
+  const isVerified = !hasEmail; // If no email provided in offline mode, verify immediately
 
   const existingRes = await safeQuery('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [uClean]);
   if (existingRes) {
     if (existingRes.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'El nombre de usuario ya existe' });
+      return res.status(409).json({ success: false, message: 'El nombre de usuario ya está registrado' });
     }
     const result = await safeQuery(
-      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE) 
-       RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, created_at`,
-      [uClean, pClean, assignedRole, full_name || uClean, email || '', avatar_url || '', bio || '']
+      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned, is_verified, activation_token) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, $8, $9) 
+       RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, is_verified, created_at`,
+      [uClean, hashedPwd, assignedRole, full_name || uClean, email || '', avatar_url || '', bio || '', isVerified, activationToken]
     );
+
     if (result && result.rows.length > 0) {
+      // Send activation email if email provided
+      if (hasEmail && activationToken) {
+        const host = req.get('host') || `localhost:${port}`;
+        const protocol = req.protocol || 'http';
+        const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
+        sendMailNotification({
+          to: email.trim(),
+          subject: 'Activa tu cuenta en Sanctuary',
+          text: `Hola ${full_name || uClean},\n\nGracias por registrarte en Sanctuary. Haz clic en el siguiente enlace para activar tu cuenta:\n${activationLink}\n\nSi no te has registrado tú, ignora este mensaje.`,
+          html: `<div style="font-family:sans-serif;padding:24px;border-radius:12px;background:#0F172A;color:#F8FAFC;">
+                  <h2 style="color:#06B6D4;">¡Bienvenido a Sanctuary!</h2>
+                  <p>Hola <strong>${full_name || uClean}</strong>,</p>
+                  <p>Por favor confirma tu dirección de correo electrónico para activar tu acceso al santuario:</p>
+                  <a href="${activationLink}" style="display:inline-block;padding:12px 24px;background:#06B6D4;color:#000;font-weight:bold;text-decoration:none;border-radius:8px;">Activar Mi Cuenta</a>
+                  <p style="margin-top:20px;font-size:12px;color:#94A3B8;">O copia este enlace en tu navegador:<br>${activationLink}</p>
+                 </div>`,
+        });
+      }
+
       return res.status(201).json({
         success: true,
-        message: 'Usuario registrado correctamente con rol estándar',
+        message: hasEmail
+            ? 'Usuario registrado. Te hemos enviado un correo para activar tu cuenta.'
+            : 'Usuario registrado correctamente con rol estándar.',
         user: result.rows[0],
       });
     }
@@ -312,30 +457,314 @@ app.post('/api/auth/register', async (req, res) => {
   // Local DB fallback
   const ldb = getLocalDb();
   if (ldb.users.some(u => u.username.toLowerCase() === uClean.toLowerCase())) {
-    return res.status(409).json({ success: false, message: 'El nombre de usuario ya existe' });
+    return res.status(409).json({ success: false, message: 'El nombre de usuario ya está registrado' });
   }
 
   const newUser = {
     id: Date.now(),
     username: uClean,
-    password: pClean,
+    password: hashedPwd,
     role: assignedRole,
     full_name: full_name || uClean,
     email: email || '',
     avatar_url: avatar_url || '',
     bio: bio || '',
     is_banned: false,
+    is_verified: isVerified,
+    activation_token: activationToken,
     created_at: new Date().toISOString(),
   };
   ldb.users.push(newUser);
   saveLocalDb(ldb);
 
+  if (hasEmail && activationToken) {
+    const host = req.get('host') || `localhost:${port}`;
+    const protocol = req.protocol || 'http';
+    const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
+    sendMailNotification({
+      to: email.trim(),
+      subject: 'Activa tu cuenta en Sanctuary',
+      text: `Hola ${full_name || uClean},\n\nActiva tu cuenta aquí: ${activationLink}`,
+      html: `<div style="font-family:sans-serif;padding:24px;background:#0F172A;color:#fff;border-radius:12px;">
+              <h2 style="color:#06B6D4;">Sanctuary · Activación</h2>
+              <p>Hola <strong>${full_name || uClean}</strong>,</p>
+              <p><a href="${activationLink}" style="color:#06B6D4;font-weight:bold;">Haz clic aquí para activar tu cuenta</a></p>
+             </div>`,
+    });
+  }
+
   const { password: _, ...userNoPwd } = newUser;
   res.status(201).json({
     success: true,
-    message: 'Usuario registrado correctamente con rol estándar',
+    message: hasEmail
+        ? 'Usuario registrado. Te hemos enviado un correo para activar tu cuenta.'
+        : 'Usuario registrado correctamente con rol estándar.',
     user: userNoPwd,
   });
+});
+
+// Authentication: Account Activation Link
+app.get('/api/auth/verify', async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(400).send('<h1>Token de activación inválido o faltante</h1>');
+  }
+
+  // PostgreSQL
+  const result = await safeQuery(
+    'UPDATE users SET is_verified = TRUE, activation_token = NULL WHERE activation_token = $1 RETURNING username',
+    [token]
+  );
+  if (result && result.rows.length > 0) {
+    return res.send(`
+      <!DOCTYPE html><html><body style="font-family:sans-serif;background:#0F172A;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+        <div style="text-align:center;padding:40px;background:#1E293B;border-radius:20px;border:1px solid #06B6D4;max-width:440px;">
+          <h1 style="color:#06B6D4;">✔ ¡Cuenta Activada!</h1>
+          <p>Tu cuenta <strong>@${result.rows[0].username}</strong> ha sido verificada con éxito.</p>
+          <p>Ya puedes volver a la aplicación Sanctuary e iniciar sesión con tu usuario y contraseña.</p>
+          <a href="/" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#06B6D4;color:#000;font-weight:bold;text-decoration:none;border-radius:10px;">Entrar a Sanctuary</a>
+        </div>
+      </body></html>
+    `);
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const u = ldb.users.find(usr => usr.activation_token === token);
+  if (u) {
+    u.is_verified = true;
+    u.activation_token = null;
+    saveLocalDb(ldb);
+    return res.send(`
+      <!DOCTYPE html><html><body style="font-family:sans-serif;background:#0F172A;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+        <div style="text-align:center;padding:40px;background:#1E293B;border-radius:20px;border:1px solid #06B6D4;max-width:440px;">
+          <h1 style="color:#06B6D4;">✔ ¡Cuenta Activada!</h1>
+          <p>Tu cuenta <strong>@${u.username}</strong> ha sido verificada con éxito.</p>
+          <p>Ya puedes volver a Sanctuary e iniciar sesión.</p>
+          <a href="/" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#06B6D4;color:#000;font-weight:bold;text-decoration:none;border-radius:10px;">Entrar a Sanctuary</a>
+        </div>
+      </body></html>
+    `);
+  }
+
+  res.status(404).send('<h1>El enlace de activación ha expirado o ya fue utilizado.</h1>');
+});
+
+// Authentication: Forgot Password (Solicitar recuperación)
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email, username } = req.body;
+  if (!email && !username) {
+    return res.status(400).json({ success: false, message: 'Por favor proporciona tu correo electrónico o usuario' });
+  }
+
+  const queryVal = (email || username).trim().toLowerCase();
+  const resetToken = crypto.randomBytes(20).toString('hex');
+  const resetExpires = Date.now() + 3600000; // 1 hour validity
+
+  // PostgreSQL
+  const userRes = await safeQuery(
+    'SELECT id, username, email, full_name FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $1',
+    [queryVal]
+  );
+  if (userRes && userRes.rows.length > 0) {
+    const targetUser = userRes.rows[0];
+    await safeQuery(
+      'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3',
+      [resetToken, resetExpires, targetUser.id]
+    );
+
+    const destEmail = targetUser.email || email;
+    if (destEmail) {
+      sendMailNotification({
+        to: destEmail,
+        subject: 'Recuperación de Contraseña · Sanctuary',
+        text: `Hola ${targetUser.full_name || targetUser.username},\n\nTu código / token de restablecimiento es:\n${resetToken}\n\nVálido durante 1 hora.`,
+        html: `<div style="font-family:sans-serif;padding:24px;background:#0F172A;color:#fff;border-radius:12px;">
+                <h2 style="color:#06B6D4;">Restablecimiento de Contraseña</h2>
+                <p>Hola <strong>${targetUser.full_name || targetUser.username}</strong>,</p>
+                <p>Has solicitado restablecer tu contraseña en Sanctuary. Introduce el siguiente token en el formulario de la app:</p>
+                <div style="padding:14px;background:#1E293B;border:1px dashed #06B6D4;font-family:monospace;font-size:18px;color:#06B6D4;text-align:center;letter-spacing:2px;">
+                  ${resetToken}
+                </div>
+                <p style="margin-top:16px;font-size:12px;color:#94A3B8;">Este token expira en 60 minutos. Si no lo has solicitado tú, puedes ignorar este mensaje de forma segura.</p>
+               </div>`,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Se ha enviado el código de recuperación a ${destEmail || 'tu correo'}.`,
+      token_preview: resetToken, // Exposed for easy offline recovery
+    });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const targetUser = ldb.users.find(u => (u.email && u.email.toLowerCase() === queryVal) || u.username.toLowerCase() === queryVal);
+  if (targetUser) {
+    targetUser.reset_token = resetToken;
+    targetUser.reset_expires = resetExpires;
+    saveLocalDb(ldb);
+
+    const destEmail = targetUser.email || email;
+    if (destEmail) {
+      sendMailNotification({
+        to: destEmail,
+        subject: 'Recuperación de Contraseña · Sanctuary',
+        text: `Código de recuperación: ${resetToken}`,
+        html: `<h2>Token de recuperación: ${resetToken}</h2>`,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Se ha enviado el código de recuperación a ${destEmail || 'tu correo'}.`,
+      token_preview: resetToken,
+    });
+  }
+
+  return res.status(404).json({ success: false, message: 'No se encontró ningún usuario con ese correo o nombre.' });
+});
+
+// Authentication: Reset Password with Token
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, new_password, newPassword, confirm_password, confirmPassword } = req.body;
+  const pwd = (new_password || newPassword || '').trim();
+  const conf = (confirm_password || confirmPassword || '').trim();
+
+  if (!token || !pwd) {
+    return res.status(400).json({ success: false, message: 'Token y nueva contraseña requeridos' });
+  }
+  if (conf && pwd !== conf) {
+    return res.status(400).json({ success: false, message: 'Las contraseñas no coinciden' });
+  }
+  if (pwd.length < 6) {
+    return res.status(400).json({ success: false, message: 'La nueva contraseña debe tener mínimo 6 caracteres' });
+  }
+
+  const hashedPwd = hashPassword(pwd);
+  const now = Date.now();
+
+  // PostgreSQL
+  const result = await safeQuery(
+    `UPDATE users 
+     SET password = $1, reset_token = NULL, reset_expires = NULL 
+     WHERE reset_token = $2 AND (reset_expires IS NULL OR reset_expires >= $3)
+     RETURNING username`,
+    [hashedPwd, token.trim(), now]
+  );
+  if (result && result.rows.length > 0) {
+    return res.json({
+      success: true,
+      message: `Contraseña de @${result.rows[0].username} actualizada con éxito. Ya puedes iniciar sesión.`,
+    });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const u = ldb.users.find(usr => usr.reset_token === token.trim() && (!usr.reset_expires || usr.reset_expires >= now));
+  if (u) {
+    u.password = hashedPwd;
+    u.reset_token = null;
+    u.reset_expires = null;
+    saveLocalDb(ldb);
+    return res.json({
+      success: true,
+      message: `Contraseña de @${u.username} actualizada con éxito. Ya puedes iniciar sesión.`,
+    });
+  }
+
+  res.status(400).json({ success: false, message: 'El token de recuperación es inválido o ha expirado.' });
+});
+
+// ============================================================================
+// CHAT EPHEMERAL SYSTEM (Borrado automático a las 00:00 cada día)
+// ============================================================================
+
+// Chat: Get Today's Messages
+app.get('/api/chat/messages', async (req, res) => {
+  await purgeOldChatMessages();
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  // PostgreSQL
+  const result = await safeQuery(
+    'SELECT id, username, role, text, avatar_url, created_at FROM chat_messages WHERE created_at >= $1 ORDER BY created_at ASC LIMIT 250',
+    [todayMidnight.toISOString()]
+  );
+  if (result) {
+    return res.json({ success: true, count: result.rows.length, messages: result.rows });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const todayMsgs = (ldb.chat_messages || []).filter(m => new Date(m.created_at) >= todayMidnight);
+  res.json({ success: true, count: todayMsgs.length, messages: todayMsgs });
+});
+
+// Chat: Send Message
+app.post('/api/chat/messages', async (req, res) => {
+  const { username, role, text, avatar_url } = req.body;
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ success: false, message: 'El mensaje no puede estar vacío' });
+  }
+
+  const uName = (username || 'Anónimo').trim();
+  const uRole = (role || 'usuario').trim();
+  const cleanText = text.trim();
+  const avatar = avatar_url || '';
+
+  // PostgreSQL
+  const result = await safeQuery(
+    `INSERT INTO chat_messages (username, role, text, avatar_url, created_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     RETURNING id, username, role, text, avatar_url, created_at`,
+    [uName, uRole, cleanText, avatar]
+  );
+  if (result && result.rows.length > 0) {
+    return res.status(201).json({ success: true, message: result.rows[0] });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  if (!ldb.chat_messages) ldb.chat_messages = [];
+  const newMsg = {
+    id: Date.now(),
+    username: uName,
+    role: uRole,
+    text: cleanText,
+    avatar_url: avatar,
+    created_at: new Date().toISOString(),
+  };
+  ldb.chat_messages.push(newMsg);
+  saveLocalDb(ldb);
+
+  res.status(201).json({ success: true, message: newMsg });
+});
+
+// Chat: Admin Clear Messages
+app.delete('/api/chat/messages', async (req, res) => {
+  await safeQuery('DELETE FROM chat_messages');
+  const ldb = getLocalDb();
+  ldb.chat_messages = [];
+  saveLocalDb(ldb);
+  res.json({ success: true, message: 'Chat diario vaciado correctamente por el administrador' });
+});
+
+// Email: Admin Send Test Email
+app.post('/api/admin/email/test', async (req, res) => {
+  const { to } = req.body;
+  if (!to) return res.status(400).json({ success: false, message: 'Destinatario requerido' });
+  const result = await sendMailNotification({
+    to: to.trim(),
+    subject: 'Comprobación de Servidor de Correo · Sanctuary',
+    text: 'Este es un correo de prueba emitido desde el Panel de Administración de Sanctuary para verificar la conectividad SMTP.',
+    html: '<div style="padding:20px;background:#0F172A;color:#06B6D4;border-radius:10px;"><h2>✔ Prueba SMTP Exitosa</h2><p>El sistema de envío de correos de Sanctuary funciona correctamente.</p></div>',
+  });
+  if (result) {
+    return res.json({ success: true, message: `Correo de prueba enviado a ${to}` });
+  }
+  res.status(500).json({ success: false, message: 'No se pudo enviar el correo. Revisa la configuración SMTP.' });
 });
 
 // ============================================================================

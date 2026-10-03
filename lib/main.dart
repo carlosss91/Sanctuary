@@ -10,6 +10,7 @@ import 'features/cv_builder/cv_builder_screen.dart';
 import 'features/pdf_signer/pdf_signer_screen.dart';
 import 'features/prezi2pdf/prezi_to_pdf_screen.dart';
 import 'features/admin/admin_panel_screen.dart';
+import 'features/chat/chat_floating_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -149,7 +150,21 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
           return CosmicBackground(
             isCosmicActive: _isCosmicActive,
             isDark: _isDark,
-            child: currentScreen,
+            child: Stack(
+              children: [
+                currentScreen,
+                if (_currentUser != null && (_currentRoute == 'hub' || _currentRoute == 'admin_panel'))
+                  Positioned(
+                    right: 22,
+                    bottom: 22,
+                    child: SanctuaryChatWidget(
+                      apiService: widget.apiService,
+                      currentUser: _currentUser!,
+                      isDark: _isDark,
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),

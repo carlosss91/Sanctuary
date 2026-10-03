@@ -78,32 +78,44 @@ class ApiService {
   }
 
   // --- Auth: Register ---
-  Future<Map<String, dynamic>> register(String username, String password, {String role = 'usuario'}) async {
+  Future<Map<String, dynamic>> register(
+    String username,
+    String password, {
+    String? email,
+    String? confirmPassword,
+    String role = 'usuario',
+  }) async {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password, 'role': role}),
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          'confirmPassword': confirmPassword ?? password,
+          'email': email,
+          'role': role,
+        }),
       ).timeout(const Duration(seconds: 15));
 
+      final data = jsonDecode(res.body);
       if (res.statusCode == 201 || res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-        await storage.saveLocalUser(user, password);
-        await storage.setCurrentUser(user);
-        return {'success': true, 'user': user};
-      } else if (res.statusCode == 409 || res.statusCode == 400) {
-        final data = jsonDecode(res.body);
-        return {'success': false, 'message': data['message'] ?? 'Error al registrar'};
+        if (data['user'] != null) {
+          final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+          await storage.saveLocalUser(user, password);
+          await storage.setCurrentUser(user);
+          return {'success': true, 'user': user, 'message': data['message']};
+        }
+        return {'success': true, 'message': data['message']};
       } else {
-        debugPrint('Backend API register status ${res.statusCode}, guardando en local...');
+        return {'success': false, 'message': data['message'] ?? 'Error al registrar'};
       }
     } catch (e) {
       debugPrint('Backend API register error, saving locally: $e');
     }
 
-    // Save locally
-    final user = UserModel(username: username, role: role);
+    // Save locally fallback
+    final user = UserModel(username: username, email: email, role: role);
     await storage.saveLocalUser(user, password);
     await storage.setCurrentUser(user);
     return {'success': true, 'user': user, 'source': 'local'};
@@ -509,5 +521,135 @@ class ApiService {
       'uptime_seconds': 0,
     };
   }
+
+  // --- Auth: Password Recovery ---
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email.trim()}),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(res.body);
+      return {
+        'success': res.statusCode == 200,
+        'message': data['message'] ?? 'Solicitud procesada',
+        'preview_token': data['preview_token'],
+        'preview_url': data['preview_url'],
+      };
+    } catch (e) {
+      debugPrint('Error forgotPassword: $e');
+      return {'success': false, 'message': 'No se pudo conectar con el servicio de correo: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'token': token.trim(),
+          'newPassword': newPassword.trim(),
+          'confirmPassword': confirmPassword.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        // Also update local fallback password if found
+        final localUsers = storage.getLocalUsers();
+        for (final u in localUsers) {
+          if (u.email?.toLowerCase() == email.trim().toLowerCase()) {
+            await storage.saveLocalUser(u, newPassword.trim());
+          }
+        }
+        return {'success': true, 'message': data['message'] ?? 'Contraseña restablecida correctamente'};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Error al restablecer contraseña'};
+    } catch (e) {
+      debugPrint('Error resetPassword: $e');
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
+  // --- Ephemeral Community Chat ---
+  Future<List<Map<String, dynamic>>> getChatMessages() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['messages'] is List) {
+          return List<Map<String, dynamic>>.from(data['messages']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching chat messages: $e');
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> sendChatMessage({
+    required String message,
+    required String username,
+    required String role,
+    String? avatarUrl,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/chat/messages'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'message': message,
+          'username': username,
+          'role': role,
+          'avatarUrl': avatarUrl,
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return {'success': true, 'message': data['chat_message']};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Error al enviar mensaje'};
+    } catch (e) {
+      debugPrint('Error sending chat message: $e');
+      return {'success': false, 'message': 'Error al enviar mensaje'};
+    }
+  }
+
+  Future<bool> clearChatMessages() async {
+    try {
+      final res = await http.delete(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 8));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error clearing chat: $e');
+      return false;
+    }
+  }
+
+  // --- Real SMTP Email Verification Test ---
+  Future<Map<String, dynamic>> testSmtp(String targetEmail) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/email/test'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'targetEmail': targetEmail}),
+      ).timeout(const Duration(seconds: 15));
+
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('Error testing SMTP: $e');
+      return {'success': false, 'message': 'Error al contactar con el servicio SMTP: $e'};
+    }
+  }
 }
+
 

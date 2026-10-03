@@ -549,10 +549,22 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                       ),
                       const SizedBox(width: 8),
 
-                      // Theme Toggle (Moon / Sun icon matching screenshot)
+                      // Cosmic Animation Toggle
+                      IconButton(
+                        tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+                        icon: Icon(
+                          widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                          color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
+                          size: 19,
+                        ),
+                        onPressed: widget.onToggleCosmic,
+                      ),
+                      const SizedBox(width: 4),
+
+                      // Theme Toggle
                       IconButton(
                         tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-                        icon: Icon(isDark ? Icons.nightlight_outlined : Icons.wb_sunny_outlined, size: 19),
+                        icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 19),
                         onPressed: widget.onToggleTheme,
                       ),
                       const SizedBox(width: 6),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
+import '../hub/user_profile_dialog.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   final ApiService apiService;
@@ -33,20 +34,37 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   late TabController _tabController;
   List<UserModel> _users = [];
   Map<String, dynamic> _stats = {};
+  List<Map<String, dynamic>> _chatMessages = [];
   bool _isLoading = true;
   String _searchQuery = '';
   String _roleFilter = 'todos'; // todos, admin, docente, usuario, baneados
 
+  // Email test state
+  final TextEditingController _testEmailCtrl = TextEditingController();
+  bool _isTestingEmail = false;
+  String? _emailTestResult;
+
+  // Active module flags
+  final Map<String, bool> _activeModules = {
+    'cv_builder': true,
+    'slide_downloader': true,
+    'pdf_signer': true,
+    'chat_ephemeral': true,
+    'github_explorer': true,
+    'email_activation': true,
+  };
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadAllAdminData();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _testEmailCtrl.dispose();
     super.dispose();
   }
 
@@ -54,10 +72,12 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     setState(() => _isLoading = true);
     final users = await widget.apiService.getAdminUsers();
     final stats = await widget.apiService.getAdminStats();
+    final chat = await widget.apiService.getChatMessages();
     if (mounted) {
       setState(() {
         _users = users;
         _stats = stats;
+        _chatMessages = chat;
         _isLoading = false;
       });
     }
@@ -630,11 +650,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.18),
+                color: const Color(0xFF06B6D4).withOpacity(0.18),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
               ),
-              child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.amber, size: 20),
+              child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF06B6D4), size: 20),
             ),
             const SizedBox(width: 12),
             Column(
@@ -646,13 +666,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     Text('PANEL DE CONTROL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.2)),
                     SizedBox(width: 8),
                     Badge(
-                      label: Text('SUPER ADMIN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black)),
-                      backgroundColor: Colors.amber,
+                      label: Text('SUPER ADMIN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+                      backgroundColor: Color(0xFF06B6D4),
                     ),
                   ],
                 ),
                 Text(
-                  'Gestión integral de usuarios, roles, seguridad y estado del sistema',
+                  'Gestión integral de usuarios, chat, módulos y estado del sistema',
                   style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                 ),
               ],
@@ -671,7 +691,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             tooltip: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
             icon: Icon(
               widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-              color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
+              color: widget.isCosmicActive ? const Color(0xFF06B6D4) : Colors.grey,
               size: 20,
             ),
             onPressed: widget.onToggleCosmic,
@@ -682,16 +702,25 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
             onPressed: widget.onToggleTheme,
           ),
+          const SizedBox(width: 6),
+          // User Profile Dropdown Menu (Standardized right side)
+          _buildProfileDropdown(isDark),
           const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
+          isScrollable: true,
+          indicatorColor: const Color(0xFF06B6D4),
+          labelColor: const Color(0xFF06B6D4),
           unselectedLabelColor: isDark ? Colors.grey : Colors.blueGrey,
-          tabs: const [
-            Tab(icon: Icon(Icons.manage_accounts_rounded, size: 18), text: 'Usuarios y Roles'),
-            Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Estado del Servidor y Base de Datos'),
+          tabs: [
+            const Tab(icon: Icon(Icons.manage_accounts_rounded, size: 18), text: 'Usuarios y Roles'),
+            Tab(
+              icon: const Icon(Icons.forum_rounded, size: 18),
+              text: 'Chat y Moderación (${_chatMessages.length})',
+            ),
+            const Tab(icon: Icon(Icons.dashboard_customize_rounded, size: 18), text: 'Módulos y Web Apps'),
+            const Tab(icon: Icon(Icons.dns_rounded, size: 18), text: 'Servidor y Base de Datos'),
           ],
         ),
       ),
@@ -700,7 +729,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: Colors.amber),
+                  CircularProgressIndicator(color: Color(0xFF06B6D4)),
                   SizedBox(height: 16),
                   Text('Cargando datos administrativos...', style: TextStyle(fontSize: 13, color: Colors.grey)),
                 ],
@@ -710,6 +739,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               controller: _tabController,
               children: [
                 _buildUsersTab(isDark),
+                _buildChatModerationTab(isDark),
+                _buildModulesTab(isDark),
                 _buildSystemStatusTab(isDark),
               ],
             ),
@@ -753,7 +784,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     value: '$totalAdmins',
                     subtitle: 'Control total',
                     icon: Icons.shield_rounded,
-                    color: Colors.amber,
+                    color: const Color(0xFF06B6D4),
                     isDark: isDark,
                   ),
                   _buildStatCard(
@@ -886,10 +917,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
       selected: isSelected,
       onSelected: (_) => setState(() => _roleFilter = key),
-      selectedColor: Colors.amber.withOpacity(0.2),
-      side: BorderSide(color: isSelected ? Colors.amber : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+      selectedColor: const Color(0xFF06B6D4).withOpacity(0.2),
+      side: BorderSide(color: isSelected ? const Color(0xFF06B6D4) : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
       backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-      labelStyle: TextStyle(color: isSelected ? Colors.amber : (isDark ? Colors.white70 : Colors.black87)),
+      labelStyle: TextStyle(color: isSelected ? const Color(0xFF06B6D4) : (isDark ? Colors.white70 : Colors.black87)),
     );
   }
 
@@ -900,7 +931,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     Color roleColor = AppTheme.emerald;
     String roleLabel = 'Usuario';
     if (role == 'admin') {
-      roleColor = Colors.amber;
+      roleColor = const Color(0xFF06B6D4);
       roleLabel = 'Administrador';
     } else if (role == 'docente') {
       roleColor = Colors.cyanAccent;
@@ -971,11 +1002,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withOpacity(0.15),
+                          color: const Color(0xFF06B6D4).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
                         ),
-                        child: const Text('ROOT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        child: const Text('ROOT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4))),
                       ),
                     ],
                   ],
@@ -1215,7 +1246,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           icon: const Icon(Icons.person_add_rounded, size: 18),
                           label: const Text('Dar de Alta Usuario'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
+                            backgroundColor: const Color(0xFF06B6D4),
                             foregroundColor: Colors.white,
                             elevation: 0,
                           ),
@@ -1225,8 +1256,645 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   ],
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              // SMTP Email Diagnostics Card
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF06B6D4).withOpacity(0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.mail_lock_rounded, color: Color(0xFF06B6D4), size: 22),
+                        SizedBox(width: 10),
+                        Text(
+                          'Diagnóstico de Servicio de Correo Electrónico (SMTP)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Prueba el envío de correos reales para activación de cuentas y restablecimiento de contraseña.',
+                      style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _testEmailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: 'Introduce un correo de destino (ej. tu@correo.com)',
+                              prefixIcon: const Icon(Icons.send_rounded, size: 18),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: _isTestingEmail
+                              ? null
+                              : () async {
+                                  final dest = _testEmailCtrl.text.trim();
+                                  if (dest.isEmpty || !dest.contains('@')) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Escribe un correo válido para la prueba'), backgroundColor: Colors.orange),
+                                    );
+                                    return;
+                                  }
+                                  setState(() {
+                                    _isTestingEmail = true;
+                                    _emailTestResult = null;
+                                  });
+                                  final res = await widget.apiService.testSmtp(dest);
+                                  if (mounted) {
+                                    setState(() {
+                                      _isTestingEmail = false;
+                                      _emailTestResult = res['message'] ?? (res['success'] == true ? '✔ Correo enviado con éxito' : 'Error en envío');
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF06B6D4),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: _isTestingEmail
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.mark_email_read_outlined, size: 18),
+                          label: const Text('Enviar Prueba'),
+                        ),
+                      ],
+                    ),
+                    if (_emailTestResult != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _emailTestResult!,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF06B6D4)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TAB 2: CHAT EFÍMERO Y MODERACIÓN
+  // ===========================================================================
+  Widget _buildChatModerationTab(bool isDark) {
+    final totalMessages = _chatMessages.length;
+    final activeUsers = _chatMessages.map((m) => m['username']).toSet().length;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Summary cards
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  _buildStatCard(
+                    title: 'Mensajes de Hoy',
+                    value: '$totalMessages',
+                    subtitle: 'Historial activo',
+                    icon: Icons.forum_rounded,
+                    color: const Color(0xFF06B6D4),
+                    isDark: isDark,
+                  ),
+                  _buildStatCard(
+                    title: 'Participantes Únicos',
+                    value: '$activeUsers',
+                    subtitle: 'Usuarios conversando',
+                    icon: Icons.people_outline_rounded,
+                    color: AppTheme.emerald,
+                    isDark: isDark,
+                  ),
+                  _buildStatCard(
+                    title: 'Auto-Purga Diaria',
+                    value: '00:00',
+                    subtitle: 'Limpieza automática',
+                    icon: Icons.auto_delete_rounded,
+                    color: Colors.orangeAccent,
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Chat Action Card
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Historial del Chat Diario',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Los mensajes se reinician cada día a las 00:00 de forma automática para mantener el canal ágil y ligero.',
+                            style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: totalMessages == 0
+                          ? null
+                          : () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  title: const Text('¿Vaciar y Purgar el Chat Ahora?'),
+                                  content: const Text('Esta acción eliminará todos los mensajes acumulados el día de hoy inmediatamente.'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                                      child: const Text('Purgar Chat'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm == true) {
+                                final ok = await widget.apiService.clearChatMessages();
+                                if (ok && mounted) {
+                                  _loadAllAdminData();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('✔ Historial del chat vaciado con éxito'), backgroundColor: Color(0xFF06B6D4)),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                      label: const Text('Vaciar Chat Ahora'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Chat messages list
+              if (_chatMessages.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(40),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A).withOpacity(0.5) : Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.forum_outlined, size: 48, color: Colors.grey),
+                      SizedBox(height: 12),
+                      Text('No hay mensajes registrados hoy en el chat.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _chatMessages.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, i) {
+                    final msg = _chatMessages[i];
+                    final username = msg['username']?.toString() ?? 'Anónimo';
+                    final content = msg['message']?.toString() ?? '';
+                    final role = msg['role']?.toString().toLowerCase() ?? 'usuario';
+                    final time = msg['created_at']?.toString() ?? '';
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: role == 'admin' ? const Color(0xFF06B6D4) : AppTheme.emerald,
+                            child: Text(
+                              username.isNotEmpty ? username[0].toUpperCase() : '?',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text('@$username', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: (role == 'admin' ? const Color(0xFF06B6D4) : AppTheme.emerald).withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        role.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: role == 'admin' ? const Color(0xFF06B6D4) : AppTheme.emerald,
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      time.length >= 16 ? time.substring(11, 16) : time,
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(content, style: const TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TAB 3: MÓDULOS Y WEB APPS DISPONIBLES
+  // ===========================================================================
+  Widget _buildModulesTab(bool isDark) {
+    final modules = [
+      {
+        'id': 'cv_builder',
+        'title': 'Taller de Currículum Vitae (A4)',
+        'description': 'Maquetador interactivo con autoguardado, vista previa continua, exportación PDF y perfiles docentes.',
+        'icon': Icons.description_rounded,
+        'color': AppTheme.emerald,
+        'category': 'Inserción & Orientación',
+      },
+      {
+        'id': 'slide_downloader',
+        'title': 'Slide & Video Downloader Universal',
+        'description': 'Descarga presentaciones de Prezi, Google Slides, SlideShare y extrae vídeos MP4 individuales o empaquetados en ZIP.',
+        'icon': Icons.present_to_all_rounded,
+        'color': const Color(0xFFE11D48),
+        'category': 'Docencia & Multimedia',
+      },
+      {
+        'id': 'pdf_signer',
+        'title': 'Firma Digital Biométrica eIDAS / PAdES',
+        'description': 'Firma electrónica avanzada en documentos PDF con sello temporal, verificación criptográfica SHA-256 y trazabilidad de auditoría.',
+        'icon': Icons.draw_rounded,
+        'color': const Color(0xFF2563EB),
+        'category': 'Gestión & Seguridad Legal',
+      },
+      {
+        'id': 'chat_ephemeral',
+        'title': 'Chat Efímero Comunitario en Vivo',
+        'description': 'Burbuja flotante de comunicación rápida entre usuarios autenticados con emojis y reinicio programado diario a las 00:00.',
+        'icon': Icons.forum_rounded,
+        'color': const Color(0xFF06B6D4),
+        'category': 'Interacción & Soporte',
+      },
+      {
+        'id': 'github_explorer',
+        'title': 'Explorador de Repositorios GitHub',
+        'description': 'Widget en tiempo real que consulta la API de GitHub para mostrar proyectos, commits y estadísticas.',
+        'icon': Icons.hub_rounded,
+        'color': const Color(0xFF8B5CF6),
+        'category': 'Desarrollo & Proyectos',
+      },
+      {
+        'id': 'email_activation',
+        'title': 'Servicio de Activación por Email & Recuperación',
+        'description': 'Sistema de verificación de usuarios nuevos y restablecimiento seguro de credenciales con hashing bcrypt.',
+        'icon': Icons.mark_email_read_rounded,
+        'color': const Color(0xFF10B981),
+        'category': 'Seguridad & Autenticación',
+      },
+    ];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06B6D4).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.dashboard_customize_rounded, color: Color(0xFF06B6D4), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Control Central de Aplicaciones y Módulos',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          Text(
+                            'Activa o desactiva las herramientas disponibles en el portal para todos los usuarios de la plataforma.',
+                            style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: modules.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (ctx, i) {
+                  final mod = modules[i];
+                  final id = mod['id'] as String;
+                  final title = mod['title'] as String;
+                  final desc = mod['description'] as String;
+                  final icon = mod['icon'] as IconData;
+                  final color = mod['color'] as Color;
+                  final cat = mod['category'] as String;
+                  final isEnabled = _activeModules[id] ?? true;
+
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isEnabled
+                            ? color.withOpacity(0.4)
+                            : (isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0)),
+                        width: isEnabled ? 1.4 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(icon, color: color, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: color.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(cat, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(desc, style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Switch(
+                          value: isEnabled,
+                          activeColor: color,
+                          onChanged: (val) {
+                            setState(() => _activeModules[id] = val);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${val ? "Activado" : "Desactivado"}: $title'),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: val ? color : Colors.grey,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // User Profile Dropdown Menu in the top right
+  Widget _buildProfileDropdown(bool isDark) {
+    final user = widget.currentUser;
+
+    return PopupMenuButton<String>(
+      tooltip: 'Menú de usuario',
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1.2),
+      ),
+      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+      onSelected: (val) {
+        if (val == 'edit_profile') {
+          UserProfileDialog.show(
+            context,
+            user: user,
+            apiService: widget.apiService,
+            onUserUpdated: (updated) {
+              _loadAllAdminData();
+            },
+          );
+        } else if (val == 'hub') {
+          widget.onBackToHub();
+        } else if (val == 'toggle_theme') {
+          widget.onToggleTheme();
+        } else if (val == 'toggle_cosmic') {
+          widget.onToggleCosmic();
+        } else if (val == 'logout') {
+          widget.onLogout();
+        }
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFF06B6D4),
+                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                      ? NetworkImage(user.avatarUrl!)
+                      : null,
+                  child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                      ? Text(
+                          user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(user.fullName ?? user.username, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Administrador', style: TextStyle(fontSize: 10.5, color: Color(0xFF06B6D4), fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'edit_profile',
+          child: Row(
+            children: [
+              Icon(Icons.badge_outlined, size: 17, color: Color(0xFF06B6D4)),
+              SizedBox(width: 10),
+              Text('Editar Perfil', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'hub',
+          child: Row(
+            children: [
+              Icon(Icons.home_outlined, size: 17),
+              SizedBox(width: 10),
+              Text('Volver al Santuario Hub', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 17, color: Colors.redAccent),
+              SizedBox(width: 10),
+              Text('Cerrar Sesión', style: TextStyle(fontSize: 13, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: const Color(0xFF06B6D4),
+              child: Text(
+                user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
+                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              user.username,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            const Icon(Icons.arrow_drop_down, size: 16),
+          ],
         ),
       ),
     );
@@ -1245,3 +1913,4 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     );
   }
 }
+

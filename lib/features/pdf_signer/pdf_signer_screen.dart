@@ -779,103 +779,66 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Action Buttons: Compact and Right-aligned (encima de auditoría y firmantes)
+          // Action Buttons: Icon-Only with Hover Tooltips (compact, standard height & width)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Verified Security Standards Chip
-                ElevatedButton.icon(
-                  onPressed: () => SecurityStandardsDialog.show(context, _document),
-                  icon: const Icon(Icons.verified_user_rounded, size: 13, color: Colors.white),
-                  label: const Text('Seguridad', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF059669),
-                    foregroundColor: Colors.white,
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                // 1. Verified Security Standards Icon Button
+                _buildTopIconButton(
+                  icon: Icons.verified_user_rounded,
+                  tooltip: 'Seguridad Verificada eIDAS / PAdES (RFC 3161)',
+                  onTap: () => SecurityStandardsDialog.show(context, _document),
+                  backgroundColor: const Color(0xFF059669),
+                  iconColor: Colors.white,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
 
-                // 2. Attach PDF
-                ElevatedButton.icon(
-                  onPressed: _pickPdfFile,
-                  icon: const Icon(Icons.upload_file_outlined, size: 13),
-                  label: const Text('Adjuntar', style: TextStyle(fontSize: 11)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    foregroundColor: isDark ? Colors.white : Colors.black87,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                // 2. Attach PDF Icon Button
+                _buildTopIconButton(
+                  icon: Icons.upload_file_rounded,
+                  tooltip: 'Adjuntar documento PDF a firmar',
+                  onTap: _pickPdfFile,
+                  backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  iconColor: isDark ? Colors.white : const Color(0xFF334155),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
 
-                // 3. Sign Document (Primary Emerald)
-                ElevatedButton.icon(
-                  onPressed: _openSignModal,
-                  icon: const Icon(Icons.draw_rounded, size: 13),
-                  label: const Text('Firmar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                // 3. Sign Document (Emerald)
+                _buildTopIconButton(
+                  icon: Icons.draw_rounded,
+                  tooltip: 'Firmar documento (Rúbrica Biométrica Digital)',
+                  onTap: _openSignModal,
+                  backgroundColor: AppTheme.emerald,
+                  iconColor: Colors.white,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
 
-                // 4. Share Document
-                ElevatedButton.icon(
-                  onPressed: () => ShareDocumentDialog.show(
+                // 4. Share Document (Blue)
+                _buildTopIconButton(
+                  icon: Icons.share_rounded,
+                  tooltip: 'Compartir enlace y firmantes acreditados',
+                  onTap: () => ShareDocumentDialog.show(
                     context,
                     _document,
                     onSimulateGuestSigner: _simulateExternalGuestSigner,
                   ),
-                  icon: const Icon(Icons.share_outlined, size: 13),
-                  label: const Text('Compartir', style: TextStyle(fontSize: 11)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-                const SizedBox(width: 6),
-
-                // 5. Download Signed
-                ElevatedButton.icon(
-                  onPressed: _exportSignedPdf,
-                  icon: const Icon(Icons.download_rounded, size: 13),
-                  label: const Text('Descargar', style: TextStyle(fontSize: 11)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    foregroundColor: Colors.white,
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                  backgroundColor: const Color(0xFF2563EB),
+                  iconColor: Colors.white,
                 ),
                 const SizedBox(width: 8),
+
+                // 5. Download Signed Document (Purple)
+                _buildTopIconButton(
+                  icon: Icons.download_rounded,
+                  tooltip: 'Descargar documento firmado (.pdf)',
+                  onTap: _exportSignedPdf,
+                  backgroundColor: const Color(0xFF7C3AED),
+                  iconColor: Colors.white,
+                ),
+                const SizedBox(width: 10),
 
                 // Theme and Cosmic toggles
                 IconButton(
@@ -901,6 +864,42 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTopIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    required Color backgroundColor,
+    required Color iconColor,
+    Border? border,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            border: border,
+            boxShadow: [
+              BoxShadow(
+                color: backgroundColor.withOpacity(0.32),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(icon, size: 19, color: iconColor),
+          ),
+        ),
       ),
     );
   }

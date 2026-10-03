@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
+import '../hub/user_profile_dialog.dart';
 import 'models/prezi_model.dart';
 import 'services/prezi_service.dart';
 
@@ -1037,8 +1039,135 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
           icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
           onPressed: widget.onToggleTheme,
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 4),
+        _buildProfileDropdown(isDark),
+        const SizedBox(width: 10),
       ],
+    );
+  }
+
+  Widget _buildProfileDropdown(bool isDark) {
+    final user = widget.apiService.storage.getCurrentUser() ?? const UserModel(username: 'Usuario', role: 'admin');
+
+    return PopupMenuButton<String>(
+      tooltip: 'Menú de usuario',
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1.2),
+      ),
+      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+      onSelected: (val) {
+        if (val == 'edit_profile') {
+          UserProfileDialog.show(
+            context,
+            user: user,
+            apiService: widget.apiService,
+            onUserUpdated: (_) => setState(() {}),
+          );
+        } else if (val == 'hub') {
+          widget.onBackToHub();
+        } else if (val == 'toggle_theme') {
+          widget.onToggleTheme();
+        } else if (val == 'toggle_cosmic') {
+          widget.onToggleCosmic();
+        } else if (val == 'logout') {
+          widget.onLogout();
+        }
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppTheme.emerald,
+                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                      ? NetworkImage(user.avatarUrl!)
+                      : null,
+                  child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                      ? Text(
+                          user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(user.fullName ?? user.username, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(user.role.toUpperCase(), style: const TextStyle(fontSize: 10, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'edit_profile',
+          child: Row(
+            children: [
+              Icon(Icons.badge_outlined, size: 17, color: AppTheme.emerald),
+              SizedBox(width: 10),
+              Text('Editar Perfil', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'hub',
+          child: Row(
+            children: [
+              Icon(Icons.home_outlined, size: 17),
+              SizedBox(width: 10),
+              Text('Volver al Santuario Hub', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 17, color: Colors.redAccent),
+              SizedBox(width: 10),
+              Text('Cerrar Sesión', style: TextStyle(fontSize: 13, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: AppTheme.emerald,
+              child: Text(
+                user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
+                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              user.username,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            const Icon(Icons.arrow_drop_down, size: 16),
+          ],
+        ),
+      ),
     );
   }
 
