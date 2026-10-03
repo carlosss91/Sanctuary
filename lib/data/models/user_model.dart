@@ -6,6 +6,7 @@ class UserModel {
   final String? email;
   final String? avatarUrl;
   final String? bio;
+  final bool isBanned;
   final String? createdAt;
 
   const UserModel({
@@ -16,6 +17,7 @@ class UserModel {
     this.email,
     this.avatarUrl,
     this.bio,
+    this.isBanned = false,
     this.createdAt,
   });
 
@@ -27,6 +29,7 @@ class UserModel {
     String? email,
     String? avatarUrl,
     String? bio,
+    bool? isBanned,
     String? createdAt,
   }) {
     return UserModel(
@@ -37,6 +40,7 @@ class UserModel {
       email: email ?? this.email,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       bio: bio ?? this.bio,
+      isBanned: isBanned ?? this.isBanned,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -50,6 +54,7 @@ class UserModel {
       email: json['email'] as String?,
       avatarUrl: json['avatar_url'] as String? ?? json['avatarUrl'] as String?,
       bio: json['bio'] as String?,
+      isBanned: json['is_banned'] == true || json['isBanned'] == true,
       createdAt: json['created_at']?.toString(),
     );
   }
@@ -63,6 +68,7 @@ class UserModel {
       'email': email,
       'avatar_url': avatarUrl,
       'bio': bio,
+      'is_banned': isBanned,
       'created_at': createdAt,
     };
   }

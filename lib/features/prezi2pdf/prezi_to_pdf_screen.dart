@@ -644,7 +644,7 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
       try {
         final bytes = await _preziService.fetchVideoBytes(video.url);
         if (bytes != null && bytes.isNotEmpty) {
-          final safeName = '${(i + 1).toString().padLeft(2, '0')}_${video.title.replaceAll(RegExp(r'[^\w\.-]'), '_')}.mp4';
+          final safeName = _buildSafeVideoFilename(index: i, video: video);
           archive.addFile(ArchiveFile(safeName, bytes.length, bytes));
           addedCount++;
         }
@@ -757,7 +757,7 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
       try {
         final bytes = await _preziService.fetchVideoBytes(video.url);
         if (bytes != null && bytes.isNotEmpty) {
-          final safeName = '${video.title.replaceAll(RegExp(r'[^\w\.-]'), '_')}.mp4';
+          final safeName = _buildSafeVideoFilename(index: i, video: video);
           await Printing.sharePdf(bytes: bytes, filename: safeName);
           downloadedCount++;
         }
@@ -788,6 +788,28 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         ),
       );
     }
+  }
+
+  String _buildSafeVideoFilename({
+    required int index,
+    required PreziVideoItem video,
+  }) {
+    final numPrefix = (index + 1).toString().padLeft(2, '0');
+    final stepStr = video.stepIndex > 0 ? '_Diapositiva_${video.stepIndex}' : '';
+    String rawTitle = video.title.trim();
+    // Limpiar redundancia si el título ya empieza por "Video" o "Video #"
+    rawTitle = rawTitle.replaceAll(RegExp(r'^video\s*#?\d*\s*', caseSensitive: false), '').trim();
+    String cleanTitle = rawTitle
+        .replaceAll(RegExp(r'[^\w\.-]'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim();
+    if (cleanTitle.startsWith('_')) cleanTitle = cleanTitle.substring(1);
+    if (cleanTitle.endsWith('_')) cleanTitle = cleanTitle.substring(0, cleanTitle.length - 1);
+
+    if (cleanTitle.isEmpty) {
+      return 'Video_${numPrefix}${stepStr}.mp4';
+    }
+    return 'Video_${numPrefix}${stepStr}_${cleanTitle}.mp4';
   }
 
   Future<void> _downloadSingleVideo(PreziVideoItem video) async {
@@ -848,7 +870,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
     try {
       final bytes = await _preziService.fetchVideoBytes(video.url);
       if (bytes != null && bytes.isNotEmpty) {
-        final safeName = '${video.title.replaceAll(RegExp(r'[^\w\.-]'), '_')}.mp4';
+        final videoIdx = _detectedVideos.indexOf(video);
+        final safeName = _buildSafeVideoFilename(index: videoIdx >= 0 ? videoIdx : 0, video: video);
         await Printing.sharePdf(bytes: bytes, filename: safeName);
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();

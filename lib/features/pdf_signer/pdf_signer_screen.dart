@@ -24,6 +24,7 @@ class PdfSignerScreen extends StatefulWidget {
   final VoidCallback onBackToHub;
   final VoidCallback? onOpenCvBuilder;
   final VoidCallback? onOpenPreziDownloader;
+  final VoidCallback? onOpenAdminPanel;
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
@@ -36,6 +37,7 @@ class PdfSignerScreen extends StatefulWidget {
     required this.onBackToHub,
     this.onOpenCvBuilder,
     this.onOpenPreziDownloader,
+    this.onOpenAdminPanel,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -930,6 +932,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               });
             },
           );
+        } else if (val == 'admin_panel') {
+          widget.onOpenAdminPanel?.call();
         } else if (val == 'toggle_theme') {
           widget.onToggleTheme();
         } else if (val == 'toggle_cosmic') {
@@ -988,6 +992,22 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ),
         ),
         const PopupMenuDivider(),
+        if (user.role.toLowerCase() == 'admin' && widget.onOpenAdminPanel != null) ...[
+          const PopupMenuItem<String>(
+            value: 'admin_panel',
+            child: Row(
+              children: [
+                Icon(Icons.admin_panel_settings_rounded, size: 17, color: Colors.amber),
+                SizedBox(width: 10),
+                Text(
+                  'Panel de Administración',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.amber),
+                ),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+        ],
         const PopupMenuItem<String>(
           value: 'edit_profile',
           child: Row(

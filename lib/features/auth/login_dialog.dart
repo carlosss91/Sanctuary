@@ -30,7 +30,6 @@ class _LoginDialogState extends State<LoginDialog> {
   bool _isRegister = false;
   final _usernameController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController(text: 'admin');
-  final _roleController = TextEditingController(text: 'admin');
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -38,7 +37,6 @@ class _LoginDialogState extends State<LoginDialog> {
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
-    _roleController.dispose();
     super.dispose();
   }
 
@@ -61,7 +59,7 @@ class _LoginDialogState extends State<LoginDialog> {
         final res = await widget.apiService.register(
           username,
           password,
-          role: _roleController.text.trim().isEmpty ? 'usuario' : _roleController.text.trim(),
+          role: 'usuario',
         );
         if (res['success'] == true) {
           final user = res['user'] as UserModel;
@@ -241,7 +239,7 @@ class _LoginDialogState extends State<LoginDialog> {
                     controller: _usernameController,
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.person_outline, size: 19),
-                      hintText: 'admin',
+                      hintText: _isRegister ? 'Nombre de usuario' : 'admin',
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -266,15 +264,24 @@ class _LoginDialogState extends State<LoginDialog> {
 
                   if (_isRegister) ...[
                     const SizedBox(height: 14),
-                    const Text('Rol / Especialidad', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _roleController,
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.badge_outlined, size: 19),
-                        hintText: 'admin / docente / alumno',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.emerald.withOpacity(0.25)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.verified_user_outlined, size: 18, color: AppTheme.emerald),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Las nuevas cuentas se crean con el rol estándar de "Usuario". La asignación de roles superiores se gestiona desde el Panel de Administración.',
+                              style: TextStyle(fontSize: 11, color: AppTheme.emerald, height: 1.3),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -306,6 +313,15 @@ class _LoginDialogState extends State<LoginDialog> {
                       setState(() {
                         _isRegister = !_isRegister;
                         _errorMessage = null;
+                        if (_isRegister) {
+                          if (_usernameController.text == 'admin') _usernameController.clear();
+                          if (_passwordController.text == 'admin') _passwordController.clear();
+                        } else {
+                          if (_usernameController.text.isEmpty && _passwordController.text.isEmpty) {
+                            _usernameController.text = 'admin';
+                            _passwordController.text = 'admin';
+                          }
+                        }
                       });
                     },
                     child: Text(

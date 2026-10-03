@@ -219,7 +219,8 @@ safeQuery(`
   ADD COLUMN IF NOT EXISTS full_name VARCHAR(150),
   ADD COLUMN IF NOT EXISTS email VARCHAR(150),
   ADD COLUMN IF NOT EXISTS avatar_url TEXT,
-  ADD COLUMN IF NOT EXISTS bio TEXT;
+  ADD COLUMN IF NOT EXISTS bio TEXT,
+  ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
 `).catch(() => {});
 
 // Authentication: Login
@@ -234,7 +235,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   // Try PostgreSQL
   const result = await safeQuery(
-    'SELECT id, username, role, full_name, email, avatar_url, bio, created_at FROM users WHERE username = $1 AND password = $2',
+    'SELECT id, username, role, full_name, email, avatar_url, bio, COALESCE(is_banned, false) as is_banned, created_at FROM users WHERE LOWER(username) = LOWER($1) AND password = $2',
     [uClean, pClean]
   );
 
@@ -242,10 +243,14 @@ app.post('/api/auth/login', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
     }
+    const userRow = result.rows[0];
+    if (userRow.is_banned) {
+      return res.status(403).json({ success: false, message: 'Esta cuenta ha sido suspendida por un administrador.' });
+    }
     return res.json({
       success: true,
       message: 'Inicio de sesión exitoso',
-      user: result.rows[0],
+      user: userRow,
     });
   }
 
@@ -259,42 +264,46 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   if (user) {
+    if (user.is_banned) {
+      return res.status(403).json({ success: false, message: 'Esta cuenta ha sido suspendida por un administrador.' });
+    }
     const { password: _, ...userNoPwd } = user;
     return res.json({
       success: true,
       message: 'Inicio de sesión exitoso',
-      user: userNoPwd,
+      user: { ...userNoPwd, is_banned: !!user.is_banned },
     });
   }
 
   return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
 });
 
-// Authentication: Register new user
+// Authentication: Register new user (Forced standard role 'usuario')
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password, role, full_name, email, avatar_url, bio } = req.body;
+  const { username, password, full_name, email, avatar_url, bio } = req.body;
   if (!username || !password) {
     return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
   }
 
   const uClean = username.trim();
   const pClean = password.trim();
+  const assignedRole = 'usuario'; // New registrations are always standard 'usuario'
 
-  const existingRes = await safeQuery('SELECT id FROM users WHERE username = $1', [uClean]);
+  const existingRes = await safeQuery('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [uClean]);
   if (existingRes) {
     if (existingRes.rows.length > 0) {
       return res.status(409).json({ success: false, message: 'El nombre de usuario ya existe' });
     }
     const result = await safeQuery(
-      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING id, username, role, full_name, email, avatar_url, bio, created_at`,
-      [uClean, pClean, role || 'usuario', full_name || uClean, email || '', avatar_url || '', bio || '']
+      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE) 
+       RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, created_at`,
+      [uClean, pClean, assignedRole, full_name || uClean, email || '', avatar_url || '', bio || '']
     );
     if (result && result.rows.length > 0) {
       return res.status(201).json({
         success: true,
-        message: 'Usuario registrado correctamente',
+        message: 'Usuario registrado correctamente con rol estándar',
         user: result.rows[0],
       });
     }
@@ -310,11 +319,12 @@ app.post('/api/auth/register', async (req, res) => {
     id: Date.now(),
     username: uClean,
     password: pClean,
-    role: role || 'usuario',
+    role: assignedRole,
     full_name: full_name || uClean,
     email: email || '',
     avatar_url: avatar_url || '',
     bio: bio || '',
+    is_banned: false,
     created_at: new Date().toISOString(),
   };
   ldb.users.push(newUser);
@@ -323,8 +333,256 @@ app.post('/api/auth/register', async (req, res) => {
   const { password: _, ...userNoPwd } = newUser;
   res.status(201).json({
     success: true,
-    message: 'Usuario registrado correctamente',
+    message: 'Usuario registrado correctamente con rol estándar',
     user: userNoPwd,
+  });
+});
+
+// ============================================================================
+// ADMIN PANEL CRUD & CONTROL ROUTES
+// ============================================================================
+
+// Admin: List all users
+app.get('/api/admin/users', async (req, res) => {
+  const result = await safeQuery(
+    'SELECT id, username, role, full_name, email, avatar_url, bio, COALESCE(is_banned, false) as is_banned, created_at FROM users ORDER BY id ASC'
+  );
+  if (result) {
+    return res.json({
+      success: true,
+      users: result.rows,
+    });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const safeUsers = (ldb.users || []).map(u => {
+    const { password: _, ...noPwd } = u;
+    return { ...noPwd, is_banned: !!u.is_banned };
+  });
+  res.json({
+    success: true,
+    users: safeUsers,
+  });
+});
+
+// Admin: Create user with custom role
+app.post('/api/admin/users', async (req, res) => {
+  const { username, password, role, full_name, email, avatar_url, bio } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
+  }
+
+  const uClean = username.trim();
+  const pClean = password.trim();
+  const targetRole = ['admin', 'docente', 'usuario'].includes((role || '').toLowerCase())
+    ? role.toLowerCase()
+    : 'usuario';
+
+  const existingRes = await safeQuery('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [uClean]);
+  if (existingRes) {
+    if (existingRes.rows.length > 0) {
+      return res.status(409).json({ success: false, message: 'El nombre de usuario ya existe' });
+    }
+    const result = await safeQuery(
+      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+       RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, created_at`,
+      [uClean, pClean, targetRole, full_name || uClean, email || '', avatar_url || '', bio || '']
+    );
+    if (result && result.rows.length > 0) {
+      return res.status(201).json({
+        success: true,
+        message: 'Usuario creado exitosamente',
+        user: result.rows[0],
+      });
+    }
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  if (ldb.users.some(u => u.username.toLowerCase() === uClean.toLowerCase())) {
+    return res.status(409).json({ success: false, message: 'El nombre de usuario ya existe' });
+  }
+
+  const newUser = {
+    id: Date.now(),
+    username: uClean,
+    password: pClean,
+    role: targetRole,
+    full_name: full_name || uClean,
+    email: email || '',
+    avatar_url: avatar_url || '',
+    bio: bio || '',
+    is_banned: false,
+    created_at: new Date().toISOString(),
+  };
+  ldb.users.push(newUser);
+  saveLocalDb(ldb);
+
+  const { password: _, ...userNoPwd } = newUser;
+  res.status(201).json({
+    success: true,
+    message: 'Usuario creado exitosamente',
+    user: userNoPwd,
+  });
+});
+
+// Admin: Update user (Role, Name, Email, Ban/Unban, Password)
+app.put('/api/admin/users/:id', async (req, res) => {
+  const userId = req.params.id;
+  const { role, full_name, email, is_banned, password } = req.body;
+
+  // Protect root 'admin'
+  const checkAdmin = await safeQuery('SELECT username FROM users WHERE id = $1', [userId]);
+  if (checkAdmin && checkAdmin.rows.length > 0) {
+    if (checkAdmin.rows[0].username.toLowerCase() === 'admin') {
+      if (is_banned === true) {
+        return res.status(400).json({ success: false, message: 'No es posible suspender o banear al administrador principal' });
+      }
+      if (role && role.toLowerCase() !== 'admin') {
+        return res.status(400).json({ success: false, message: 'No es posible revocar el rol al administrador principal' });
+      }
+    }
+  }
+
+  let query, params;
+  if (password && password.trim().length > 0) {
+    query = `UPDATE users 
+             SET role = COALESCE($1, role), full_name = COALESCE($2, full_name), 
+                 email = COALESCE($3, email), is_banned = COALESCE($4, is_banned), password = $5
+             WHERE id = $6
+             RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, created_at`;
+    params = [role, full_name, email, is_banned, password.trim(), userId];
+  } else {
+    query = `UPDATE users 
+             SET role = COALESCE($1, role), full_name = COALESCE($2, full_name), 
+                 email = COALESCE($3, email), is_banned = COALESCE($4, is_banned)
+             WHERE id = $5
+             RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, created_at`;
+    params = [role, full_name, email, is_banned, userId];
+  }
+
+  const result = await safeQuery(query, params);
+  if (result) {
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    return res.json({
+      success: true,
+      message: 'Usuario actualizado correctamente',
+      user: result.rows[0],
+    });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const idx = ldb.users.findIndex(u => u.id == userId || u.username == userId);
+  if (idx >= 0) {
+    if (ldb.users[idx].username.toLowerCase() === 'admin') {
+      if (is_banned === true) {
+        return res.status(400).json({ success: false, message: 'No es posible suspender o banear al administrador principal' });
+      }
+      if (role && role.toLowerCase() !== 'admin') {
+        return res.status(400).json({ success: false, message: 'No es posible revocar el rol al administrador principal' });
+      }
+    }
+    if (role !== undefined) ldb.users[idx].role = role;
+    if (full_name !== undefined) ldb.users[idx].full_name = full_name;
+    if (email !== undefined) ldb.users[idx].email = email;
+    if (is_banned !== undefined) ldb.users[idx].is_banned = !!is_banned;
+    if (password && password.trim()) ldb.users[idx].password = password.trim();
+    saveLocalDb(ldb);
+
+    const { password: _, ...userNoPwd } = ldb.users[idx];
+    return res.json({
+      success: true,
+      message: 'Usuario actualizado correctamente',
+      user: userNoPwd,
+    });
+  }
+
+  res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+});
+
+// Admin: Delete user
+app.delete('/api/admin/users/:id', async (req, res) => {
+  const userId = req.params.id;
+
+  // Protect root 'admin'
+  const checkAdmin = await safeQuery('SELECT username FROM users WHERE id = $1', [userId]);
+  if (checkAdmin && checkAdmin.rows.length > 0) {
+    if (checkAdmin.rows[0].username.toLowerCase() === 'admin') {
+      return res.status(400).json({ success: false, message: 'No se puede eliminar la cuenta principal de administrador' });
+    }
+  }
+
+  const result = await safeQuery('DELETE FROM users WHERE id = $1 RETURNING id, username', [userId]);
+  if (result) {
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    return res.json({
+      success: true,
+      message: `Usuario ${result.rows[0].username} eliminado del sistema`,
+    });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const user = ldb.users.find(u => u.id == userId || u.username == userId);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+  }
+  if (user.username.toLowerCase() === 'admin') {
+    return res.status(400).json({ success: false, message: 'No se puede eliminar la cuenta principal de administrador' });
+  }
+
+  ldb.users = ldb.users.filter(u => u.id != userId && u.username != userId);
+  saveLocalDb(ldb);
+
+  res.json({
+    success: true,
+    message: `Usuario ${user.username} eliminado del sistema`,
+  });
+});
+
+// Admin: System Statistics
+app.get('/api/admin/stats', async (req, res) => {
+  const usersCountRes = await safeQuery('SELECT COUNT(*) as count FROM users');
+  const bannedCountRes = await safeQuery('SELECT COUNT(*) as count FROM users WHERE is_banned = TRUE');
+  const cvCountRes = await safeQuery('SELECT COUNT(*) as count FROM cv_profiles');
+  const signedCountRes = await safeQuery('SELECT COUNT(*) as count FROM signed_documents');
+
+  if (usersCountRes) {
+    return res.json({
+      success: true,
+      database: 'PostgreSQL (Cloud / Docker)',
+      total_users: parseInt(usersCountRes.rows[0]?.count || '0', 10),
+      total_banned: parseInt(bannedCountRes?.rows[0]?.count || '0', 10),
+      total_cvs: parseInt(cvCountRes?.rows[0]?.count || '0', 10),
+      total_signed_docs: parseInt(signedCountRes?.rows[0]?.count || '0', 10),
+      uptime_seconds: Math.floor(process.uptime()),
+      node_version: process.version,
+    });
+  }
+
+  // Local DB fallback
+  const ldb = getLocalDb();
+  const totalUsers = (ldb.users || []).length;
+  const totalBanned = (ldb.users || []).filter(u => u.is_banned).length;
+  const totalCvs = (ldb.cv_profiles || []).length;
+  const totalSigned = (ldb.signed_documents || []).length;
+
+  res.json({
+    success: true,
+    database: 'Almacenamiento Local (Modo Respaldo)',
+    total_users: totalUsers,
+    total_banned: totalBanned,
+    total_cvs: totalCvs,
+    total_signed_docs: totalSigned,
+    uptime_seconds: Math.floor(process.uptime()),
+    node_version: process.version,
   });
 });
 

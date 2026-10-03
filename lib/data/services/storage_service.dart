@@ -286,7 +286,25 @@ class StorageService {
     await _prefs.setString('${_keyLocalUsers}_pwd', jsonEncode(pwds));
   }
 
+  Future<void> deleteLocalUser(String username) async {
+    final users = getLocalUsers().where((u) => u.username.toLowerCase() != username.toLowerCase()).toList();
+    await _prefs.setString(_keyLocalUsers, jsonEncode(users.map((u) => u.toJson()).toList()));
+
+    final pwds = _getLocalPasswords();
+    pwds.remove(username);
+    await _prefs.setString('${_keyLocalUsers}_pwd', jsonEncode(pwds));
+  }
+
+  bool isUserBanned(String username) {
+    final user = getLocalUsers().firstWhere(
+      (u) => u.username.toLowerCase() == username.toLowerCase(),
+      orElse: () => const UserModel(username: ''),
+    );
+    return user.isBanned;
+  }
+
   bool verifyLocalCredentials(String username, String password) {
+    if (isUserBanned(username)) return false;
     final pwds = _getLocalPasswords();
     return pwds[username] == password;
   }

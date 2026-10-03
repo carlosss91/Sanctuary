@@ -13,6 +13,7 @@ class HubScreen extends StatefulWidget {
   final VoidCallback onOpenCvBuilder;
   final VoidCallback? onOpenPdfSigner;
   final VoidCallback? onOpenPreziDownloader;
+  final VoidCallback? onOpenAdminPanel;
   final VoidCallback onLogout;
   final VoidCallback onToggleTheme;
   final VoidCallback onToggleCosmic;
@@ -26,6 +27,7 @@ class HubScreen extends StatefulWidget {
     required this.onOpenCvBuilder,
     this.onOpenPdfSigner,
     this.onOpenPreziDownloader,
+    this.onOpenAdminPanel,
     required this.onLogout,
     required this.onToggleTheme,
     required this.onToggleCosmic,
@@ -317,6 +319,8 @@ class _HubScreenState extends State<HubScreen> {
                     setState(() => _currentUser = updated);
                   },
                 );
+              } else if (val == 'admin_panel') {
+                widget.onOpenAdminPanel?.call();
               } else if (val == 'toggle_theme') {
                 widget.onToggleTheme();
               } else if (val == 'toggle_cosmic') {
@@ -376,6 +380,23 @@ class _HubScreenState extends State<HubScreen> {
                 ),
               ),
               const PopupMenuDivider(),
+              // Option: Panel de Administración (para admins)
+              if (_currentUser.role.toLowerCase() == 'admin' && widget.onOpenAdminPanel != null) ...[
+                const PopupMenuItem<String>(
+                  value: 'admin_panel',
+                  child: Row(
+                    children: [
+                      Icon(Icons.admin_panel_settings_rounded, size: 18, color: Colors.amber),
+                      SizedBox(width: 12),
+                      Text(
+                        'Panel de Administración',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.amber),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+              ],
               // Option: Editar Perfil
               const PopupMenuItem<String>(
                 value: 'edit_profile',

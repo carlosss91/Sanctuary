@@ -9,6 +9,7 @@ import 'features/hub/hub_screen.dart';
 import 'features/cv_builder/cv_builder_screen.dart';
 import 'features/pdf_signer/pdf_signer_screen.dart';
 import 'features/prezi2pdf/prezi_to_pdf_screen.dart';
+import 'features/admin/admin_panel_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +37,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
   late bool _isDark;
   late bool _isCosmicActive;
   UserModel? _currentUser;
-  String _currentRoute = 'hub'; // 'hub', 'cv_builder', 'pdf_signer', or 'prezi2pdf'
+  String _currentRoute = 'hub'; // 'hub', 'cv_builder', 'pdf_signer', 'prezi2pdf', or 'admin_panel'
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
@@ -45,8 +46,6 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
     _isDark = widget.storage.isDarkTheme();
     _isCosmicActive = widget.storage.isCosmicActive();
     _currentUser = widget.storage.getCurrentUser();
-
-    // No need to show modal over modal
   }
 
   void _toggleTheme() {
@@ -85,6 +84,17 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
           Widget currentScreen;
           if (_currentUser == null) {
             currentScreen = _buildLoggedOutView(ctx);
+          } else if (_currentRoute == 'admin_panel' && _currentUser!.role.toLowerCase() == 'admin') {
+            currentScreen = AdminPanelScreen(
+              apiService: widget.apiService,
+              currentUser: _currentUser!,
+              isDark: _isDark,
+              isCosmicActive: _isCosmicActive,
+              onBackToHub: () => setState(() => _currentRoute = 'hub'),
+              onLogout: _logout,
+              onToggleTheme: _toggleTheme,
+              onToggleCosmic: _toggleCosmic,
+            );
           } else if (_currentRoute == 'cv_builder') {
             currentScreen = CvBuilderScreen(
               apiService: widget.apiService,
@@ -105,6 +115,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
               onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
               onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
+              onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),
               onLogout: _logout,
               onToggleTheme: _toggleTheme,
               onToggleCosmic: _toggleCosmic,
@@ -128,6 +139,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
               onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
               onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
+              onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),
               onLogout: _logout,
               onToggleTheme: _toggleTheme,
               onToggleCosmic: _toggleCosmic,
@@ -145,15 +157,71 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
   }
 
   Widget _buildLoggedOutView(BuildContext context) {
+    final isDark = _isDark;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Center(
-        child: LoginDialog(
-          apiService: widget.apiService,
-          onLoginSuccess: (user) {
-            setState(() => _currentUser = user);
-          },
-        ),
+      body: Stack(
+        children: [
+          // Central Login Card
+          Center(
+            child: LoginDialog(
+              apiService: widget.apiService,
+              onLoginSuccess: (user) {
+                setState(() => _currentUser = user);
+              },
+            ),
+          ),
+
+          // Top floating controls for Theme & Cosmic Animations
+          Positioned(
+            top: 24,
+            right: 28,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155).withOpacity(0.7) : const Color(0xFFCBD5E1),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Cosmic animation toggle
+                  IconButton(
+                    tooltip: _isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+                    icon: Icon(
+                      _isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                      color: _isCosmicActive ? AppTheme.emerald : (isDark ? Colors.grey : Colors.blueGrey),
+                      size: 20,
+                    ),
+                    onPressed: _toggleCosmic,
+                  ),
+                  const SizedBox(width: 4),
+                  // Theme toggle
+                  IconButton(
+                    tooltip: isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+                    icon: Icon(
+                      isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                      color: isDark ? Colors.amberAccent : const Color(0xFF1E293B),
+                      size: 20,
+                    ),
+                    onPressed: _toggleTheme,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

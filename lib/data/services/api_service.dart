@@ -352,4 +352,162 @@ class ApiService {
       },
     ];
   }
+
+  // ===========================================================================
+  // ADMIN PANEL METHODS
+  // ===========================================================================
+
+  Future<List<UserModel>> getAdminUsers() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/admin/users')).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['users'] is List) {
+          final users = (data['users'] as List)
+              .map((u) => UserModel.fromJson(Map<String, dynamic>.from(u as Map)))
+              .toList();
+          return users;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching admin users from backend: $e');
+    }
+    // Local fallback
+    return storage.getLocalUsers();
+  }
+
+  Future<Map<String, dynamic>> createAdminUser({
+    required String username,
+    required String password,
+    required String role,
+    String? fullName,
+    String? email,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/users'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          'role': role,
+          'full_name': fullName,
+          'email': email,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+        await storage.saveLocalUser(user, password);
+        return {'success': true, 'user': user, 'message': data['message']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Error al crear usuario'};
+      }
+    } catch (e) {
+      debugPrint('Error creating admin user on backend, saving locally: $e');
+      final newUser = UserModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        username: username,
+        role: role,
+        fullName: fullName ?? username,
+        email: email,
+      );
+      await storage.saveLocalUser(newUser, password);
+      return {'success': true, 'user': newUser, 'message': 'Usuario guardado en almacenamiento local'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateAdminUser({
+    required dynamic id,
+    required String username,
+    String? role,
+    String? fullName,
+    String? email,
+    bool? isBanned,
+    String? password,
+  }) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/admin/users/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          if (role != null) 'role': role,
+          if (fullName != null) 'full_name': fullName,
+          if (email != null) 'email': email,
+          if (isBanned != null) 'is_banned': isBanned,
+          if (password != null && password.isNotEmpty) 'password': password,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+        if (password != null && password.isNotEmpty) {
+          await storage.saveLocalUser(user, password);
+        } else {
+          final existingPwds = storage.getLocalUsers();
+          await storage.saveLocalUser(user, 'admin');
+        }
+        return {'success': true, 'user': user, 'message': data['message']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Error al actualizar usuario'};
+      }
+    } catch (e) {
+      debugPrint('Error updating user on backend, updating locally: $e');
+      final localUsers = storage.getLocalUsers();
+      final idx = localUsers.indexWhere((u) => u.id == id || u.username.toLowerCase() == username.toLowerCase());
+      if (idx >= 0) {
+        final updated = localUsers[idx].copyWith(
+          role: role,
+          fullName: fullName,
+          email: email,
+          isBanned: isBanned,
+        );
+        await storage.saveLocalUser(updated, password ?? 'admin');
+        return {'success': true, 'user': updated, 'message': 'Actualizado en almacenamiento local'};
+      }
+      return {'success': false, 'message': 'No se pudo actualizar el usuario'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteAdminUser(dynamic id, {required String username}) async {
+    try {
+      final res = await http.delete(Uri.parse('$baseUrl/admin/users/$id')).timeout(const Duration(seconds: 12));
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        await storage.deleteLocalUser(username);
+        return {'success': true, 'message': data['message']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Error al eliminar usuario'};
+      }
+    } catch (e) {
+      debugPrint('Error deleting user on backend, removing locally: $e');
+      await storage.deleteLocalUser(username);
+      return {'success': true, 'message': 'Usuario eliminado localmente'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAdminStats() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/admin/stats')).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('Error fetching admin stats: $e');
+    }
+    final localUsers = storage.getLocalUsers();
+    final profiles = storage.getCvProfiles();
+    return {
+      'success': true,
+      'database': 'Almacenamiento Local (Modo Respaldo)',
+      'total_users': localUsers.length,
+      'total_banned': localUsers.where((u) => u.isBanned).length,
+      'total_cvs': profiles.length,
+      'total_signed_docs': 0,
+      'uptime_seconds': 0,
+    };
+  }
 }
+
