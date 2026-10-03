@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background / Ambient Glow Filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="24"/>
+    </filter>
+    
+    <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8"/>
+    </filter>
+
+    <!-- Planet Sphere 3D Radiant Gradient -->
+    <radialGradient id="planetSphere" cx="34%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#A7F3D0"/>
+      <stop offset="25%" stop-color="#34D399"/>
+      <stop offset="60%" stop-color="#059669"/>
+      <stop offset="85%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#022C22"/>
+    </radialGradient>
+
+    <!-- Front Orbital Ring Gradient -->
+    <linearGradient id="frontRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6EE7B7"/>
+      <stop offset="40%" stop-color="#38BDF8"/>
+      <stop offset="75%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+
+    <!-- Back Orbital Ring Gradient -->
+    <linearGradient id="backRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.3"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 1. Ambient Cosmic Glow -->
+  <circle cx="256" cy="256" r="160" fill="#06B6D4" opacity="0.3" filter="url(#glow)"/>
+
+  <!-- 2. Back Half of Orbital Ring (Tilted -24 deg) -->
+  <g transform="translate(256, 256) rotate(-24)">
+    <path d="M -250,0 A 250 78 0 0 1 250,0" fill="none" stroke="url(#backRingGrad)" stroke-width="22" stroke-linecap="round"/>
+  </g>
+
+  <!-- 3. Celestial Planet Sphere -->
+  <circle cx="256" cy="256" r="148" fill="url(#planetSphere)"/>
+
+  <!-- 4. Front Half of Orbital Ring (Tilted -24 deg) -->
+  <g transform="translate(256, 256) rotate(-24)">
+    <path d="M 250,0 A 250 78 0 0 1 -250,0" fill="none" stroke="url(#frontRingGrad)" stroke-width="22" stroke-linecap="round"/>
+  </g>
+
+  <!-- 5. Sparkling Star on the Planet Crest -->
+  <g transform="translate(330, 180)">
+    <!-- Star Glow -->
+    <circle cx="0" cy="0" r="18" fill="#FFFFFF" opacity="0.45" filter="url(#starGlow)"/>
+    <!-- Horizontal spark ray -->
+    <line x1="-36" y1="0" x2="36" y2="0" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+    <!-- Vertical spark ray -->
+    <line x1="0" y1="-36" x2="0" y2="36" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+    <!-- Diagonal micro rays -->
+    <line x1="-12" y1="-12" x2="12" y2="12" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+    <line x1="-12" y1="12" x2="12" y2="-12" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+    <!-- Bright center core -->
+    <circle cx="0" cy="0" r="7" fill="#FFFFFF"/>
+  </g>
+</svg>
