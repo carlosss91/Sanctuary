@@ -19,7 +19,11 @@ class ApiService {
     const envUrl = String.fromEnvironment('API_URL');
     if (envUrl.isNotEmpty) return envUrl;
     if (kIsWeb) {
-      return 'http://localhost:8088/api';
+      final host = Uri.base.host;
+      if (host.isEmpty || host == 'localhost' || host == '127.0.0.1') {
+        return 'http://localhost:8088/api';
+      }
+      return 'https://sanctuary-backend-u1m1.onrender.com/api';
     }
     // Android emulator host or default local host
     return 'http://localhost:8088/api';
@@ -28,7 +32,7 @@ class ApiService {
   // --- Health Check ---
   Future<bool> checkHealth() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(seconds: 2));
+      final res = await http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         return data['status'] == 'ok';
@@ -44,7 +48,7 @@ class ApiService {
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': username, 'password': password}),
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -80,7 +84,7 @@ class ApiService {
         Uri.parse('$baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': username, 'password': password, 'role': role}),
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 201 || res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -108,7 +112,7 @@ class ApiService {
   // --- CV Profiles ---
   Future<List<CvProfileModel>> getProfiles() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/cv/profiles')).timeout(const Duration(seconds: 3));
+      final res = await http.get(Uri.parse('$baseUrl/cv/profiles')).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true && data['profiles'] is List) {
