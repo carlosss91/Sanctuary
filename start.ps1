@@ -73,25 +73,30 @@ if (Test-Path "C:\Program Files\nodejs\node.exe") {
     exit 1
 }
 
-# Comprobar si dart.exe / flutter puede ejecutarse o si esta bloqueado por Device Guard
-$canRunDart = $false
+# Comprobar si flutter / dart.exe puede ejecutarse o si esta bloqueado por Device Guard / AppLocker
+$canRunFlutter = $false
 try {
-    $dartExe = "C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe"
-    if (Test-Path $dartExe) {
-        $dartTest = & $dartExe --version 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            $canRunDart = $true
-        }
+    $flutterCmd = "flutter"
+    if (Test-Path "C:\src\flutter\bin\flutter.bat") {
+        $flutterCmd = "C:\src\flutter\bin\flutter.bat"
+    } elseif (Get-Command flutter -ErrorAction SilentlyContinue) {
+        $flutterCmd = (Get-Command flutter).Source
+    }
+    
+    # Comprobar si flutter puede ejecutar subprocesos sin ser bloqueado por la directiva de seguridad de Windows
+    $flutterTest = & $flutterCmd --version 2>&1 | Out-String
+    if ($LASTEXITCODE -eq 0 -and ($flutterTest -notmatch "bloqueó|bloqueo|Device Guard|ProcessStarter|Control de aplicaciones")) {
+        $canRunFlutter = $true
     }
 } catch {
-    $canRunDart = $false
+    $canRunFlutter = $false
 }
 
-if ($canRunDart) {
-    Write-Host "       [OK] Flutter y Dart SDK activos y ejecutables." -ForegroundColor Green
+if ($canRunFlutter) {
+    Write-Host "       [OK] Flutter SDK activo y ejecutable en modo nativo." -ForegroundColor Green
 } else {
-    Write-Host "       [INFO] Windows Device Guard / WDAC bloquea 'dart.exe' en este equipo." -ForegroundColor Yellow
-    Write-Host "       [MODO ALTA DISPONIBILIDAD] Se usara el Servidor Nativo Node.js optimizado." -ForegroundColor Green
+    Write-Host "       [INFO] Windows Device Guard / Control de aplicaciones bloquea subprocesos de Dart/Flutter." -ForegroundColor Yellow
+    Write-Host "       [MODO ALTA DISPONIBILIDAD] Activando Servidor Web Node.js nativo (puerto 8085)." -ForegroundColor Green
 }
 
 $hasDocker = $false
@@ -154,16 +159,24 @@ if ($apiReady) {
 # Paso 4: Preparacion de la Aplicacion Web
 Write-Host ""
 Write-Host " [4/5] Verificando paquetes y build web..." -ForegroundColor Cyan
-if ($canRunDart) {
+if ($canRunFlutter) {
     & flutter pub get | Out-Null
     Write-Host "       [OK] Paquetes Dart sincronizados." -ForegroundColor Green
 } else {
     # Asegurar que build/web contenga la compilacion web mas reciente
     $webIndex = Join-Path $PSScriptRoot "build\web\index.html"
-    if (-not (Test-Path $webIndex)) {
-        Write-Host "       Extrayendo compilacion web desde GitHub Pages..." -ForegroundColor Cyan
-        try {
-            git fetch origin gh-pages 2>$null | Out-Null
+    $needsExtract = -not (Test-Path $webIndex)
+    
+    try {
+        git fetch origin gh-pages 2>$null | Out-Null
+        $remoteCommit = (git rev-parse origin/gh-pages 2>$null)
+        $idFile = Join-Path $PSScriptRoot "build\.gh_pages_commit"
+        $localCommit = ""
+        if (Test-Path $idFile) {
+            $localCommit = (Get-Content $idFile -Raw).Trim()
+        }
+        if ($needsExtract -or ($remoteCommit -and $localCommit -ne $remoteCommit)) {
+            Write-Host "       Sincronizando compilacion web desde GitHub Pages..." -ForegroundColor Cyan
             $zipPath = Join-Path $PSScriptRoot "build\gh-pages.zip"
             if (-not (Test-Path (Join-Path $PSScriptRoot "build"))) {
                 New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot "build") -Force | Out-Null
@@ -172,10 +185,18 @@ if ($canRunDart) {
             if (Test-Path $zipPath) {
                 Expand-Archive -Path $zipPath -DestinationPath (Join-Path $PSScriptRoot "build\web") -Force
                 Remove-Item $zipPath -Force
+                if ($remoteCommit) {
+                    Set-Content -Path $idFile -Value $remoteCommit -Force
+                }
             }
-        } catch {}
+        }
+    } catch {}
+
+    if (Test-Path $webIndex) {
+        Write-Host "       [OK] Paquete web de produccion listo para servir en local." -ForegroundColor Green
+    } else {
+        Write-Host "       [WARN] No se encontro build/web/index.html." -ForegroundColor Yellow
     }
-    Write-Host "       [OK] Paquete web de produccion listo para servir en local." -ForegroundColor Green
 }
 
 # Paso 5: Lanzar Flutter Web (Puerto 8085)
@@ -190,7 +211,7 @@ Start-Job -ScriptBlock {
     Start-Process "http://localhost:8085"
 } | Out-Null
 
-if ($canRunDart) {
+if ($canRunFlutter) {
     $useChrome = $args -contains "--chrome"
     if ($useChrome) {
         & flutter run -d chrome --web-port=8085 --web-hostname=0.0.0.0
@@ -211,6 +232,12 @@ if ($canRunDart) {
     Write-Host " Presiona Ctrl+C para detener ambos servidores cuando termines." -ForegroundColor DarkGray
     Write-Host ""
 
-    # Ejecutar el servidor web en primer plano para mantener la ventana viva
-    & $nodeCmd "$webServerPath"
+    # Ejecutar el servidor web en primer plano para mantener la ventana viva y limpiar al cerrar
+    try {
+        & $nodeCmd "$webServerPath"
+    } finally {
+        if ($backendProcess -and -not $backendProcess.HasExited) {
+            Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
