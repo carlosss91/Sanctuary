@@ -20,7 +20,15 @@ class PdfExportService {
   }
 
   static Future<Uint8List> generatePdfBytes(CvProfileModel profile) async {
-    final doc = pw.Document();
+    final safeName = profile.fullName.trim().isEmpty ? 'Curriculum' : profile.fullName.trim();
+    final jsonPayload = base64Encode(utf8.encode(jsonEncode(profile.toJson())));
+    final doc = pw.Document(
+      title: 'Curriculum Vitae - $safeName',
+      author: safeName,
+      creator: 'Sanctuary Platform',
+      subject: 'SanctuaryCV::$jsonPayload',
+      keywords: 'SanctuaryCV,Curriculum,CV',
+    );
 
     final isEn = profile.isEnglishVersion;
     final accentPdfColor = _hexToPdfColor(profile.accentColor);

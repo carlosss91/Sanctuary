@@ -37,6 +37,25 @@ class CvDocumentParserService {
       if (ext == 'docx') {
         extractedText = _extractTextFromDocx(bytes);
       } else if (ext == 'pdf') {
+        // 1. Check for embedded Sanctuary CV JSON metadata for 100% perfect reconstruction
+        final rawStr = latin1.decode(bytes);
+        final metaMatch = RegExp(r'SanctuaryCV::([A-Za-z0-9+/=]+)').firstMatch(rawStr);
+        if (metaMatch != null) {
+          try {
+            final jsonStr = utf8.decode(base64Decode(metaMatch.group(1)!));
+            final data = jsonDecode(jsonStr);
+            if (data is Map<String, dynamic> && data.containsKey('fullName')) {
+              final exactProfile = CvProfileModel.fromJson(data);
+              if (!context.mounted) return exactProfile;
+              final confirmed = await _showReviewImportDialog(context, exactProfile, fileName);
+              if (confirmed == true) return exactProfile;
+              return null;
+            }
+          } catch (e) {
+            debugPrint('Aviso: no se pudo decodificar metadata SanctuaryCV: $e');
+          }
+        }
+
         extractedText = _extractTextFromPdf(bytes);
       } else {
         extractedText = utf8.decode(bytes, allowMalformed: true);
@@ -103,35 +122,21 @@ class CvDocumentParserService {
     }
   }
 
-  /// Extracts readable text strings from a PDF document
+  /// Extracts readable text strings from a PDF document, decompressing FlateDecode streams
   static String _extractTextFromPdf(Uint8List bytes) {
     final buffer = StringBuffer();
     try {
+      // 1. Scan and decompress all FlateDecode streams (where actual page text is stored)
+      final decompressedStreams = _extractAndDecompressPdfStreams(bytes);
+      for (final streamText in decompressedStreams) {
+        _extractTextFromStreamContent(streamText, buffer);
+      }
+
+      // 2. Also scan uncompressed raw string for uncompressed PDFs
       final rawStr = latin1.decode(bytes);
+      _extractTextFromStreamContent(rawStr, buffer);
 
-      // 1. Scan for text objects within ( ... ) Tj and [ ... ] TJ
-      final tjRegex = RegExp(r'\((.*?)\)\s*Tj', dotAll: true);
-      final tjMatches = tjRegex.allMatches(rawStr);
-      for (final m in tjMatches) {
-        final val = m.group(1);
-        if (val != null && val.isNotEmpty) {
-          buffer.writeln(_sanitizePdfString(val));
-        }
-      }
-
-      // 2. Scan array text elements: [ (text1) 20 (text2) ] TJ
-      final arrayTjRegex = RegExp(r'\[(.*?)\]\s*TJ', dotAll: true);
-      final arrayMatches = arrayTjRegex.allMatches(rawStr);
-      for (final m in arrayMatches) {
-        final content = m.group(1) ?? '';
-        final innerStrings = RegExp(r'\((.*?)\)').allMatches(content);
-        final line = innerStrings.map((im) => im.group(1) ?? '').join(' ');
-        if (line.trim().isNotEmpty) {
-          buffer.writeln(_sanitizePdfString(line));
-        }
-      }
-
-      // If PDF text streams were compressed or not caught by simple regex, scan uncompressed ASCII words
+      // 3. Fallback: if very little text found, extract readable ASCII words
       if (buffer.length < 50) {
         final asciiWords = RegExp(r'[A-Za-zÁÉÍÓÚáéíóúñÑ0-9@._\-+]{2,}')
             .allMatches(rawStr)
@@ -141,9 +146,112 @@ class CvDocumentParserService {
             .join(' ');
         buffer.writeln(asciiWords);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error extrayendo texto de PDF: $e');
+    }
 
     return buffer.toString();
+  }
+
+  /// Finds all 'stream ... endstream' binary byte slices and decompresses with ZLibDecoder / Inflate
+  static List<String> _extractAndDecompressPdfStreams(Uint8List bytes) {
+    final List<String> result = [];
+    final len = bytes.length;
+    int i = 0;
+
+    // Scan for 'stream' keyword
+    while (i < len - 10) {
+      if (bytes[i] == 115 && // s
+          bytes[i + 1] == 116 && // t
+          bytes[i + 2] == 114 && // r
+          bytes[i + 3] == 101 && // e
+          bytes[i + 4] == 97 && // a
+          bytes[i + 5] == 109) { // m
+        int streamStart = i + 6;
+        while (streamStart < len && (bytes[streamStart] == 10 || bytes[streamStart] == 13 || bytes[streamStart] == 32)) {
+          streamStart++;
+        }
+
+        // Find matching 'endstream'
+        int streamEnd = -1;
+        int j = streamStart;
+        while (j < len - 9) {
+          if (bytes[j] == 101 && // e
+              bytes[j + 1] == 110 && // n
+              bytes[j + 2] == 100 && // d
+              bytes[j + 3] == 115 && // s
+              bytes[j + 4] == 116 && // t
+              bytes[j + 5] == 114 && // r
+              bytes[j + 6] == 101 && // e
+              bytes[j + 7] == 97 && // a
+              bytes[j + 8] == 109) { // m
+            streamEnd = j;
+            break;
+          }
+          j++;
+        }
+
+        if (streamEnd > streamStart) {
+          int actualEnd = streamEnd;
+          while (actualEnd > streamStart && (bytes[actualEnd - 1] == 10 || bytes[actualEnd - 1] == 13 || bytes[actualEnd - 1] == 32)) {
+            actualEnd--;
+          }
+
+          if (actualEnd > streamStart) {
+            final slice = bytes.sublist(streamStart, actualEnd);
+            List<int>? decompressed;
+            try {
+              decompressed = ZLibDecoder().decodeBytes(slice);
+            } catch (_) {
+              try {
+                decompressed = Inflate(slice).getBytes();
+              } catch (_) {}
+            }
+
+            if (decompressed != null && decompressed.isNotEmpty) {
+              final text = utf8.decode(decompressed, allowMalformed: true);
+              result.add(text);
+            }
+          }
+          i = streamEnd + 9;
+          continue;
+        }
+      }
+      i++;
+    }
+
+    return result;
+  }
+
+  static void _extractTextFromStreamContent(String content, StringBuffer buffer) {
+    // 1. Text inside ( ... ) Tj
+    final tjRegex = RegExp(r'\((.*?)\)\s*Tj', dotAll: true);
+    for (final m in tjRegex.allMatches(content)) {
+      final val = m.group(1);
+      if (val != null && val.isNotEmpty) {
+        buffer.writeln(_sanitizePdfString(val));
+      }
+    }
+
+    // 2. Text array [ (part1) 120 (part2) ] TJ
+    final arrayTjRegex = RegExp(r'\[(.*?)\]\s*TJ', dotAll: true);
+    for (final m in arrayTjRegex.allMatches(content)) {
+      final arr = m.group(1) ?? '';
+      final innerStrings = RegExp(r'\((.*?)\)').allMatches(arr);
+      final line = innerStrings.map((im) => im.group(1) ?? '').join(' ');
+      if (line.trim().isNotEmpty) {
+        buffer.writeln(_sanitizePdfString(line));
+      }
+    }
+
+    // 3. Text with ' or " operator
+    final quoteRegex = RegExp(r'\((.*?)\)\s*["\x27]', dotAll: true);
+    for (final m in quoteRegex.allMatches(content)) {
+      final val = m.group(1);
+      if (val != null && val.isNotEmpty) {
+        buffer.writeln(_sanitizePdfString(val));
+      }
+    }
   }
 
   static String _sanitizePdfString(String str) {
@@ -188,14 +296,28 @@ class CvDocumentParserService {
       phone = phoneMatch.group(0)!.replaceAll(RegExp(r'\s+'), ' ');
     }
 
-    // 3. Name & Job title detection from header lines
+    // 3. Location detection
+    final locationPatterns = [
+      'gran canaria', 'canarias', 'arucas', 'las palmas', 'tenerife',
+      'madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao', 'zaragoza',
+      'málaga', 'malaga', 'españa', 'spain'
+    ];
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      if (locationPatterns.any((pat) => lower.contains(pat)) && line.length < 60 && !line.contains('@')) {
+        location = line;
+        break;
+      }
+    }
+
+    // 4. Name & Job title detection from header lines
     for (int i = 0; i < lines.length && i < 6; i++) {
       final line = lines[i];
       if (line.contains('@') || line.contains('+') || RegExp(r'\d{5,}').hasMatch(line)) {
         continue;
       }
       if (fullName.isEmpty || fullName == 'NOMBRE Y APELLIDOS') {
-        if (line.length >= 3 && line.length <= 45 && !line.contains(':')) {
+        if (line.length >= 3 && line.length <= 45 && !line.contains(':') && !line.contains('http')) {
           fullName = line;
           continue;
         }
@@ -207,7 +329,7 @@ class CvDocumentParserService {
       }
     }
 
-    // 4. Section parsing
+    // 5. Section parsing
     String currentSection = '';
     final summaryBuffer = StringBuffer();
     final List<String> rawExpBlocks = [];
@@ -215,11 +337,25 @@ class CvDocumentParserService {
     final List<String> rawSkillTokens = [];
 
     final sectionHeaders = {
-      'summary': ['perfil', 'resumen', 'sobre mí', 'sobre mi', 'summary', 'about me', 'acerca de'],
-      'experience': ['experiencia', 'historial laboral', 'trayectoria', 'experience', 'work experience', 'empleo'],
-      'education': ['educación', 'educacion', 'formación', 'formacion', 'estudios', 'education', 'certificaciones', 'titulación'],
-      'skills': ['habilidades', 'competencias', 'skills', 'conocimientos', 'aptitudes', 'tecnologías', 'herramientas'],
-      'contact': ['contacto', 'datos personales', 'contact', 'datos'],
+      'summary': [
+        'perfil', 'resumen', 'sobre mí', 'sobre mi', 'summary', 'about me', 'acerca de',
+        'perfil profesional', 'resumen profesional', 'presentación', 'bio'
+      ],
+      'experience': [
+        'experiencia', 'experiencia laboral', 'experiencia profesional', 'historial laboral',
+        'trayectoria', 'trayectoria laboral', 'work experience', 'experience', 'empleo',
+        'cargos', 'puestos desempeñados'
+      ],
+      'education': [
+        'educación', 'educacion', 'formación', 'formacion', 'formación académica',
+        'estudios', 'education', 'certificaciones', 'titulación', 'titulaciones',
+        'titulacion', 'cursos y certificaciones', 'diplomas'
+      ],
+      'skills': [
+        'habilidades', 'competencias', 'competencias clave', 'skills', 'conocimientos',
+        'aptitudes', 'tecnologías', 'herramientas', 'destrezas'
+      ],
+      'contact': ['contacto', 'datos personales', 'contact', 'datos de contacto'],
     };
 
     for (final line in lines) {
@@ -240,7 +376,7 @@ class CvDocumentParserService {
 
       switch (currentSection) {
         case 'summary':
-          if (summaryBuffer.length < 600) {
+          if (summaryBuffer.length < 800) {
             summaryBuffer.writeln(line);
           }
           break;
@@ -253,17 +389,12 @@ class CvDocumentParserService {
         case 'skills':
           if (line.contains(',') || line.contains('•') || line.contains('-') || line.contains('|')) {
             rawSkillTokens.addAll(line.split(RegExp(r'[,•|/\-]')).map((s) => s.trim()).where((s) => s.length >= 2));
-          } else if (line.length < 35) {
+          } else if (line.length < 40) {
             rawSkillTokens.add(line);
           }
           break;
         case 'contact':
-          if (line.toLowerCase().contains('madrid') ||
-              line.toLowerCase().contains('barcelona') ||
-              line.toLowerCase().contains('sevilla') ||
-              line.toLowerCase().contains('valencia') ||
-              line.toLowerCase().contains('españa') ||
-              line.toLowerCase().contains('spain')) {
+          if (locationPatterns.any((pat) => line.toLowerCase().contains(pat))) {
             location = line;
           }
           break;
@@ -274,23 +405,30 @@ class CvDocumentParserService {
       summary = summaryBuffer.toString().trim();
     }
 
-    // 5. Parse Experience Items from blocks
+    // 6. Robust Parse Experience Items from blocks
     if (rawExpBlocks.isNotEmpty) {
       final parsedExperiences = <CvExperience>[];
       for (int i = 0; i < rawExpBlocks.length; i++) {
         final line = rawExpBlocks[i];
-        final yearMatch = RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(line);
+        final isDateLine = RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(line) ||
+            line.toLowerCase().contains('actualidad') ||
+            line.toLowerCase().contains('presente');
 
-        if (yearMatch && parsedExperiences.length < 8) {
-          final title = (i > 0 && rawExpBlocks[i - 1].length < 60) ? rawExpBlocks[i - 1] : line;
-          final company = (i + 1 < rawExpBlocks.length && rawExpBlocks[i + 1].length < 60) ? rawExpBlocks[i + 1] : 'Empresa / Entidad';
-          final desc = (i + 2 < rawExpBlocks.length) ? rawExpBlocks[i + 2] : '';
+        if (isDateLine && parsedExperiences.length < 8) {
+          final title = (i > 0 && rawExpBlocks[i - 1].length < 75) ? rawExpBlocks[i - 1] : 'Operario / Especialista';
+          final company = (i + 1 < rawExpBlocks.length && rawExpBlocks[i + 1].length < 75) ? rawExpBlocks[i + 1] : 'Empresa / Entidad';
+          final descLines = <String>[];
+          int d = i + 2;
+          while (d < rawExpBlocks.length && !RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(rawExpBlocks[d]) && descLines.length < 4) {
+            descLines.add(rawExpBlocks[d]);
+            d++;
+          }
 
           parsedExperiences.add(CvExperience(
-            jobTitle: title.isNotEmpty ? title : 'Especialista',
+            jobTitle: title,
             company: company,
             period: line,
-            description: desc,
+            description: descLines.join('\n'),
           ));
         }
       }
@@ -299,21 +437,30 @@ class CvDocumentParserService {
       }
     }
 
-    // 6. Parse Education Items from blocks
+    // 7. Robust Parse Education Items from blocks
     if (rawEduBlocks.isNotEmpty) {
       final parsedEducation = <CvEducation>[];
       for (int i = 0; i < rawEduBlocks.length; i++) {
         final line = rawEduBlocks[i];
-        final yearMatch = RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(line);
+        final isDateLine = RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(line) ||
+            line.toLowerCase().contains('actualidad') ||
+            line.toLowerCase().contains('curso');
 
-        if (yearMatch && parsedEducation.length < 6) {
-          final degree = (i > 0 && rawEduBlocks[i - 1].length < 70) ? rawEduBlocks[i - 1] : line;
-          final institution = (i + 1 < rawEduBlocks.length && rawEduBlocks[i + 1].length < 70) ? rawEduBlocks[i + 1] : 'Universidad / Centro Formatívo';
+        if (isDateLine && parsedEducation.length < 6) {
+          final degree = (i > 0 && rawEduBlocks[i - 1].length < 85) ? rawEduBlocks[i - 1] : 'Certificado de Profesionalidad / Titulación';
+          final institution = (i + 1 < rawEduBlocks.length && rawEduBlocks[i + 1].length < 85) ? rawEduBlocks[i + 1] : 'Centro Formativo';
+          final detailLines = <String>[];
+          int d = i + 2;
+          while (d < rawEduBlocks.length && !RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(rawEduBlocks[d]) && detailLines.length < 3) {
+            detailLines.add(rawEduBlocks[d]);
+            d++;
+          }
 
           parsedEducation.add(CvEducation(
             degree: degree,
             institution: institution,
             period: line,
+            details: detailLines.isNotEmpty ? detailLines.join('. ') : '',
           ));
         }
       }
@@ -322,14 +469,14 @@ class CvDocumentParserService {
       }
     }
 
-    // 7. Parse Skills
+    // 8. Parse Skills
     if (rawSkillTokens.isNotEmpty) {
       final uniqueSkills = rawSkillTokens
           .map((s) => s.trim())
-          .where((s) => s.length >= 2 && s.length <= 40 && !s.contains(':'))
+          .where((s) => s.length >= 2 && s.length <= 40 && !s.contains(':') && !s.toLowerCase().startsWith('http'))
           .toSet()
           .take(12)
-          .map((name) => CvSkillItem(name: name, level: 5))
+          .map((name) => CvSkillItem(name: name, level: 5, description: 'Competencia técnica o profesional'))
           .toList();
 
       if (uniqueSkills.isNotEmpty) {

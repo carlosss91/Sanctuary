@@ -10,7 +10,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
+import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
+import '../hub/user_profile_dialog.dart';
 import 'models/signature_document_model.dart';
 import 'widgets/signature_canvas_widget.dart';
 import 'widgets/signer_identification_dialog.dart';
@@ -48,6 +50,7 @@ class PdfSignerScreen extends StatefulWidget {
 class _PdfSignerScreenState extends State<PdfSignerScreen> {
   late PdfSignerDocument _document;
   SignerIdentity? _currentIdentity;
+  UserModel? _currentUser;
   bool _isSidebarCollapsed = false;
   double _zoomScale = 1.0;
   bool _isRefreshing = false;
@@ -75,6 +78,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     super.initState();
     final user = widget.apiService.storage.getCurrentUser();
     if (user != null) {
+      _currentUser = user;
       _currentIdentity = SignerIdentity(
         name: user.fullName ?? user.username,
         surname: user.role == 'Docente' ? 'Profesor FC0003' : 'Santuario',
@@ -687,7 +691,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
 
   Widget _buildTopBar(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
         border: Border(
@@ -699,28 +703,27 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       ),
       child: Row(
         children: [
-          // Back Button to Hub
-          InkWell(
-            onTap: widget.onBackToHub,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, size: 16),
-                  SizedBox(width: 6),
-                  Text('Santuario (Hub)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                ],
+          // Back Button to Hub (Solo flecha compacta, sin texto largo)
+          Tooltip(
+            message: 'Volver al Santuario Hub',
+            child: InkWell(
+              onTap: widget.onBackToHub,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                ),
+                child: const Center(
+                  child: Icon(Icons.arrow_back_rounded, size: 18),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
 
           // Document Title and Status Badge
           Expanded(
@@ -729,31 +732,32 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Flexible(
                       child: Text(
                         _document.title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppTheme.emerald.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.circle, size: 7, color: AppTheme.emerald),
+                          const Icon(Icons.circle, size: 6, color: AppTheme.emerald),
                           const SizedBox(width: 4),
                           Text(
                             '${_document.signatures.length} Firmas',
-                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                           ),
                         ],
                       ),
@@ -764,106 +768,300 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   _pdfPageImages.isNotEmpty
                       ? '${_document.fileName} · ${_pdfPageImages.length} pág.'
                       : _document.fileName,
-                  style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
 
-          // Verified Security Standards Button (eIDAS / PAdES / RFC 3161)
-          ElevatedButton.icon(
-            onPressed: () => SecurityStandardsDialog.show(context, _document),
-            icon: const Icon(Icons.verified_user_rounded, size: 15, color: Colors.white),
-            label: const Row(
+          // Action Buttons: Compact and Right-aligned (encima de auditoría y firmantes)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Seguridad Verificada', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                SizedBox(width: 5),
-                Icon(Icons.check_circle, size: 13, color: Colors.white),
+                // 1. Verified Security Standards Chip
+                ElevatedButton.icon(
+                  onPressed: () => SecurityStandardsDialog.show(context, _document),
+                  icon: const Icon(Icons.verified_user_rounded, size: 13, color: Colors.white),
+                  label: const Text('Seguridad', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // 2. Attach PDF
+                ElevatedButton.icon(
+                  onPressed: _pickPdfFile,
+                  icon: const Icon(Icons.upload_file_outlined, size: 13),
+                  label: const Text('Adjuntar', style: TextStyle(fontSize: 11)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    foregroundColor: isDark ? Colors.white : Colors.black87,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // 3. Sign Document (Primary Emerald)
+                ElevatedButton.icon(
+                  onPressed: _openSignModal,
+                  icon: const Icon(Icons.draw_rounded, size: 13),
+                  label: const Text('Firmar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // 4. Share Document
+                ElevatedButton.icon(
+                  onPressed: () => ShareDocumentDialog.show(
+                    context,
+                    _document,
+                    onSimulateGuestSigner: _simulateExternalGuestSigner,
+                  ),
+                  icon: const Icon(Icons.share_outlined, size: 13),
+                  label: const Text('Compartir', style: TextStyle(fontSize: 11)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // 5. Download Signed
+                ElevatedButton.icon(
+                  onPressed: _exportSignedPdf,
+                  icon: const Icon(Icons.download_rounded, size: 13),
+                  label: const Text('Descargar', style: TextStyle(fontSize: 11)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Theme and Cosmic toggles
+                IconButton(
+                  icon: Icon(widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 18),
+                  tooltip: 'Cambiar tema',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  onPressed: widget.onToggleTheme,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(widget.isCosmicActive ? Icons.auto_awesome : Icons.blur_off, size: 18),
+                  tooltip: 'Animación cósmica',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  onPressed: widget.onToggleCosmic,
+                ),
+                const SizedBox(width: 8),
+
+                // Profile Dropdown
+                _buildProfileDropdown(isDark),
               ],
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Action Buttons: Attach, Sign, Share, Save
-          ElevatedButton.icon(
-            onPressed: _pickPdfFile,
-            icon: const Icon(Icons.upload_file_outlined, size: 15),
-            label: const Text('Adjuntar PDF', style: TextStyle(fontSize: 11.5)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              foregroundColor: isDark ? Colors.white : Colors.black87,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          ElevatedButton.icon(
-            onPressed: _openSignModal,
-            icon: const Icon(Icons.draw_outlined, size: 15),
-            label: const Text('Firmar Documento', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          ElevatedButton.icon(
-            onPressed: () => ShareDocumentDialog.show(
-              context,
-              _document,
-              onSimulateGuestSigner: _simulateExternalGuestSigner,
-            ),
-            icon: const Icon(Icons.share_outlined, size: 15),
-            label: const Text('Compartir', style: TextStyle(fontSize: 11.5)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          ElevatedButton.icon(
-            onPressed: _exportSignedPdf,
-            icon: const Icon(Icons.download_rounded, size: 15),
-            label: const Text('Descargar Firmado', style: TextStyle(fontSize: 11.5)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-              foregroundColor: Colors.white,
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Theme and Cosmic toggles
-          IconButton(
-            icon: Icon(widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 19),
-            tooltip: 'Cambiar tema',
-            onPressed: widget.onToggleTheme,
-          ),
-          IconButton(
-            icon: Icon(widget.isCosmicActive ? Icons.auto_awesome : Icons.blur_off, size: 19),
-            tooltip: 'Animación cósmica',
-            onPressed: widget.onToggleCosmic,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProfileDropdown(bool isDark) {
+    final user = _currentUser ?? widget.apiService.storage.getCurrentUser() ?? UserModel(username: 'Usuario', role: 'admin');
+
+    return PopupMenuButton<String>(
+      tooltip: 'Menú de usuario',
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1.2),
+      ),
+      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+      onSelected: (val) {
+        if (val == 'edit_profile') {
+          UserProfileDialog.show(
+            context,
+            user: user,
+            apiService: widget.apiService,
+            onUserUpdated: (updated) {
+              setState(() {
+                _currentUser = updated;
+                _currentIdentity = SignerIdentity(
+                  name: updated.fullName ?? updated.username,
+                  surname: updated.role == 'Docente' ? 'Profesor FC0003' : 'Santuario',
+                );
+              });
+            },
+          );
+        } else if (val == 'toggle_theme') {
+          widget.onToggleTheme();
+        } else if (val == 'toggle_cosmic') {
+          widget.onToggleCosmic();
+        } else if (val == 'logout') {
+          widget.onLogout();
+        }
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppTheme.emerald,
+                  backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                      ? NetworkImage(user.avatarUrl!)
+                      : null,
+                  child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                      ? Text(
+                          user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user.fullName ?? user.username,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '@${user.username} · ${user.role}',
+                        style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'edit_profile',
+          child: Row(
+            children: [
+              Icon(Icons.manage_accounts_outlined, size: 17, color: AppTheme.emerald),
+              SizedBox(width: 10),
+              Text('Editar Perfil y Foto', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'toggle_theme',
+          child: Row(
+            children: [
+              Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 17),
+              const SizedBox(width: 10),
+              Text(isDark ? 'Tema Claro' : 'Tema Oscuro', style: const TextStyle(fontSize: 12.5)),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'toggle_cosmic',
+          child: Row(
+            children: [
+              Icon(widget.isCosmicActive ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 17),
+              const SizedBox(width: 10),
+              Text(widget.isCosmicActive ? 'Pausar Cosmos' : 'Activar Cosmos', style: const TextStyle(fontSize: 12.5)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 17, color: Colors.redAccent),
+              SizedBox(width: 10),
+              Text('Cerrar Sesión', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: AppTheme.emerald,
+              backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                  ? NetworkImage(user.avatarUrl!)
+                  : null,
+              child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                  ? Text(
+                      user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
+                      style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              user.username,
+              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

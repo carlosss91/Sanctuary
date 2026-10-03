@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
@@ -478,10 +479,31 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Elige si deseas guardar los archivos directamente en tu disco o previsualizarlos en el navegador:',
+                  'Elige cómo deseas descargar los vídeos a tu equipo o previsualizarlos:',
                   style: TextStyle(fontSize: 12.5, color: Colors.grey),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.emerald.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.folder_zip_rounded, size: 18, color: AppTheme.emerald),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Recomendado: "Descargar en ZIP" agrupa todos los vídeos en un único archivo comprimido, garantizando que el navegador no bloquee descargas automáticas múltiples.',
+                          style: TextStyle(fontSize: 11.5, color: AppTheme.emerald, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 280),
                   child: ListView.separated(
@@ -544,8 +566,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               child: const Text('Cerrar'),
             ),
             OutlinedButton.icon(
-              icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: const Text('Previsualizar Todos'),
+              icon: const Icon(Icons.open_in_new_rounded, size: 15),
+              label: const Text('Previsualizar'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: isDark ? Colors.white70 : Colors.black87,
               ),
@@ -557,23 +579,147 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                 }
               },
             ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.download_rounded, size: 18),
-              label: Text('Descargar Todos (${selected.length})'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.download_rounded, size: 15),
+              label: const Text('Uno a Uno (.mp4)'),
               onPressed: () {
                 Navigator.of(ctx).pop();
                 _startBatchDownload(selected);
+              },
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.folder_zip_rounded, size: 16),
+              label: Text('Descargar en ZIP (${selected.length})'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _startBatchDownloadZip(selected);
               },
             ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _startBatchDownloadZip(List<PreziVideoItem> selected) async {
+    setState(() => _isBatchDownloading = true);
+
+    final archive = Archive();
+    int addedCount = 0;
+    int skippedCount = 0;
+
+    for (int i = 0; i < selected.length; i++) {
+      final video = selected[i];
+      if (video.isYouTube || video.isVimeo) {
+        skippedCount++;
+        continue;
+      }
+
+      setState(() => _downloadingVideoIds.add(video.id));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Descargando vídeo ${i + 1} de ${selected.length}: "${video.title}"...')),
+              ],
+            ),
+            duration: const Duration(seconds: 45),
+            backgroundColor: const Color(0xFF1E293B),
+          ),
+        );
+      }
+
+      try {
+        final bytes = await _preziService.fetchVideoBytes(video.url);
+        if (bytes != null && bytes.isNotEmpty) {
+          final safeName = '${(i + 1).toString().padLeft(2, '0')}_${video.title.replaceAll(RegExp(r'[^\w\.-]'), '_')}.mp4';
+          archive.addFile(ArchiveFile(safeName, bytes.length, bytes));
+          addedCount++;
+        }
+      } catch (e) {
+        debugPrint('Error en descarga de vídeo (${video.title}): $e');
+      } finally {
+        if (mounted) {
+          setState(() => _downloadingVideoIds.remove(video.id));
+        }
+      }
+    }
+
+    if (addedCount > 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                SizedBox(width: 12),
+                Expanded(child: Text('Empaquetando todos los vídeos en archivo .ZIP...')),
+              ],
+            ),
+            duration: Duration(seconds: 15),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      }
+
+      try {
+        final zipData = ZipEncoder().encode(archive);
+        if (zipData.isNotEmpty) {
+          final title = _state.presentationInfo?.title ?? 'Presentacion';
+          final cleanTitle = title.replaceAll(RegExp(r'[^\w\.-]'), '_');
+          final zipName = '${cleanTitle}_Videos.zip';
+          await Printing.sharePdf(bytes: Uint8List.fromList(zipData), filename: zipName);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  skippedCount > 0
+                      ? '✔ ¡$addedCount vídeos empaquetados y guardados en $zipName! ($skippedCount de YouTube/Vimeo omitidos)'
+                      : '✔ ¡Todos los vídeos ($addedCount) se han guardado con éxito en el archivo $zipName!',
+                ),
+                backgroundColor: AppTheme.emerald,
+                duration: const Duration(seconds: 6),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error al crear ZIP de vídeos: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al comprimir vídeos: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudieron obtener los archivos de vídeo para empaquetar.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isBatchDownloading = false);
+    }
   }
 
   Future<void> _startBatchDownload(List<PreziVideoItem> selected) async {
@@ -599,10 +745,10 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               children: [
                 const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Descargando video ${i + 1} de ${selected.length}: ${video.title}...')),
+                Expanded(child: Text('Descargando vídeo individual ${i + 1} de ${selected.length}: ${video.title}...')),
               ],
             ),
-            duration: const Duration(seconds: 15),
+            duration: const Duration(seconds: 25),
             backgroundColor: const Color(0xFF1E293B),
           ),
         );
@@ -623,8 +769,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         }
       }
 
-      // Pausa secuencial controlada para que el navegador procese cada descarga
-      await Future.delayed(const Duration(milliseconds: 700));
+      // Pausa secuencial controlada de 1.8s para que el navegador procese cada descarga sin bloquear la siguiente
+      await Future.delayed(const Duration(milliseconds: 1800));
     }
 
     if (mounted) {
@@ -634,8 +780,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         SnackBar(
           content: Text(
             skippedCount > 0
-                ? '✔ $downloadedCount videos guardados en descargas ($skippedCount de YouTube/Vimeo omitidos).'
-                : '✔ ¡Todos los videos seleccionados ($downloadedCount) se han descargado con éxito a tu equipo!',
+                ? '✔ $downloadedCount vídeos guardados ($skippedCount de YouTube/Vimeo omitidos).'
+                : '✔ ¡Se han procesado las descargas de todos los vídeos ($downloadedCount)!',
           ),
           backgroundColor: AppTheme.emerald,
           duration: const Duration(seconds: 5),
