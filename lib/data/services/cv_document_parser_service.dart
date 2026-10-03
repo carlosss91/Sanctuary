@@ -37,23 +37,13 @@ class CvDocumentParserService {
       if (ext == 'docx') {
         extractedText = _extractTextFromDocx(bytes);
       } else if (ext == 'pdf') {
-        // 1. Check for embedded Sanctuary CV JSON metadata for 100% perfect reconstruction
-        final rawStr = latin1.decode(bytes);
-        final metaMatch = RegExp(r'SanctuaryCV::([A-Za-z0-9+/=]+)').firstMatch(rawStr);
-        if (metaMatch != null) {
-          try {
-            final jsonStr = utf8.decode(base64Decode(metaMatch.group(1)!));
-            final data = jsonDecode(jsonStr);
-            if (data is Map<String, dynamic> && data.containsKey('fullName')) {
-              final exactProfile = CvProfileModel.fromJson(data);
-              if (!context.mounted) return exactProfile;
-              final confirmed = await _showReviewImportDialog(context, exactProfile, fileName);
-              if (confirmed == true) return exactProfile;
-              return null;
-            }
-          } catch (e) {
-            debugPrint('Aviso: no se pudo decodificar metadata SanctuaryCV: $e');
-          }
+        // 1. Check for embedded Sanctuary CV JSON metadata across all encoding layers for 100% reconstruction
+        final exactProfile = _tryExtractSanctuaryMetadata(bytes);
+        if (exactProfile != null) {
+          if (!context.mounted) return exactProfile;
+          final confirmed = await _showReviewImportDialog(context, exactProfile, fileName);
+          if (confirmed == true) return exactProfile;
+          return null;
         }
 
         extractedText = _extractTextFromPdf(bytes);
@@ -223,6 +213,79 @@ class CvDocumentParserService {
     return result;
   }
 
+  /// Tries extracting embedded Sanctuary CV JSON metadata across all encoding layers:
+  /// 1. Direct ASCII trailer comment (%SanctuaryCV::$jsonPayload%)
+  /// 2. Raw Latin1/UTF-8 string (/Subject SanctuaryCV::...)
+  /// 3. Stripped null-bytes (UTF-16BE wide strings)
+  /// 4. Decompressed Flate streams (/ObjStm object streams)
+  static CvProfileModel? _tryExtractSanctuaryMetadata(Uint8List bytes) {
+    try {
+      // Layer 1: Check raw ASCII string
+      final rawStr = latin1.decode(bytes);
+      final match1 = RegExp(r'SanctuaryCV::([A-Za-z0-9+/=]+)').firstMatch(rawStr);
+      if (match1 != null) {
+        final profile = _decodeSanctuaryPayload(match1.group(1)!);
+        if (profile != null) return profile;
+      }
+
+      // Layer 2: Check bytes without null-bytes (UTF-16BE)
+      final nonZero = bytes.where((b) => b != 0).toList();
+      final nonZeroStr = latin1.decode(nonZero);
+      final match2 = RegExp(r'SanctuaryCV::([A-Za-z0-9+/=]+)').firstMatch(nonZeroStr);
+      if (match2 != null) {
+        final profile = _decodeSanctuaryPayload(match2.group(1)!);
+        if (profile != null) return profile;
+      }
+
+      // Layer 3: Check decompressed streams (compressed /ObjStm objects)
+      final decompressedStreams = _extractAndDecompressPdfStreams(bytes);
+      for (final stream in decompressedStreams) {
+        final streamMatch = RegExp(r'SanctuaryCV::([A-Za-z0-9+/=]+)').firstMatch(stream);
+        if (streamMatch != null) {
+          final profile = _decodeSanctuaryPayload(streamMatch.group(1)!);
+          if (profile != null) return profile;
+        }
+      }
+    } catch (e) {
+      debugPrint('Aviso: error inspeccionando metadatos SanctuaryCV: $e');
+    }
+    return null;
+  }
+
+  static CvProfileModel? _decodeSanctuaryPayload(String base64Payload) {
+    try {
+      final jsonStr = utf8.decode(base64Decode(base64Payload));
+      final data = jsonDecode(jsonStr);
+      if (data is Map<String, dynamic> && data.containsKey('fullName')) {
+        return CvProfileModel.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static String _decodePdfHexString(String hex) {
+    final clean = hex.replaceAll(RegExp(r'\s+'), '');
+    if (clean.isEmpty) return '';
+    try {
+      final padded = clean.length.isOdd ? '${clean}0' : clean;
+      final bytes = <int>[];
+      for (int i = 0; i < padded.length; i += 2) {
+        bytes.add(int.parse(padded.substring(i, i + 2), radix: 16));
+      }
+      // Check if starts with UTF-16BE BOM (0xFE 0xFF)
+      if (bytes.length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) {
+        return utf8.decode(bytes.sublist(2).where((b) => b != 0).toList(), allowMalformed: true);
+      }
+      // Check if UTF-16BE format without BOM (alternate bytes are 0)
+      if (bytes.length >= 4 && bytes[0] == 0 && bytes[2] == 0) {
+        return utf8.decode(bytes.where((b) => b != 0).toList(), allowMalformed: true);
+      }
+      return latin1.decode(bytes);
+    } catch (_) {
+      return '';
+    }
+  }
+
   static void _extractTextFromStreamContent(String content, StringBuffer buffer) {
     // 1. Text inside ( ... ) Tj
     final tjRegex = RegExp(r'\((.*?)\)\s*Tj', dotAll: true);
@@ -252,6 +315,32 @@ class CvDocumentParserService {
         buffer.writeln(_sanitizePdfString(val));
       }
     }
+
+    // 4. Hex strings <HEX> Tj (TrueType / Type0 fonts)
+    final hexTjRegex = RegExp(r'<([0-9a-fA-F\s]+)>\s*Tj');
+    for (final m in hexTjRegex.allMatches(content)) {
+      final hex = m.group(1);
+      if (hex != null && hex.isNotEmpty) {
+        final decoded = _decodePdfHexString(hex);
+        if (decoded.trim().isNotEmpty) {
+          buffer.writeln(decoded.trim());
+        }
+      }
+    }
+
+    // 5. Hex strings inside array [ <HEX> 120 <HEX> ] TJ
+    final hexArrayRegex = RegExp(r'\[(.*?)\]\s*TJ', dotAll: true);
+    for (final m in hexArrayRegex.allMatches(content)) {
+      final arr = m.group(1) ?? '';
+      final innerHex = RegExp(r'<([0-9a-fA-F\s]+)>').allMatches(arr);
+      final line = innerHex
+          .map((im) => _decodePdfHexString(im.group(1) ?? ''))
+          .where((s) => s.isNotEmpty)
+          .join('');
+      if (line.trim().isNotEmpty) {
+        buffer.writeln(line.trim());
+      }
+    }
   }
 
   static String _sanitizePdfString(String str) {
@@ -272,15 +361,20 @@ class CvDocumentParserService {
         .where((l) => l.isNotEmpty)
         .toList();
 
-    String fullName = baseProfile.fullName;
-    String jobTitle = baseProfile.jobTitle;
-    String email = baseProfile.email;
-    String phone = baseProfile.phone;
-    String location = baseProfile.location;
-    String summary = baseProfile.summary;
-    List<CvExperience> experiences = List.from(baseProfile.experiences);
-    List<CvEducation> educations = List.from(baseProfile.educations);
-    List<CvSkillItem> skillItems = List.from(baseProfile.skillItems);
+    // Check if baseProfile was just an unedited placeholder template
+    final bool isPlaceholderBase = baseProfile.fullName.trim() == 'NUEVO APRENDIZ / ALUMNO' ||
+        baseProfile.fullName.trim() == 'NOMBRE Y APELLIDOS' ||
+        baseProfile.fullName.trim().isEmpty;
+
+    String fullName = isPlaceholderBase ? '' : baseProfile.fullName;
+    String jobTitle = (isPlaceholderBase || baseProfile.jobTitle == 'OPERARIO/A EN FORMACIÓN') ? '' : baseProfile.jobTitle;
+    String email = (isPlaceholderBase || baseProfile.email == 'alumno@correo.es') ? '' : baseProfile.email;
+    String phone = (isPlaceholderBase || baseProfile.phone.contains('000 000')) ? '' : baseProfile.phone;
+    String location = (isPlaceholderBase || baseProfile.location == 'Las Palmas, Gran Canaria') ? '' : baseProfile.location;
+    String summary = (isPlaceholderBase || baseProfile.summary.startsWith('Persona responsable y motivada')) ? '' : baseProfile.summary;
+    List<CvExperience> experiences = isPlaceholderBase ? [] : List.from(baseProfile.experiences);
+    List<CvEducation> educations = isPlaceholderBase ? [] : List.from(baseProfile.educations);
+    List<CvSkillItem> skillItems = isPlaceholderBase ? [] : List.from(baseProfile.skillItems);
 
     // 1. Regex search for email
     final emailRegex = RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}');
@@ -289,11 +383,18 @@ class CvDocumentParserService {
       email = emailMatch.group(0)!;
     }
 
-    // 2. Regex search for phone number
+    // 2. Regex search for phone number (strictly rejecting PDF timestamps like 20260916...)
     final phoneRegex = RegExp(r'(?:\+?34[-.\s]?)?[6789]\d{2}[-.\s]?\d{3}[-.\s]?\d{3}|(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}');
-    final phoneMatch = phoneRegex.firstMatch(rawText);
-    if (phoneMatch != null) {
-      phone = phoneMatch.group(0)!.replaceAll(RegExp(r'\s+'), ' ');
+    for (final m in phoneRegex.allMatches(rawText)) {
+      final cand = m.group(0)!.trim();
+      final digits = cand.replaceAll(RegExp(r'\D'), '');
+      // Strict rejection of PDF timestamps and metadata numbers (e.g. 20260916164141, 1999..., /CreationDate)
+      if (digits.length > 12) continue;
+      if (digits.startsWith('202') && digits.length >= 8 && !cand.contains('+')) continue;
+      if (digits.startsWith('199') && digits.length >= 8 && !cand.contains('+')) continue;
+      if (digits.length < 9) continue;
+      phone = cand.replaceAll(RegExp(r'\s+'), ' ');
+      break;
     }
 
     // 3. Location detection
@@ -310,19 +411,35 @@ class CvDocumentParserService {
       }
     }
 
-    // 4. Name & Job title detection from header lines
-    for (int i = 0; i < lines.length && i < 6; i++) {
-      final line = lines[i];
-      if (line.contains('@') || line.contains('+') || RegExp(r'\d{5,}').hasMatch(line)) {
-        continue;
-      }
-      if (fullName.isEmpty || fullName == 'NOMBRE Y APELLIDOS') {
-        if (line.length >= 3 && line.length <= 45 && !line.contains(':') && !line.contains('http')) {
+    // 4. Name & Job title detection from header lines (filtering out noise and document titles)
+    final candidateLines = lines.where((line) {
+      final up = line.toUpperCase().trim();
+      return up != 'CURRICULUM' &&
+          up != 'CURRICULUM VITAE' &&
+          up != 'CURRÍCULUM VITAE' &&
+          up != 'CV' &&
+          up != 'HOJA DE VIDA' &&
+          up != 'RESUME' &&
+          !up.startsWith('PAGE ') &&
+          !up.startsWith('PÁGINA ') &&
+          !up.contains('CREATIONDATE') &&
+          !up.contains('PRODUCER') &&
+          !line.contains('http') &&
+          !line.contains('@') &&
+          !RegExp(r'^\d+$').hasMatch(line);
+    }).toList();
+
+    for (int i = 0; i < candidateLines.length && i < 8; i++) {
+      final line = candidateLines[i].trim();
+      if (line.isEmpty || line.contains(':')) continue;
+
+      if (fullName.isEmpty) {
+        if (line.length >= 3 && line.length <= 48 && !RegExp(r'\d').hasMatch(line)) {
           fullName = line;
           continue;
         }
       } else if (jobTitle.isEmpty) {
-        if (line.length >= 3 && line.length <= 55 && !line.contains(':')) {
+        if (line.length >= 3 && line.length <= 55) {
           jobTitle = line;
           break;
         }
@@ -484,9 +601,17 @@ class CvDocumentParserService {
       }
     }
 
+    final finalFullName = fullName.trim().isNotEmpty
+        ? fullName.trim()
+        : (isPlaceholderBase ? 'Candidato / Profesional' : baseProfile.fullName);
+
+    final finalJobTitle = jobTitle.trim().isNotEmpty
+        ? jobTitle.trim()
+        : (isPlaceholderBase ? '' : baseProfile.jobTitle);
+
     return baseProfile.copyWith(
-      fullName: fullName,
-      jobTitle: jobTitle,
+      fullName: finalFullName,
+      jobTitle: finalJobTitle,
       email: email,
       phone: phone,
       location: location,

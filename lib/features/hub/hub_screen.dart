@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../data/models/repo_link_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -216,13 +217,13 @@ class _HubScreenState extends State<HubScreen> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: AppTheme.emerald.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: const Icon(Icons.hub_outlined, color: AppTheme.emerald, size: 20),
+              child: const SanctuaryPlanetLogo(size: 26, showGlow: true),
             ),
             const SizedBox(width: 12),
             Column(
@@ -386,11 +387,11 @@ class _HubScreenState extends State<HubScreen> {
                   value: 'admin_panel',
                   child: Row(
                     children: [
-                      Icon(Icons.admin_panel_settings_rounded, size: 18, color: Colors.amber),
-                      SizedBox(width: 12),
-                      Text(
+                      Icon(Icons.admin_panel_settings_rounded, size: 18, color: const Color(0xFF06B6D4)),
+                      const SizedBox(width: 12),
+                      const Text(
                         'Panel de Administración',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.amber),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
                       ),
                     ],
                   ),

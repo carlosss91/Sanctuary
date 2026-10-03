@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -731,6 +732,10 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 10),
+
+          // Sanctuary Celestial Planet Logo Badge
+          const SanctuaryPlanetLogo(size: 32, showGlow: true),
           const SizedBox(width: 12),
 
           // Document Title and Status Badge
@@ -1008,11 +1013,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             value: 'admin_panel',
             child: Row(
               children: [
-                Icon(Icons.admin_panel_settings_rounded, size: 17, color: Colors.amber),
-                SizedBox(width: 10),
-                Text(
+                Icon(Icons.admin_panel_settings_rounded, size: 17, color: const Color(0xFF06B6D4)),
+                const SizedBox(width: 10),
+                const Text(
                   'Panel de Administración',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.amber),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
                 ),
               ],
             ),

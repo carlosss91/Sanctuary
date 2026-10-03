@@ -13,6 +13,19 @@ class PdfExportService {
         ? 'Curriculum_Vitae'
         : profile.fullName.trim().replaceAll(' ', '_');
 
+    // On Web & Mobile, sharePdf initiates a direct, lossless binary download to the user's device
+    await Printing.sharePdf(
+      bytes: pdfBytes,
+      filename: '${safeName}_CV.pdf',
+    );
+  }
+
+  static Future<void> printPdf(CvProfileModel profile) async {
+    final pdfBytes = await generatePdfBytes(profile);
+    final safeName = profile.fullName.trim().isEmpty
+        ? 'Curriculum_Vitae'
+        : profile.fullName.trim().replaceAll(' ', '_');
+
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdfBytes,
       name: '${safeName}_CV.pdf',
@@ -95,7 +108,16 @@ class PdfExportService {
       ),
     );
 
-    return doc.save();
+    final docBytes = await doc.save();
+
+    // Append an uncompressed comment marker with the base64 JSON payload.
+    // In ISO 32000 PDF standard, lines starting with % are comments and fully ignored
+    // by all PDF viewers, but remain 100% intact and readable without decompression.
+    final marker = utf8.encode('\n%SanctuaryCV::$jsonPayload%\n');
+    final combined = Uint8List(docBytes.length + marker.length);
+    combined.setRange(0, docBytes.length, docBytes);
+    combined.setRange(docBytes.length, combined.length, marker);
+    return combined;
   }
 
   // ==============================================================================

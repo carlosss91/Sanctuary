@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -1069,6 +1070,10 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 10),
+
+          // Sanctuary Celestial Planet Logo Badge
+          const SanctuaryPlanetLogo(size: 32, showGlow: true),
           const SizedBox(width: 12),
 
           // App Title
@@ -1185,6 +1190,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
             apiService: widget.apiService,
             onUserUpdated: (_) => setState(() {}),
           );
+        } else if (val == 'admin') {
+          widget.onOpenAdminPanel?.call();
         } else if (val == 'hub') {
           widget.onBackToHub();
         } else if (val == 'toggle_theme') {
@@ -1229,6 +1236,22 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
           ),
         ),
         const PopupMenuDivider(),
+        if (user.role.toLowerCase() == 'admin' && widget.onOpenAdminPanel != null) ...[
+          const PopupMenuItem<String>(
+            value: 'admin',
+            child: Row(
+              children: [
+                Icon(Icons.admin_panel_settings_rounded, size: 17, color: Color(0xFF06B6D4)),
+                SizedBox(width: 10),
+                Text(
+                  'Panel de Administración',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                ),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+        ],
         const PopupMenuItem<String>(
           value: 'edit_profile',
           child: Row(

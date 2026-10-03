@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/cv_profile_model.dart';
 import '../../data/services/api_service.dart';
@@ -478,6 +479,10 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 10),
+
+                      // Sanctuary Celestial Planet Logo Badge
+                      const SanctuaryPlanetLogo(size: 32, showGlow: true),
                       const SizedBox(width: 12),
 
                       // Module tag / Title
@@ -620,6 +625,8 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                             widget.onBackToHub();
                           } else if (val == 'cosmic') {
                             widget.onToggleCosmic();
+                          } else if (val == 'admin') {
+                            widget.onOpenAdminPanel?.call();
                           } else if (val == 'teacher') {
                             _showTeacherManagementDialog();
                           }
@@ -673,6 +680,23 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
 
                           const PopupMenuDivider(),
+
+                          if (currentUser?.role.toLowerCase() == 'admin' && widget.onOpenAdminPanel != null) ...[
+                            const PopupMenuItem<String>(
+                              value: 'admin',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.admin_panel_settings_rounded, size: 16, color: Color(0xFF06B6D4)),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Panel de Administración',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                          ],
 
                           PopupMenuItem<String>(
                             value: 'hub',

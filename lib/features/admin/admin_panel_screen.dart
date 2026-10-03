@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -750,6 +751,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               ),
             ),
           ),
+          const SizedBox(width: 10),
+
+          // Sanctuary Celestial Planet Logo Badge
+          const SanctuaryPlanetLogo(size: 32, showGlow: true),
           const SizedBox(width: 12),
 
           // Admin Icon Badge
@@ -879,31 +884,109 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
 
   Widget _buildTabBar(bool isDark) {
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0A0F1A) : const Color(0xFFF8FAFC),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      alignment: Alignment.center,
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 880),
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withOpacity(0.92) : Colors.white.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF06B6D4).withOpacity(isDark ? 0.12 : 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.35 : 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 680;
+              return TabBar(
+                controller: _tabController,
+                isScrollable: isNarrow,
+                tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF06B6D4).withOpacity(0.22)
+                      : const Color(0xFF06B6D4).withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF06B6D4).withOpacity(0.5),
+                    width: 1.2,
+                  ),
+                ),
+                labelColor: const Color(0xFF06B6D4),
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                tabs: [
+                  const Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.manage_accounts_rounded, size: 17),
+                        SizedBox(width: 8),
+                        Text('Usuarios y Roles'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.forum_rounded, size: 17),
+                        const SizedBox(width: 8),
+                        Text('Chat (${_chatMessages.length})'),
+                      ],
+                    ),
+                  ),
+                  const Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.dashboard_customize_rounded, size: 17),
+                        SizedBox(width: 8),
+                        Text('Módulos'),
+                      ],
+                    ),
+                  ),
+                  const Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.dns_rounded, size: 17),
+                        SizedBox(width: 8),
+                        Text('Servidor y BD'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: true,
-        indicatorColor: const Color(0xFF06B6D4),
-        indicatorWeight: 3,
-        labelColor: const Color(0xFF06B6D4),
-        unselectedLabelColor: isDark ? Colors.grey : Colors.blueGrey,
-        tabs: [
-          const Tab(icon: Icon(Icons.manage_accounts_rounded, size: 18), text: 'Usuarios y Roles'),
-          Tab(
-            icon: const Icon(Icons.forum_rounded, size: 18),
-            text: 'Chat y Moderación (${_chatMessages.length})',
-          ),
-          const Tab(icon: Icon(Icons.dashboard_customize_rounded, size: 18), text: 'Módulos y Web Apps'),
-          const Tab(icon: Icon(Icons.dns_rounded, size: 18), text: 'Servidor y Base de Datos'),
-        ],
       ),
     );
   }
