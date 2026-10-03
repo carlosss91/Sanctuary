@@ -39,7 +39,8 @@ class AdminPanelScreen extends StatefulWidget {
 
 class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isSidebarCollapsed = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isSidebarCollapsed = true;
   List<UserModel> _users = [];
   Map<String, dynamic> _stats = {};
   List<Map<String, dynamic>> _chatMessages = [];
@@ -256,8 +257,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           );
 
                           if (res['success'] == true) {
-                            if (mounted) {
+                            if (dialogCtx.mounted) {
                               Navigator.pop(dialogCtx);
+                            }
+                            if (mounted) {
                               _loadAllAdminData();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -480,8 +483,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           );
 
                           if (res['success'] == true) {
-                            if (mounted) {
+                            if (dialogCtx.mounted) {
                               Navigator.pop(dialogCtx);
+                            }
+                            if (mounted) {
                               _loadAllAdminData();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -643,44 +648,77 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.transparent,
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+              child: SafeArea(
+                child: TrayectoriaSidebar(
+                  isDark: isDark,
+                  isCollapsed: false,
+                  activeItem: 'AdminPanel',
+                  onSelect: (item) {
+                    Navigator.of(context).pop();
+                    if (item == 'Inicio') {
+                      widget.onBackToHub();
+                    } else if (item == 'Orientación') {
+                      if (widget.onOpenCvBuilder != null) {
+                        widget.onOpenCvBuilder!();
+                      } else {
+                        widget.onBackToHub();
+                      }
+                    } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                      widget.onOpenPdfSigner!();
+                    } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                      widget.onOpenPreziDownloader!();
+                    }
+                  },
+                  onToggleCollapse: () => Navigator.of(context).pop(),
+                ),
+              ),
+            )
+          : null,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Collapsible Sanctuary Sidebar
-          TrayectoriaSidebar(
-            isDark: isDark,
-            isCollapsed: _isSidebarCollapsed,
-            activeItem: 'AdminPanel',
-            onSelect: (item) {
-              if (item == 'Inicio') {
-                widget.onBackToHub();
-              } else if (item == 'Orientación') {
-                if (widget.onOpenCvBuilder != null) {
-                  widget.onOpenCvBuilder!();
-                } else {
+          // 1. Collapsible Sanctuary Sidebar (Desktop only)
+          if (!isMobile)
+            TrayectoriaSidebar(
+              isDark: isDark,
+              isCollapsed: _isSidebarCollapsed,
+              activeItem: 'AdminPanel',
+              onSelect: (item) {
+                if (item == 'Inicio') {
                   widget.onBackToHub();
+                } else if (item == 'Orientación') {
+                  if (widget.onOpenCvBuilder != null) {
+                    widget.onOpenCvBuilder!();
+                  } else {
+                    widget.onBackToHub();
+                  }
+                } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                  widget.onOpenPdfSigner!();
+                } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                  widget.onOpenPreziDownloader!();
                 }
-              } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                widget.onOpenPdfSigner!();
-              } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                widget.onOpenPreziDownloader!();
-              }
-            },
-            onToggleCollapse: () {
-              setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
-            },
-          ),
+              },
+              onToggleCollapse: () {
+                setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
+              },
+            ),
 
           // 2. Main Admin Workspace
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildTopBar(isDark),
-                _buildTabBar(isDark),
+                _buildTopBar(isDark, isMobile),
+                _buildTabBar(isDark, isMobile),
                 Expanded(
                   child: _isLoading
                       ? const Center(
@@ -711,10 +749,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildTopBar(bool isDark) {
+  Widget _buildTopBar(bool isDark, bool isMobile) {
     return Container(
       height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
         border: Border(
@@ -726,6 +764,34 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       ),
       child: Row(
         children: [
+          // Mobile Menu Drawer Button
+          if (isMobile) ...[
+            Tooltip(
+              message: 'Menú principal',
+              child: InkWell(
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.menu_rounded,
+                      size: 18,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+
           // Back Button to Hub (Solo flecha compacta, sin texto)
           Tooltip(
             message: 'Volver al Santuario Hub',
@@ -750,7 +816,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: isMobile ? 8 : 14),
 
           // Admin Icon Badge
           Container(
@@ -762,34 +828,45 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             ),
             child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF06B6D4), size: 19),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('PANEL DE CONTROL', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1.1)),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF06B6D4),
-                      borderRadius: BorderRadius.circular(6),
+          SizedBox(width: isMobile ? 8 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        isMobile ? 'ADMIN' : 'PANEL DE CONTROL',
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: isMobile ? 13 : 15, letterSpacing: 1.1),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: const Text('SUPER ADMIN', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                    if (!isMobile) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('SUPER ADMIN', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ],
+                ),
+                if (!isMobile)
+                  Text(
+                    'Gestión integral de usuarios, chat, módulos y estado del sistema',
+                    style: TextStyle(fontSize: 9.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-              Text(
-                'Gestión integral de usuarios, chat, módulos y estado del sistema',
-                style: TextStyle(fontSize: 9.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-              ),
-            ],
+              ],
+            ),
           ),
-
-          const Spacer(),
 
           // Refresh button (Consistent 36x36 style)
           Tooltip(
@@ -811,75 +888,77 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               ),
             ),
           ),
-          const SizedBox(width: 7),
 
-          // Cosmic Animation Toggle (Consistent 36x36 style)
-          Tooltip(
-            message: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
-            child: InkWell(
-              onTap: widget.onToggleCosmic,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: widget.isCosmicActive
-                      ? (isDark ? const Color(0xFF06B6D4).withOpacity(0.18) : const Color(0xFF06B6D4).withOpacity(0.12))
-                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: widget.isCosmicActive ? const Color(0xFF06B6D4).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                    width: 1.2,
+          if (!isMobile) ...[
+            const SizedBox(width: 7),
+            // Cosmic Animation Toggle (Consistent 36x36 style)
+            Tooltip(
+              message: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
+              child: InkWell(
+                onTap: widget.onToggleCosmic,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: widget.isCosmicActive
+                        ? (isDark ? const Color(0xFF06B6D4).withOpacity(0.18) : const Color(0xFF06B6D4).withOpacity(0.12))
+                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: widget.isCosmicActive ? const Color(0xFF06B6D4).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                      width: 1.2,
+                    ),
                   ),
-                ),
-                child: Center(
-                  child: Icon(
-                    widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                    size: 18,
-                    color: widget.isCosmicActive ? const Color(0xFF06B6D4) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  child: Center(
+                    child: Icon(
+                      widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                      size: 18,
+                      color: widget.isCosmicActive ? const Color(0xFF06B6D4) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 7),
+            const SizedBox(width: 7),
 
-          // Light / Dark Theme Toggle (Consistent 36x36 style)
-          Tooltip(
-            message: isDark ? 'Tema Claro' : 'Tema Oscuro',
-            child: InkWell(
-              onTap: widget.onToggleTheme,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                child: Center(
-                  child: Icon(
-                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                    size: 18,
-                    color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+            // Light / Dark Theme Toggle (Consistent 36x36 style)
+            Tooltip(
+              message: isDark ? 'Tema Claro' : 'Tema Oscuro',
+              child: InkWell(
+                onTap: widget.onToggleTheme,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                      size: 18,
+                      color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
+          ],
+          SizedBox(width: isMobile ? 7 : 10),
 
           // Profile Dropdown
-          _buildProfileDropdown(isDark),
+          _buildProfileDropdown(isDark, isMobile),
         ],
       ),
     );
   }
 
-  Widget _buildTabBar(bool isDark) {
+  Widget _buildTabBar(bool isDark, bool isMobile) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: isMobile ? 8 : 12),
       alignment: Alignment.center,
       child: Center(
         child: Container(
@@ -907,7 +986,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 680;
+              final isNarrow = constraints.maxWidth < 680 || isMobile;
               return TabBar(
                 controller: _tabController,
                 isScrollable: isNarrow,
@@ -2012,7 +2091,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   }
 
   // User Profile Dropdown Menu in the top right
-  Widget _buildProfileDropdown(bool isDark) {
+  Widget _buildProfileDropdown(bool isDark, bool isMobile) {
     final user = widget.currentUser;
 
     return PopupMenuButton<String>(
@@ -2110,37 +2189,51 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: isMobile ? const EdgeInsets.all(4) : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 13,
-              backgroundColor: const Color(0xFF06B6D4),
-              backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                  ? NetworkImage(user.avatarUrl!)
-                  : null,
-              child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
-                  ? Text(
-                      user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              user.username,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
-          ],
-        ),
+        child: isMobile
+            ? CircleAvatar(
+                radius: 13,
+                backgroundColor: const Color(0xFF06B6D4),
+                backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                    ? NetworkImage(user.avatarUrl!)
+                    : null,
+                child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                    ? Text(
+                        user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      )
+                    : null,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 13,
+                    backgroundColor: const Color(0xFF06B6D4),
+                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                        ? NetworkImage(user.avatarUrl!)
+                        : null,
+                    child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                        ? Text(
+                            user.username.isNotEmpty ? user.username[0].toUpperCase() : 'A',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    user.username,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                ],
+              ),
       ),
     );
   }

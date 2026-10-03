@@ -50,8 +50,9 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
   Timer? _debounceTimer;
   String _autoSaveStatus = 'Autoguardado activo';
   bool _isSaving = false;
-  int _mobileTabIndex = 0; // 0: Editor, 1: Previsualización A4 (para móviles)
-  bool _isSidebarCollapsed = false;
+  int _mobileTabIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isSidebarCollapsed = true;
 
   @override
   void initState() {
@@ -396,42 +397,66 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
 
     final activeProfile = _activeProfile;
 
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.transparent,
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+              child: SafeArea(
+                child: TrayectoriaSidebar(
+                  activeItem: 'Orientación',
+                  isDark: isDark,
+                  isCollapsed: false,
+                  onToggleCollapse: () => Navigator.of(context).maybePop(),
+                  onSelect: (itemKey) {
+                    Navigator.of(context).maybePop();
+                    if (itemKey == 'Inicio') {
+                      widget.onBackToHub();
+                    } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                      widget.onOpenPdfSigner!();
+                    } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                      widget.onOpenPreziDownloader!();
+                    } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                      widget.onOpenAdminPanel!();
+                    } else if (itemKey == 'Alumnos') {
+                      _showTeacherManagementDialog();
+                    }
+                  },
+                ),
+              ),
+            )
+          : null,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ================================================================
-          // LEFT SIDEBAR (Trayectoria 2026 - Portal de Gestión y Formación)
+          // LEFT SIDEBAR (Desktop / Tablet only)
           // ================================================================
-          TrayectoriaSidebar(
-            activeItem: 'Orientación',
-            isDark: isDark,
-            isCollapsed: _isSidebarCollapsed,
-            onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
-            onSelect: (itemKey) {
-              if (itemKey == 'Inicio') {
-                widget.onBackToHub();
-              } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                widget.onOpenPdfSigner!();
-              } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                widget.onOpenPreziDownloader!();
-              } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                widget.onOpenAdminPanel!();
-              } else if (itemKey == 'Alumnos') {
-                _showTeacherManagementDialog();
-              } else if (itemKey == 'Orientación') {
-                // Stay on CV Builder
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Sección "$itemKey" activa.'),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
-              }
-            },
-          ),
+          if (!isMobile)
+            TrayectoriaSidebar(
+              activeItem: 'Orientación',
+              isDark: isDark,
+              isCollapsed: _isSidebarCollapsed,
+              onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+              onSelect: (itemKey) {
+                if (itemKey == 'Inicio') {
+                  widget.onBackToHub();
+                } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                  widget.onOpenPdfSigner!();
+                } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                  widget.onOpenPreziDownloader!();
+                } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                  widget.onOpenAdminPanel!();
+                } else if (itemKey == 'Alumnos') {
+                  _showTeacherManagementDialog();
+                } else if (itemKey == 'Orientación') {
+                  // Stay on CV Builder
+                }
+              },
+            ),
 
           // ================================================================
           // MAIN CONTENT AREA
@@ -443,7 +468,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                 // TOP NAVIGATION BAR (Clean with Back button, title, language, install and user menu)
                 Container(
                   height: 58,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14),
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF0E131F) : const Color(0xFFFFFFFF),
                     border: Border(
@@ -455,6 +480,34 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                   ),
                   child: Row(
                     children: [
+                      // On Mobile: Sidebar Menu Button
+                      if (isMobile) ...[
+                        Tooltip(
+                          message: 'Abrir barra lateral',
+                          child: InkWell(
+                            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.menu_rounded,
+                                  size: 20,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+
                       // PERMANENT "ATRÁS" BUTTON (Solo flecha compacta, sin texto)
                       Tooltip(
                         message: 'Volver al Santuario Hub',
@@ -479,105 +532,115 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 10),
 
                       // Module tag / Title
-                      Text(
-                        'Orientación Laboral · Taller de Curriculum Vitae',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                      Flexible(
+                        child: Text(
+                          isMobile ? 'Taller de CV' : 'Orientación Laboral · Taller de Curriculum Vitae',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: isMobile ? 14 : 13,
+                            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
 
                       const Spacer(),
 
-                      // Auto-save Status Indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _isSaving ? Colors.amber : AppTheme.emerald,
+                      // Auto-save Status Indicator (compact on mobile)
+                      Tooltip(
+                        message: _autoSaveStatus,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _isSaving ? Colors.amber : AppTheme.emerald,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _autoSaveStatus,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // "Instalar App" Button (matching screenshot)
-                      OutlinedButton.icon(
-                        onPressed: _showInstallDialog,
-                        icon: const Icon(Icons.install_mobile_outlined, size: 14, color: AppTheme.emerald),
-                        label: const Text('Instalar', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+                              if (!isMobile) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  _autoSaveStatus,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
 
-                      // "TrayectorIA" Button (matching screenshot)
-                      ElevatedButton.icon(
-                        onPressed: _showTrayectorIaDialog,
-                        icon: const Icon(Icons.auto_awesome, size: 14),
-                        label: const Text('TrayectorIA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F766E),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      if (!isMobile) ...[
+                        // "Instalar App" Button
+                        OutlinedButton.icon(
+                          onPressed: _showInstallDialog,
+                          icon: const Icon(Icons.install_mobile_outlined, size: 14, color: AppTheme.emerald),
+                          label: const Text('Instalar', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
+                        const SizedBox(width: 8),
 
-                      // Cosmic Animation Toggle (Consistent 36x36 style)
-                      Tooltip(
-                        message: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-                        child: InkWell(
-                          onTap: widget.onToggleCosmic,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: widget.isCosmicActive
-                                  ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
-                                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                                width: 1.2,
+                        // "TrayectorIA" Button
+                        ElevatedButton.icon(
+                          onPressed: _showTrayectorIaDialog,
+                          icon: const Icon(Icons.auto_awesome, size: 14),
+                          label: const Text('TrayectorIA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Cosmic Animation Toggle
+                        Tooltip(
+                          message: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+                          child: InkWell(
+                            onTap: widget.onToggleCosmic,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: widget.isCosmicActive
+                                    ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
+                                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                                  width: 1.2,
+                                ),
                               ),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                                size: 18,
-                                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                              child: Center(
+                                child: Icon(
+                                  widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                                  size: 18,
+                                  color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 7),
+                        const SizedBox(width: 7),
+                      ],
 
                       // Theme Toggle (Consistent 36x36 style)
                       Tooltip(
@@ -603,7 +666,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
 
                       // USER CIRCLE AVATAR WITH DROPDOWN MENU
                       PopupMenuButton<String>(
@@ -762,7 +825,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                           ),
                         ],
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 5 : 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                             borderRadius: BorderRadius.circular(22),
@@ -784,13 +847,15 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                                       )
                                     : null,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                username,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                              if (!isMobile) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  username,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                              ],
                             ],
                           ),
                         ),
@@ -806,7 +871,7 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                       final isLargeScreen = constraints.maxWidth > 920;
 
                       return Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(isMobile ? 8 : 14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [

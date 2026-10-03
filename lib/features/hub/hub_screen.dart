@@ -54,6 +54,30 @@ class _HubScreenState extends State<HubScreen> {
   bool _isLoadingGitHub = false;
 
   final List<String> _categories = ['Todos', 'Repositorios', 'Web Apps', 'Educación', 'Docs'];
+  int? _customAppColumns;
+
+  Widget _buildColChip(String label, int? cols, bool isDark) {
+    final isSelected = _customAppColumns == cols;
+    return InkWell(
+      onTap: () => setState(() => _customAppColumns = cols),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.emerald : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -210,10 +234,12 @@ class _HubScreenState extends State<HubScreen> {
       return matchesCategory && matchesSearch;
     }).toList();
 
+    final isMobile = MediaQuery.of(context).size.width < 620;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        titleSpacing: 20,
+        titleSpacing: isMobile ? 12 : 20,
         title: Row(
           children: [
             Container(
@@ -225,7 +251,7 @@ class _HubScreenState extends State<HubScreen> {
               ),
               child: const SanctuaryPlanetLogo(size: 26, showGlow: true),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -234,61 +260,68 @@ class _HubScreenState extends State<HubScreen> {
                   'SANCTUARY',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.5),
                 ),
-                Text(
-                  'Portal de Web Apps & Repositorios',
-                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
+                if (!isMobile)
+                  Text(
+                    'Portal de Web Apps & Repositorios',
+                    style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  ),
               ],
             ),
           ],
         ),
         actions: [
-          // DB Health status indicator
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: _dbHealthy ? AppTheme.emerald.withOpacity(0.12) : Colors.orange.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _dbHealthy ? AppTheme.emerald.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+          // DB Health status indicator (compact on mobile)
+          Tooltip(
+            message: _dbHealthy ? 'Base de datos en línea (Postgres)' : 'Base de datos sin conexión (Modo local)',
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _dbHealthy ? AppTheme.emerald.withOpacity(0.12) : Colors.orange.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _dbHealthy ? AppTheme.emerald.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _dbHealthy ? AppTheme.emerald : Colors.orange,
+                    ),
+                  ),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      _dbHealthy ? 'Postgres 5438' : 'Modo Offline',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _dbHealthy ? AppTheme.emerald : Colors.orange,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _dbHealthy ? AppTheme.emerald : Colors.orange,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _dbHealthy ? 'Postgres 5438' : 'Modo Offline',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: _dbHealthy ? AppTheme.emerald : Colors.orange,
-                  ),
-                ),
-              ],
-            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 6),
 
-          // Cosmic Animation Toggle
-          IconButton(
-            tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
-            icon: Icon(
-              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-              color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
-              size: 20,
+          if (!isMobile)
+            // Cosmic Animation Toggle
+            IconButton(
+              tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
+              icon: Icon(
+                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
+                size: 20,
+              ),
+              onPressed: widget.onToggleCosmic,
             ),
-            onPressed: widget.onToggleCosmic,
-          ),
 
           // Light / Dark Theme Toggle
           IconButton(
@@ -297,7 +330,7 @@ class _HubScreenState extends State<HubScreen> {
             onPressed: widget.onToggleTheme,
           ),
 
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
 
           // ====================================================================
           // USER PROFILE DROPDOWN (Session Logout consolidated strictly inside)
@@ -387,9 +420,9 @@ class _HubScreenState extends State<HubScreen> {
                   value: 'admin_panel',
                   child: Row(
                     children: [
-                      Icon(Icons.admin_panel_settings_rounded, size: 18, color: const Color(0xFF06B6D4)),
-                      const SizedBox(width: 12),
-                      const Text(
+                      Icon(Icons.admin_panel_settings_rounded, size: 18, color: Color(0xFF06B6D4)),
+                      SizedBox(width: 12),
+                      Text(
                         'Panel de Administración',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
                       ),
@@ -448,7 +481,7 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ],
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 5 : 10, vertical: 5),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(22),
@@ -470,18 +503,20 @@ class _HubScreenState extends State<HubScreen> {
                           )
                         : null,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _currentUser.username,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      _currentUser.username,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                  ],
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isMobile ? 8 : 16),
         ],
       ),
       body: _isLoading
@@ -574,98 +609,130 @@ class _HubScreenState extends State<HubScreen> {
                             'HERRAMIENTAS & APLICACIONES',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
                           ),
+                          const Spacer(),
+                          // Selector de columnas (Auto, 2, 3, 4 columnas)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildColChip('Auto', null, isDark),
+                                _buildColChip('2 col', 2, isDark),
+                                _buildColChip('3 col', 3, isDark),
+                                _buildColChip('4 col', 4, isDark),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
 
-                      // iOS App Icons Grid
-                      Wrap(
-                        spacing: 24,
-                        runSpacing: 20,
-                        alignment: WrapAlignment.start,
-                        children: [
-                          _buildIPhoneAppIcon(
-                            title: 'Creador de CV',
-                            subtitle: 'Taller FC0003',
-                            icon: Icons.badge_rounded,
-                            gradient: const [Color(0xFF10B981), Color(0xFF047857)],
-                            badge: 'A4 Live',
-                            onTap: widget.onOpenCvBuilder,
-                          ),
-                          _buildIPhoneAppIcon(
-                            title: 'Firmador PDF',
-                            subtitle: 'Firma en Vivo',
-                            icon: Icons.draw_rounded,
-                            gradient: const [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                            badge: 'PDF',
-                            onTap: () {
-                              if (widget.onOpenPdfSigner != null) {
-                                widget.onOpenPdfSigner!();
-                              }
-                            },
-                          ),
-                          _buildIPhoneAppIcon(
-                            title: 'Slide Downloader',
-                            subtitle: 'Presentaciones & Video',
-                            icon: Icons.present_to_all_rounded,
-                            gradient: const [Color(0xFFE11D48), Color(0xFF9333EA)],
-                            badge: 'Multi',
-                            onTap: () {
-                              if (widget.onOpenPreziDownloader != null) {
-                                widget.onOpenPreziDownloader!();
-                              }
-                            },
-                          ),
-                          _buildIPhoneAppIcon(
-                            title: 'Alumnos',
-                            subtitle: 'Gestor Docente',
-                            icon: Icons.school_rounded,
-                            gradient: const [Color(0xFF8B5CF6), Color(0xFF4F46E5)],
-                            badge: 'Activo',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Gestor de alumnos activo en el creador de CV')),
-                              );
-                            },
-                          ),
-                          _buildIPhoneAppIcon(
-                            title: 'Apps Web',
-                            subtitle: 'Prezi2PDF & Tools',
-                            icon: Icons.grid_view_rounded,
-                            gradient: const [Color(0xFF0EA5E9), Color(0xFF0284C7)],
-                            badge: 'Activo',
-                            onTap: () {
-                              if (widget.onOpenPreziDownloader != null) {
-                                widget.onOpenPreziDownloader!();
-                              }
-                            },
-                          ),
-                          _buildIPhoneAppIcon(
-                            title: 'Documentación',
-                            subtitle: 'Guías y Manuales',
-                            icon: Icons.menu_book_rounded,
-                            gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
-                            badge: 'Docs',
-                            onTap: () => _openUrl('https://github.com/$_githubUsername/Sanctuary'),
-                          ),
-                          _buildIPhoneAppIcon(
-                            title: 'Mi Perfil',
-                            subtitle: 'Ajustes de cuenta',
-                            icon: Icons.manage_accounts_rounded,
-                            gradient: const [Color(0xFF64748B), Color(0xFF334155)],
-                            badge: 'User',
-                            onTap: () {
-                              UserProfileDialog.show(
-                                context,
-                                user: _currentUser,
-                                apiService: widget.apiService,
-                                onUserUpdated: (updated) {
-                                  setState(() => _currentUser = updated);
+                      // Perfectly aligned responsive GridView
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final defaultCols = constraints.maxWidth < 480
+                              ? 2
+                              : (constraints.maxWidth < 750
+                                  ? 3
+                                  : (constraints.maxWidth < 1050 ? 4 : 7));
+                          final cols = _customAppColumns ?? defaultCols;
+
+                          return GridView.count(
+                            crossAxisCount: cols,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: cols == 2 ? 1.05 : 0.85,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _buildIPhoneAppIcon(
+                                title: 'Creador de CV',
+                                subtitle: 'Taller FC0003',
+                                icon: Icons.badge_rounded,
+                                gradient: const [Color(0xFF10B981), Color(0xFF047857)],
+                                badge: 'A4 Live',
+                                onTap: widget.onOpenCvBuilder,
+                              ),
+                              _buildIPhoneAppIcon(
+                                title: 'Firmador PDF',
+                                subtitle: 'Firma en Vivo',
+                                icon: Icons.draw_rounded,
+                                gradient: const [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                badge: 'PDF',
+                                onTap: () {
+                                  if (widget.onOpenPdfSigner != null) {
+                                    widget.onOpenPdfSigner!();
+                                  }
                                 },
-                              );
-                            },
-                          ),
-                        ],
+                              ),
+                              _buildIPhoneAppIcon(
+                                title: 'Slide Downloader',
+                                subtitle: 'Presentaciones',
+                                icon: Icons.present_to_all_rounded,
+                                gradient: const [Color(0xFFE11D48), Color(0xFF9333EA)],
+                                badge: 'Multi',
+                                onTap: () {
+                                  if (widget.onOpenPreziDownloader != null) {
+                                    widget.onOpenPreziDownloader!();
+                                  }
+                                },
+                              ),
+                              _buildIPhoneAppIcon(
+                                title: 'Alumnos',
+                                subtitle: 'Gestor Docente',
+                                icon: Icons.school_rounded,
+                                gradient: const [Color(0xFF8B5CF6), Color(0xFF4F46E5)],
+                                badge: 'Activo',
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Gestor de alumnos activo en el creador de CV')),
+                                  );
+                                },
+                              ),
+                              _buildIPhoneAppIcon(
+                                title: 'Apps Web',
+                                subtitle: 'Prezi2PDF & Tools',
+                                icon: Icons.grid_view_rounded,
+                                gradient: const [Color(0xFF0EA5E9), Color(0xFF0284C7)],
+                                badge: 'Activo',
+                                onTap: () {
+                                  if (widget.onOpenPreziDownloader != null) {
+                                    widget.onOpenPreziDownloader!();
+                                  }
+                                },
+                              ),
+                              _buildIPhoneAppIcon(
+                                title: 'Documentación',
+                                subtitle: 'Guías y Manuales',
+                                icon: Icons.menu_book_rounded,
+                                gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
+                                badge: 'Docs',
+                                onTap: () => _openUrl('https://github.com/$_githubUsername/Sanctuary'),
+                              ),
+                              _buildIPhoneAppIcon(
+                                title: 'Mi Perfil',
+                                subtitle: 'Ajustes de cuenta',
+                                icon: Icons.manage_accounts_rounded,
+                                gradient: const [Color(0xFF64748B), Color(0xFF334155)],
+                                badge: 'User',
+                                onTap: () {
+                                  UserProfileDialog.show(
+                                    context,
+                                    user: _currentUser,
+                                    apiService: widget.apiService,
+                                    onUserUpdated: (updated) {
+                                      setState(() => _currentUser = updated);
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        },
                       ),
 
                       const SizedBox(height: 34),
@@ -851,33 +918,34 @@ class _HubScreenState extends State<HubScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(20),
       child: Padding(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // iOS Squircle Container
             Container(
-              width: 78,
-              height: 78,
+              width: 68,
+              height: 68,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: gradient,
                 ),
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(19),
                 boxShadow: [
                   BoxShadow(
-                    color: gradient.first.withOpacity(0.38),
-                    blurRadius: 18,
-                    offset: const Offset(0, 7),
+                    color: gradient.first.withOpacity(0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
                   ),
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -889,10 +957,10 @@ class _HubScreenState extends State<HubScreen> {
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: 38,
+                    height: 32,
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -905,44 +973,49 @@ class _HubScreenState extends State<HubScreen> {
                     ),
                   ),
                   // App Icon
-                  Icon(icon, color: Colors.white, size: 36),
+                  Icon(icon, color: Colors.white, size: 30),
                   // Little pill badge at top right
                   Positioned(
-                    top: 5,
-                    right: 5,
+                    top: 4,
+                    right: 4,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withOpacity(0.35),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         badge,
-                        style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             // Title Label under icon
             Text(
               title,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 0.2,
+                letterSpacing: 0.1,
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 1),
             Text(
               subtitle,
               style: const TextStyle(
-                fontSize: 10,
+                fontSize: 9.5,
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -954,100 +1027,162 @@ class _HubScreenState extends State<HubScreen> {
   // WIDGET BUILDER: iOS-STYLE GITHUB REPOSITORIES WIDGET
   // ==============================================================================
   Widget _buildGitHubIOSWidget(bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0C1322).withOpacity(0.9) : Colors.white.withOpacity(0.94),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Widget Header: GitHub branding & connection status
-          Row(
-            children: [
-              // GitHub Logo Box
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
-                ),
-                child: const Icon(Icons.code_rounded, color: AppTheme.emerald, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'GitHub Repositories',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.emerald.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'iOS Smart Widget',
-                            style: TextStyle(color: AppTheme.emerald, fontSize: 9.5, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Explora y accede en directo a los repositorios de @$_githubUsername',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 620;
 
-              // Connect / Change Account Button
-              OutlinedButton.icon(
-                onPressed: _showConnectGitHubDialog,
-                icon: const Icon(Icons.link, size: 15),
-                label: Text('@$_githubUsername', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.emerald,
-                  side: const BorderSide(color: AppTheme.emerald, width: 1.2),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Refresh Button
-              IconButton(
-                tooltip: 'Actualizar repositorios de GitHub',
-                icon: _isLoadingGitHub
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: AppTheme.emerald, strokeWidth: 2))
-                    : const Icon(Icons.refresh, size: 20),
-                onPressed: _isLoadingGitHub ? null : _loadGitHubRepos,
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0C1322).withOpacity(0.9) : Colors.white.withOpacity(0.94),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
+          padding: EdgeInsets.all(isNarrow ? 16 : 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Widget Header: GitHub branding & connection status
+              if (isNarrow) ...[
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                      ),
+                      child: const Icon(Icons.code_rounded, color: AppTheme.emerald, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'GitHub Repositories',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                    IconButton(
+                      icon: _isLoadingGitHub
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 19),
+                      tooltip: 'Actualizar repositorios',
+                      onPressed: _loadGitHubRepos,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Repositorios públicos en vivo de @$_githubUsername',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _showConnectGitHubDialog,
+                    icon: const Icon(Icons.link, size: 14),
+                    label: Text('@$_githubUsername', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.emerald,
+                      side: const BorderSide(color: AppTheme.emerald, width: 1.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    // GitHub Logo Box
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                      ),
+                      child: const Icon(Icons.code_rounded, color: AppTheme.emerald, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'GitHub Repositories',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.emerald.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'iOS Smart Widget',
+                                  style: TextStyle(color: AppTheme.emerald, fontSize: 9.5, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Explora y accede en directo a los repositorios de @$_githubUsername',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
 
-          const SizedBox(height: 18),
+                    // Connect / Change Account Button
+                    OutlinedButton.icon(
+                      onPressed: _showConnectGitHubDialog,
+                      icon: const Icon(Icons.link, size: 15),
+                      label: Text('@$_githubUsername', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.emerald,
+                        side: const BorderSide(color: AppTheme.emerald, width: 1.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Refresh Button
+                    IconButton(
+                      icon: _isLoadingGitHub
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 20),
+                      tooltip: 'Actualizar repositorios',
+                      onPressed: _loadGitHubRepos,
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 18),
 
           // Widget Repositories List
           if (_isLoadingGitHub)
@@ -1160,6 +1295,8 @@ class _HubScreenState extends State<HubScreen> {
             ),
         ],
       ),
+    );
+      },
     );
   }
 }
