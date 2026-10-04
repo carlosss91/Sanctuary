@@ -323,12 +323,20 @@ safeQuery(`
 // --- Ephemeral Community Chat Endpoints ---
 app.get('/api/chat/messages', async (req, res) => {
   try {
-    const q = await safeQuery('SELECT id, username, role, text as message, avatar_url as "avatarUrl", created_at as timestamp FROM chat_messages ORDER BY created_at ASC LIMIT 100');
+    await purgeOldChatMessages();
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    const q = await safeQuery(
+      'SELECT id, username, role, text as message, text, avatar_url as "avatarUrl", avatar_url, created_at as timestamp, created_at FROM chat_messages WHERE created_at >= $1 ORDER BY created_at ASC LIMIT 250',
+      [todayMidnight.toISOString()]
+    );
     if (q && q.rows && q.rows.length > 0) {
-      return res.json({ success: true, messages: q.rows });
+      return res.json({ success: true, count: q.rows.length, messages: q.rows });
     }
     const ldb = getLocalDb();
-    return res.json({ success: true, messages: ldb.chat_messages || [] });
+    const todayMsgs = (ldb.chat_messages || []).filter(m => new Date(m.created_at || m.timestamp || Date.now()) >= todayMidnight);
+    return res.json({ success: true, count: todayMsgs.length, messages: todayMsgs });
   } catch (err) {
     console.error('Error fetching chat messages:', err);
     const ldb = getLocalDb();
@@ -338,49 +346,82 @@ app.get('/api/chat/messages', async (req, res) => {
 
 app.post('/api/chat/messages', async (req, res) => {
   try {
-    const { message, username, role, avatarUrl } = req.body;
-    if (!message || !message.trim()) {
+    const { message, text, username, role, avatarUrl, avatar_url } = req.body;
+    const bodyText = message || text;
+    if (!bodyText || !bodyText.trim()) {
       return res.status(400).json({ success: false, message: 'El mensaje no puede estar vacío' });
     }
 
-    const cleanMsg = message.trim();
+    const cleanMsg = bodyText.trim();
     const cleanUser = (username || 'Anónimo').trim();
     const cleanRole = role || 'usuario';
+    const cleanAvatar = avatarUrl || avatar_url || '';
     const timestamp = new Date().toISOString();
 
+    // Check if user is banned
+    const checkBan = await safeQuery('SELECT is_banned FROM users WHERE LOWER(username) = LOWER($1)', [cleanUser]);
+    if (checkBan && checkBan.rows.length > 0 && checkBan.rows[0].is_banned) {
+      return res.status(403).json({ success: false, message: 'Tu cuenta está suspendida y no puedes enviar mensajes' });
+    }
+    const ldb = getLocalDb();
+    const ldbUser = (ldb.users || []).find(u => u.username.toLowerCase() === cleanUser.toLowerCase());
+    if (ldbUser && ldbUser.is_banned) {
+      return res.status(403).json({ success: false, message: 'Tu cuenta está suspendida y no puedes enviar mensajes' });
+    }
+
     const q = await safeQuery(
-      'INSERT INTO chat_messages (username, role, text, avatar_url, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, role, text as message, avatar_url as "avatarUrl", created_at as timestamp',
-      [cleanUser, cleanRole, cleanMsg, avatarUrl || null, timestamp]
+      'INSERT INTO chat_messages (username, role, text, avatar_url, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, role, text as message, text, avatar_url as "avatarUrl", avatar_url, created_at as timestamp, created_at',
+      [cleanUser, cleanRole, cleanMsg, cleanAvatar, timestamp]
     );
 
     let chatMessage;
     if (q && q.rows && q.rows.length > 0) {
       chatMessage = q.rows[0];
     } else {
-      const ldb = getLocalDb();
       if (!Array.isArray(ldb.chat_messages)) ldb.chat_messages = [];
       chatMessage = {
         id: Date.now(),
         username: cleanUser,
         role: cleanRole,
         message: cleanMsg,
-        avatarUrl: avatarUrl || null,
+        text: cleanMsg,
+        avatarUrl: cleanAvatar,
+        avatar_url: cleanAvatar,
+        created_at: timestamp,
         timestamp,
       };
       ldb.chat_messages.push(chatMessage);
-      if (ldb.chat_messages.length > 100) {
-        ldb.chat_messages = ldb.chat_messages.slice(-100);
+      if (ldb.chat_messages.length > 250) {
+        ldb.chat_messages = ldb.chat_messages.slice(-250);
       }
       saveLocalDb(ldb);
     }
 
-    return res.status(201).json({ success: true, chat_message: chatMessage });
+    return res.status(201).json({ success: true, chat_message: chatMessage, message: chatMessage });
   } catch (err) {
     console.error('Error saving chat message:', err);
     return res.status(500).json({ success: false, message: 'Error interno al guardar mensaje' });
   }
 });
 
+// Admin: Delete single chat message
+app.delete('/api/chat/messages/:id', async (req, res) => {
+  try {
+    const msgId = req.params.id;
+    await safeQuery('DELETE FROM chat_messages WHERE id::text = $1', [msgId.toString()]);
+    const ldb = getLocalDb();
+    if (Array.isArray(ldb.chat_messages)) {
+      ldb.chat_messages = ldb.chat_messages.filter(m => m.id?.toString() !== msgId.toString());
+      saveLocalDb(ldb);
+    }
+    return res.json({ success: true, message: 'Mensaje eliminado correctamente' });
+  } catch (err) {
+    console.error('Error deleting single chat message:', err);
+    return res.status(500).json({ success: false, message: 'Error al eliminar mensaje' });
+  }
+});
+
+// Admin: Clear all chat messages
 app.delete('/api/chat/messages', async (req, res) => {
   try {
     await safeQuery('DELETE FROM chat_messages');
@@ -391,6 +432,33 @@ app.delete('/api/chat/messages', async (req, res) => {
   } catch (err) {
     console.error('Error clearing chat:', err);
     return res.status(500).json({ success: false, message: 'Error al vaciar chat' });
+  }
+});
+
+// Admin: Ban user by username
+app.post('/api/admin/users/ban', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ success: false, message: 'Usuario requerido' });
+    const cleanUser = username.trim();
+    if (cleanUser.toLowerCase() === 'admin') {
+      return res.status(400).json({ success: false, message: 'No es posible suspender o banear al administrador principal' });
+    }
+
+    await safeQuery('UPDATE users SET is_banned = TRUE WHERE LOWER(username) = LOWER($1)', [cleanUser]);
+
+    const ldb = getLocalDb();
+    if (ldb.users) {
+      const u = ldb.users.find(x => x.username.toLowerCase() === cleanUser.toLowerCase());
+      if (u) {
+        u.is_banned = true;
+        saveLocalDb(ldb);
+      }
+    }
+    return res.json({ success: true, message: `Usuario @${cleanUser} suspendido y baneado correctamente` });
+  } catch (err) {
+    console.error('Error banning user by username:', err);
+    return res.status(500).json({ success: false, message: 'Error interno al banear usuario' });
   }
 });
 
@@ -751,79 +819,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
   res.status(400).json({ success: false, message: 'El token de recuperación es inválido o ha expirado.' });
 });
 
-// ============================================================================
-// CHAT EPHEMERAL SYSTEM (Borrado automático a las 00:00 cada día)
-// ============================================================================
-
-// Chat: Get Today's Messages
-app.get('/api/chat/messages', async (req, res) => {
-  await purgeOldChatMessages();
-  const todayMidnight = new Date();
-  todayMidnight.setHours(0, 0, 0, 0);
-
-  // PostgreSQL
-  const result = await safeQuery(
-    'SELECT id, username, role, text, avatar_url, created_at FROM chat_messages WHERE created_at >= $1 ORDER BY created_at ASC LIMIT 250',
-    [todayMidnight.toISOString()]
-  );
-  if (result) {
-    return res.json({ success: true, count: result.rows.length, messages: result.rows });
-  }
-
-  // Local DB fallback
-  const ldb = getLocalDb();
-  const todayMsgs = (ldb.chat_messages || []).filter(m => new Date(m.created_at) >= todayMidnight);
-  res.json({ success: true, count: todayMsgs.length, messages: todayMsgs });
-});
-
-// Chat: Send Message
-app.post('/api/chat/messages', async (req, res) => {
-  const { username, role, text, avatar_url } = req.body;
-  if (!text || text.trim().length === 0) {
-    return res.status(400).json({ success: false, message: 'El mensaje no puede estar vacío' });
-  }
-
-  const uName = (username || 'Anónimo').trim();
-  const uRole = (role || 'usuario').trim();
-  const cleanText = text.trim();
-  const avatar = avatar_url || '';
-
-  // PostgreSQL
-  const result = await safeQuery(
-    `INSERT INTO chat_messages (username, role, text, avatar_url, created_at)
-     VALUES ($1, $2, $3, $4, NOW())
-     RETURNING id, username, role, text, avatar_url, created_at`,
-    [uName, uRole, cleanText, avatar]
-  );
-  if (result && result.rows.length > 0) {
-    return res.status(201).json({ success: true, message: result.rows[0] });
-  }
-
-  // Local DB fallback
-  const ldb = getLocalDb();
-  if (!ldb.chat_messages) ldb.chat_messages = [];
-  const newMsg = {
-    id: Date.now(),
-    username: uName,
-    role: uRole,
-    text: cleanText,
-    avatar_url: avatar,
-    created_at: new Date().toISOString(),
-  };
-  ldb.chat_messages.push(newMsg);
-  saveLocalDb(ldb);
-
-  res.status(201).json({ success: true, message: newMsg });
-});
-
-// Chat: Admin Clear Messages
-app.delete('/api/chat/messages', async (req, res) => {
-  await safeQuery('DELETE FROM chat_messages');
-  const ldb = getLocalDb();
-  ldb.chat_messages = [];
-  saveLocalDb(ldb);
-  res.json({ success: true, message: 'Chat diario vaciado correctamente por el administrador' });
-});
 
 // Email: Admin Send Test Email
 app.post('/api/admin/email/test', async (req, res) => {

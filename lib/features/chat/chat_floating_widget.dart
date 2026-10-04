@@ -31,42 +31,58 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
   Timer? _refreshTimer;
 
   bool _showEmojiPicker = false;
-  String _selectedEmojiCategory = '😃 Caras';
+  int _selectedCategoryIndex = 0;
 
-  static const Map<String, List<String>> _emojiCategories = {
-    '😃 Caras': [
-      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
-      '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
-      '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸',
-      '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️',
-      '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
-      '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓',
-      '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄',
-      '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵',
-      '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠',
-    ],
-    '👍 Gestos': [
-      '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
-      '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋',
-      '💪', '🦾', '✍️', '🙏', '🤝', '👏', '🙌', '👐', '🤲', '🤜',
-      '🤛', '✊', '👊', '👀', '🧠', '🫀', '🫁', '👥', '👤', '🧑‍💻',
-      '👨‍🎓', '👩‍🏫', '🕵️', '🧑‍🔧', '👨‍🚒', '🧑‍🚀', '👑', '⭐', '✨', '🔥',
-    ],
-    '✨ Símbolos': [
-      '🔥', '✨', '⭐', '🌟', '💫', '⚡', '💥', '💯', '💢', '🎉',
-      '🎊', '🎈', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
-      '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝',
-      '✅', '❌', '✔️', '✖️', '❓', '❗', '⚠️', '⛔', '🚫', '💡',
-      '🔔', '🔕', '🚀', '🎯', '🏆', '🥇', '🥈', '🥉', '💎', '🔮',
-    ],
-    '💼 Trabajo': [
-      '💼', '📁', '📂', '📄', '📃', '📑', '📊', '📈', '📉', '📋',
-      '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🖊️', '🖋️', '✒️',
-      '📝', '✏️', '🔍', '🔎', '🔒', '🔓', '💻', '🖥️', '🖨️', '⌨️',
-      '🖱️', '📱', '📞', '📧', '✉️', '📦', '🏷️', '🛠️', '🔨', '☕',
-      '📚', '🎓', '🏢', '🏛️', '🌐', '📡', '💾', '💿', '⏱️', '⏰',
-    ],
-  };
+  static const List<Map<String, dynamic>> _emojiCategoryDefs = [
+    {
+      'icon': '😃',
+      'label': 'Caras y Emociones',
+      'emojis': [
+        '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+        '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+        '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸',
+        '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️',
+        '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
+        '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓',
+        '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄',
+        '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵',
+        '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠',
+      ],
+    },
+    {
+      'icon': '👍',
+      'label': 'Gestos y Personas',
+      'emojis': [
+        '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
+        '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋',
+        '💪', '🦾', '✍️', '🙏', '🤝', '👏', '🙌', '👐', '🤲', '🤜',
+        '🤛', '✊', '👊', '👀', '🧠', '🫀', '🫁', '👥', '👤', '🧑‍💻',
+        '👨‍🎓', '👩‍🏫', '🕵️', '🧑‍🔧', '👨‍🚒', '🧑‍🚀', '👑', '⭐', '✨', '🔥',
+      ],
+    },
+    {
+      'icon': '✨',
+      'label': 'Símbolos y Objetos',
+      'emojis': [
+        '🔥', '✨', '⭐', '🌟', '💫', '⚡', '💥', '💯', '💢', '🎉',
+        '🎊', '🎈', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+        '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝',
+        '✅', '❌', '✔️', '✖️', '❓', '❗', '⚠️', '⛔', '🚫', '💡',
+        '🔔', '🔕', '🚀', '🎯', '🏆', '🥇', '🥈', '🥉', '💎', '🔮',
+      ],
+    },
+    {
+      'icon': '💼',
+      'label': 'Trabajo y Educación',
+      'emojis': [
+        '💼', '📁', '📂', '📄', '📃', '📑', '📊', '📈', '📉', '📋',
+        '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🖊️', '🖋️', '✒️',
+        '📝', '✏️', '🔍', '🔎', '🔒', '🔓', '💻', '🖥️', '🖨️', '⌨️',
+        '🖱️', '📱', '📞', '📧', '✉️', '📦', '🏷️', '🛠️', '🔨', '☕',
+        '📚', '🎓', '🏢', '🏛️', '🌐', '📡', '💾', '💿', '⏱️', '⏰',
+      ],
+    },
+  ];
 
   @override
   void initState() {
@@ -162,6 +178,142 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
       _textController.text = text + emoji;
       _textController.selection = TextSelection.collapsed(offset: _textController.text.length);
     }
+  }
+
+  Future<void> _deleteMessage(Map<String, dynamic> msg) async {
+    final msgId = msg['id'];
+    setState(() {
+      _messages.removeWhere((m) => m['id']?.toString() == msgId?.toString());
+    });
+    await widget.apiService.deleteSingleChatMessage(msgId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mensaje eliminado del chat'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Future<void> _banUser(String sender) async {
+    final cleanSender = sender.trim();
+    if (cleanSender.toLowerCase() == 'admin') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No es posible banear al administrador principal'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.isDark ? const Color(0xFF0F172A) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.block_rounded, color: Colors.redAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Banear usuario', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          '¿Deseas suspender y banear permanentemente a @$cleanSender?\n\nEl usuario no podrá iniciar sesión en Sanctuary ni enviar más mensajes al chat.',
+          style: const TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Banear usuario'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final res = await widget.apiService.banUserByUsername(cleanSender);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Usuario suspendido'),
+            backgroundColor: res['success'] == true ? Colors.redAccent : Colors.orangeAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildModerationMenu(Map<String, dynamic> msg, String sender, {required bool isMe}) {
+    final isDark = widget.isDark;
+    final isSenderAdmin = sender.trim().toLowerCase() == 'admin';
+
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: PopupMenuButton<String>(
+        padding: EdgeInsets.zero,
+        icon: Icon(
+          Icons.more_vert_rounded,
+          size: 15,
+          color: isMe ? Colors.white70 : (isDark ? Colors.white60 : Colors.black45),
+        ),
+        tooltip: 'Moderar mensaje',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        elevation: 6,
+        onSelected: (action) {
+          if (action == 'delete') {
+            _deleteMessage(msg);
+          } else if (action == 'ban') {
+            _banUser(sender);
+          }
+        },
+        itemBuilder: (ctx) => [
+          const PopupMenuItem<String>(
+            value: 'delete',
+            height: 34,
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                SizedBox(width: 8),
+                Text(
+                  'Eliminar mensaje',
+                  style: TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          if (!isSenderAdmin)
+            const PopupMenuItem<String>(
+              value: 'ban',
+              height: 34,
+              child: Row(
+                children: [
+                  Icon(Icons.block_rounded, size: 16, color: Colors.orangeAccent),
+                  SizedBox(width: 8),
+                  Text(
+                    'Banear usuario',
+                    style: TextStyle(fontSize: 12, color: Colors.orangeAccent, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   int get _unreadCount {
@@ -351,11 +503,13 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                         itemCount: _messages.length,
                         itemBuilder: (ctx, idx) {
                           final msg = _messages[idx];
-                          final sender = msg['username']?.toString() ?? 'Anónimo';
+                          final sender = (msg['username'] ?? msg['user'] ?? 'Anónimo').toString().trim();
                           final isMe = sender.toLowerCase() == widget.currentUser.username.toLowerCase();
-                          final content = msg['message']?.toString() ?? '';
-                          final role = msg['role']?.toString().toLowerCase() ?? 'usuario';
-                          final timeStr = msg['created_at']?.toString() ?? '';
+                          final content = (msg['message'] ?? msg['text'] ?? '').toString();
+                          final role = (msg['role'] ?? 'usuario').toString().toLowerCase();
+                          final timeStr = (msg['created_at'] ?? msg['timestamp'] ?? '').toString();
+                          final isAdmin = widget.currentUser.role.toLowerCase() == 'admin';
+
                           String timeDisplay = '';
                           try {
                             final dt = DateTime.parse(timeStr).toLocal();
@@ -368,7 +522,7 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (!isMe) ...[
                                   CircleAvatar(
@@ -385,7 +539,7 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                                 ],
                                 Flexible(
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                     decoration: BoxDecoration(
                                       color: isMe
                                           ? const Color(0xFF06B6D4)
@@ -401,27 +555,55 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                                       crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        if (!isMe)
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                sender,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF38BDF8)),
-                                              ),
-                                              if (role == 'admin') ...[
-                                                const SizedBox(width: 4),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFF06B6D4).withOpacity(0.2),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                  child: const Text('ADMIN', style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4))),
+                                        // Sender Header Row
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ConstrainedBox(
+                                              constraints: const BoxConstraints(maxWidth: 135),
+                                              child: Text(
+                                                isMe ? 'Tú (${widget.currentUser.username})' : sender,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 10.5,
+                                                  color: isMe
+                                                      ? Colors.white
+                                                      : (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)),
                                                 ),
-                                              ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: isMe
+                                                    ? Colors.white.withOpacity(0.25)
+                                                    : (role == 'admin'
+                                                        ? const Color(0xFF06B6D4).withOpacity(0.2)
+                                                        : (role == 'docente' ? AppTheme.emerald.withOpacity(0.2) : Colors.blueGrey.withOpacity(0.2))),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                role.toUpperCase(),
+                                                style: TextStyle(
+                                                  fontSize: 7.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isMe
+                                                      ? Colors.white
+                                                      : (role == 'admin'
+                                                          ? const Color(0xFF06B6D4)
+                                                          : (role == 'docente' ? AppTheme.emerald : Colors.blueGrey)),
+                                                ),
+                                              ),
+                                            ),
+                                            if (isAdmin) ...[
+                                              const SizedBox(width: 4),
+                                              _buildModerationMenu(msg, sender, isMe: isMe),
                                             ],
-                                          ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
                                         Text(
                                           content,
                                           style: TextStyle(
@@ -451,7 +633,7 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                       ),
           ),
 
-          // Categorized Emoji Picker Window (if opened)
+          // Categorized Emoji Picker Window (Compact icon-only tabs)
           if (_showEmojiPicker)
             Container(
               height: 210,
@@ -463,7 +645,7 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
               ),
               child: Column(
                 children: [
-                  // Category Tabs Header
+                  // Category Tabs Header: Icons only to minimize horizontal space
                   Container(
                     height: 38,
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -476,37 +658,39 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: _emojiCategories.keys.map((cat) {
-                                final isSel = _selectedEmojiCategory == cat;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 6),
+                          child: Row(
+                            children: _emojiCategoryDefs.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final cat = entry.value;
+                              final isSel = _selectedCategoryIndex == idx;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: Tooltip(
+                                  message: cat['label'] as String,
                                   child: InkWell(
-                                    onTap: () => setState(() => _selectedEmojiCategory = cat),
-                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () => setState(() => _selectedCategoryIndex = idx),
+                                    borderRadius: BorderRadius.circular(10),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: isSel ? const Color(0xFF06B6D4) : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
+                                        color: isSel
+                                            ? const Color(0xFF06B6D4)
+                                            : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05)),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isSel ? const Color(0xFF06B6D4) : Colors.transparent,
+                                          width: 1,
+                                        ),
                                       ),
                                       child: Text(
-                                        cat,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                          color: isSel
-                                              ? Colors.white
-                                              : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
-                                        ),
+                                        cat['icon'] as String,
+                                        style: const TextStyle(fontSize: 16),
                                       ),
                                     ),
                                   ),
-                                );
-                              }).toList(),
-                            ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
                         InkWell(
@@ -531,9 +715,9 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                         crossAxisSpacing: 4,
                         childAspectRatio: 1.1,
                       ),
-                      itemCount: _emojiCategories[_selectedEmojiCategory]?.length ?? 0,
+                      itemCount: (_emojiCategoryDefs[_selectedCategoryIndex]['emojis'] as List<String>).length,
                       itemBuilder: (ctx, i) {
-                        final em = _emojiCategories[_selectedEmojiCategory]![i];
+                        final em = (_emojiCategoryDefs[_selectedCategoryIndex]['emojis'] as List<String>)[i];
                         return InkWell(
                           onTap: () => _addEmoji(em),
                           borderRadius: BorderRadius.circular(8),

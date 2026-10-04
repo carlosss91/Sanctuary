@@ -402,6 +402,13 @@ class StorageService {
     await saveChatMessages(list);
   }
 
+  Future<void> deleteChatMessage(dynamic id) async {
+    if (id == null) return;
+    final list = getChatMessages();
+    list.removeWhere((m) => m['id']?.toString() == id.toString());
+    await saveChatMessages(list);
+  }
+
   Future<void> clearChatMessages() async {
     await _prefs.remove(_keyChatMessages);
   }

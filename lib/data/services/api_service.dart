@@ -620,6 +620,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'message': message,
+          'text': message,
           'username': username,
           'role': role,
           'avatarUrl': avatarUrl,
@@ -628,8 +629,8 @@ class ApiService {
 
       if (res.statusCode == 201 || res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        if (data['success'] == true && data['chat_message'] != null) {
-          return {'success': true, 'message': data['chat_message']};
+        if (data['success'] == true && (data['chat_message'] != null || data['message'] != null)) {
+          return {'success': true, 'message': data['chat_message'] ?? data['message']};
         }
       }
     } catch (e) {
@@ -637,6 +638,52 @@ class ApiService {
     }
 
     return {'success': true, 'message': localMsg};
+  }
+
+  Future<bool> deleteSingleChatMessage(dynamic id) async {
+    await storage.deleteChatMessage(id);
+    try {
+      final res = await http.delete(Uri.parse('$baseUrl/chat/messages/$id')).timeout(const Duration(seconds: 4));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error deleting single message on backend: $e');
+    }
+    return true;
+  }
+
+  Future<Map<String, dynamic>> banUserByUsername(String username) async {
+    final cleanUser = username.trim();
+    if (cleanUser.toLowerCase() == 'admin') {
+      return {'success': false, 'message': 'No es posible banear al administrador principal'};
+    }
+
+    // Ban in local storage if present
+    final localUsers = storage.getLocalUsers();
+    final idx = localUsers.indexWhere((u) => u.username.toLowerCase() == cleanUser.toLowerCase());
+    if (idx >= 0) {
+      final updated = localUsers[idx].copyWith(isBanned: true);
+      await storage.saveLocalUser(updated, 'admin');
+    }
+
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/users/ban'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': cleanUser}),
+      ).timeout(const Duration(seconds: 6));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return {'success': true, 'message': data['message'] ?? 'Usuario suspendido'};
+      } else {
+        final data = jsonDecode(res.body);
+        return {'success': false, 'message': data['message'] ?? 'Error al banear usuario'};
+      }
+    } catch (e) {
+      debugPrint('Error banning user on backend: $e');
+    }
+
+    return {'success': true, 'message': 'Usuario @$cleanUser suspendido y baneado correctamente'};
   }
 
   Future<bool> clearChatMessages() async {
