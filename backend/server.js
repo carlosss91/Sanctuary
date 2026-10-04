@@ -320,6 +320,80 @@ safeQuery(`
   );
 `).catch(() => {});
 
+// --- Ephemeral Community Chat Endpoints ---
+app.get('/api/chat/messages', async (req, res) => {
+  try {
+    const q = await safeQuery('SELECT id, username, role, text as message, avatar_url as "avatarUrl", created_at as timestamp FROM chat_messages ORDER BY created_at ASC LIMIT 100');
+    if (q && q.rows && q.rows.length > 0) {
+      return res.json({ success: true, messages: q.rows });
+    }
+    const ldb = getLocalDb();
+    return res.json({ success: true, messages: ldb.chat_messages || [] });
+  } catch (err) {
+    console.error('Error fetching chat messages:', err);
+    const ldb = getLocalDb();
+    return res.json({ success: true, messages: ldb.chat_messages || [] });
+  }
+});
+
+app.post('/api/chat/messages', async (req, res) => {
+  try {
+    const { message, username, role, avatarUrl } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'El mensaje no puede estar vacío' });
+    }
+
+    const cleanMsg = message.trim();
+    const cleanUser = (username || 'Anónimo').trim();
+    const cleanRole = role || 'usuario';
+    const timestamp = new Date().toISOString();
+
+    const q = await safeQuery(
+      'INSERT INTO chat_messages (username, role, text, avatar_url, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, role, text as message, avatar_url as "avatarUrl", created_at as timestamp',
+      [cleanUser, cleanRole, cleanMsg, avatarUrl || null, timestamp]
+    );
+
+    let chatMessage;
+    if (q && q.rows && q.rows.length > 0) {
+      chatMessage = q.rows[0];
+    } else {
+      const ldb = getLocalDb();
+      if (!Array.isArray(ldb.chat_messages)) ldb.chat_messages = [];
+      chatMessage = {
+        id: Date.now(),
+        username: cleanUser,
+        role: cleanRole,
+        message: cleanMsg,
+        avatarUrl: avatarUrl || null,
+        timestamp,
+      };
+      ldb.chat_messages.push(chatMessage);
+      if (ldb.chat_messages.length > 100) {
+        ldb.chat_messages = ldb.chat_messages.slice(-100);
+      }
+      saveLocalDb(ldb);
+    }
+
+    return res.status(201).json({ success: true, chat_message: chatMessage });
+  } catch (err) {
+    console.error('Error saving chat message:', err);
+    return res.status(500).json({ success: false, message: 'Error interno al guardar mensaje' });
+  }
+});
+
+app.delete('/api/chat/messages', async (req, res) => {
+  try {
+    await safeQuery('DELETE FROM chat_messages');
+    const ldb = getLocalDb();
+    ldb.chat_messages = [];
+    saveLocalDb(ldb);
+    return res.json({ success: true, message: 'Historial del chat vaciado con éxito' });
+  } catch (err) {
+    console.error('Error clearing chat:', err);
+    return res.status(500).json({ success: false, message: 'Error al vaciar chat' });
+  }
+});
+
 // Authentication: Login
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;

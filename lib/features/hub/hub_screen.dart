@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/sanctuary_planet_logo.dart';
+import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/repo_link_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -41,6 +42,7 @@ class HubScreen extends StatefulWidget {
 }
 
 class _HubScreenState extends State<HubScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late UserModel _currentUser;
   List<RepoLinkModel> _links = [];
   bool _isLoading = true;
@@ -237,9 +239,38 @@ class _HubScreenState extends State<HubScreen> {
     final isMobile = MediaQuery.of(context).size.width < 620;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.transparent,
+      drawer: Drawer(
+        backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+        child: SafeArea(
+          child: TrayectoriaSidebar(
+            activeItem: 'Inicio',
+            isDark: isDark,
+            isCollapsed: false,
+            onSelect: (itemKey) {
+              Navigator.of(context).maybePop();
+              if (itemKey == 'Orientación') {
+                widget.onOpenCvBuilder();
+              } else if (itemKey == 'PdfSigner') {
+                widget.onOpenPdfSigner?.call();
+              } else if (itemKey == 'Prezi2Pdf') {
+                widget.onOpenPreziDownloader?.call();
+              } else if (itemKey == 'AdminPanel' || itemKey == 'Ajustes') {
+                widget.onOpenAdminPanel?.call();
+              }
+            },
+          ),
+        ),
+      ),
       appBar: AppBar(
-        titleSpacing: isMobile ? 12 : 20,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded),
+          tooltip: 'Menú principal',
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
         title: Row(
           children: [
             Container(

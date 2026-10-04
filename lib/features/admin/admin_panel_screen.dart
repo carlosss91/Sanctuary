@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
 import '../hub/user_profile_dialog.dart';
@@ -40,7 +41,6 @@ class AdminPanelScreen extends StatefulWidget {
 class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _isSidebarCollapsed = true;
   List<UserModel> _users = [];
   Map<String, dynamic> _stats = {};
   List<Map<String, dynamic>> _chatMessages = [];
@@ -654,307 +654,142 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
-      drawer: isMobile
-          ? Drawer(
-              backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-              child: SafeArea(
-                child: TrayectoriaSidebar(
-                  isDark: isDark,
-                  isCollapsed: false,
-                  activeItem: 'AdminPanel',
-                  onSelect: (item) {
-                    Navigator.of(context).pop();
-                    if (item == 'Inicio') {
-                      widget.onBackToHub();
-                    } else if (item == 'Orientación') {
-                      if (widget.onOpenCvBuilder != null) {
-                        widget.onOpenCvBuilder!();
-                      } else {
-                        widget.onBackToHub();
-                      }
-                    } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                      widget.onOpenPdfSigner!();
-                    } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                      widget.onOpenPreziDownloader!();
-                    }
-                  },
-                  onToggleCollapse: () => Navigator.of(context).pop(),
-                ),
-              ),
-            )
-          : null,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Collapsible Sanctuary Sidebar (Desktop only)
-          if (!isMobile)
-            TrayectoriaSidebar(
-              isDark: isDark,
-              isCollapsed: _isSidebarCollapsed,
-              activeItem: 'AdminPanel',
-              onSelect: (item) {
-                if (item == 'Inicio') {
+      drawer: Drawer(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        child: SafeArea(
+          child: TrayectoriaSidebar(
+            isDark: isDark,
+            isCollapsed: false,
+            activeItem: 'AdminPanel',
+            onSelect: (item) {
+              Navigator.of(context).pop();
+              if (item == 'Inicio') {
+                widget.onBackToHub();
+              } else if (item == 'Orientación') {
+                if (widget.onOpenCvBuilder != null) {
+                  widget.onOpenCvBuilder!();
+                } else {
                   widget.onBackToHub();
-                } else if (item == 'Orientación') {
-                  if (widget.onOpenCvBuilder != null) {
-                    widget.onOpenCvBuilder!();
-                  } else {
-                    widget.onBackToHub();
-                  }
-                } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                  widget.onOpenPdfSigner!();
-                } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                  widget.onOpenPreziDownloader!();
                 }
-              },
-              onToggleCollapse: () {
-                setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
-              },
-            ),
-
-          // 2. Main Admin Workspace
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildTopBar(isDark, isMobile),
-                _buildTabBar(isDark, isMobile),
-                Expanded(
-                  child: _isLoading
-                      ? const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(color: Color(0xFF06B6D4)),
-                              SizedBox(height: 16),
-                              Text('Cargando datos administrativos...', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                            ],
-                          ),
-                        )
-                      : TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildUsersTab(isDark),
-                            _buildChatModerationTab(isDark),
-                            _buildModulesTab(isDark),
-                            _buildSystemStatusTab(isDark),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar(bool isDark, bool isMobile) {
-    return Container(
-      height: 58,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1,
+              } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                widget.onOpenPdfSigner!();
+              } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                widget.onOpenPreziDownloader!();
+              }
+            },
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // Mobile Menu Drawer Button
-          if (isMobile) ...[
-            Tooltip(
-              message: 'Menú principal',
-              child: InkWell(
-                onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.menu_rounded,
-                      size: 18,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        leadingWidth: 92,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Menú principal',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Volver al Santuario Hub',
+              onPressed: widget.onBackToHub,
+            ),
+          ],
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF06B6D4).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
               ),
+              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
             ),
             const SizedBox(width: 8),
-          ],
-
-          // Back Button to Hub (Solo flecha compacta, sin texto)
-          Tooltip(
-            message: 'Volver al Santuario Hub',
-            child: InkWell(
-              onTap: widget.onBackToHub,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    size: 18,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: isMobile ? 8 : 14),
-
-          // Admin Icon Badge
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF06B6D4).withOpacity(0.18),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
-            ),
-            child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF06B6D4), size: 19),
-          ),
-          SizedBox(width: isMobile ? 8 : 12),
-          Expanded(
-            child: Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        isMobile ? 'ADMIN' : 'PANEL DE CONTROL',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: isMobile ? 13 : 15, letterSpacing: 1.1),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (!isMobile) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text('SUPER ADMIN', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ),
-                    ],
-                  ],
+                const Text(
+                  'SANCTUARY',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.2),
                 ),
-                if (!isMobile)
-                  Text(
-                    'Gestión integral de usuarios, chat, módulos y estado del sistema',
-                    style: TextStyle(fontSize: 9.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Text(
+                  'Panel de Administración',
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
               ],
             ),
-          ),
-
-          // Refresh button (Consistent 36x36 style)
-          Tooltip(
-            message: 'Recargar datos administrativos',
-            child: InkWell(
-              onTap: _loadAllAdminData,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                child: Center(
-                  child: Icon(Icons.refresh, size: 18, color: isDark ? Colors.white70 : const Color(0xFF334155)),
-                ),
-              ),
-            ),
-          ),
-
-          if (!isMobile) ...[
-            const SizedBox(width: 7),
-            // Cosmic Animation Toggle (Consistent 36x36 style)
-            Tooltip(
-              message: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
-              child: InkWell(
-                onTap: widget.onToggleCosmic,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: widget.isCosmicActive
-                        ? (isDark ? const Color(0xFF06B6D4).withOpacity(0.18) : const Color(0xFF06B6D4).withOpacity(0.12))
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: widget.isCosmicActive ? const Color(0xFF06B6D4).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                      size: 18,
-                      color: widget.isCosmicActive ? const Color(0xFF06B6D4) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 7),
-
-            // Light / Dark Theme Toggle (Consistent 36x36 style)
-            Tooltip(
-              message: isDark ? 'Tema Claro' : 'Tema Oscuro',
-              child: InkWell(
-                onTap: widget.onToggleTheme,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                      size: 18,
-                      color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ],
-          SizedBox(width: isMobile ? 7 : 10),
-
-          // Profile Dropdown
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Recargar datos administrativos',
+            icon: const Icon(Icons.refresh, size: 20),
+            onPressed: _loadAllAdminData,
+          ),
+          if (!isMobile) ...[
+            IconButton(
+              tooltip: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
+              icon: Icon(
+                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                size: 20,
+                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              ),
+              onPressed: widget.onToggleCosmic,
+            ),
+            const SizedBox(width: 4),
+          ],
+          IconButton(
+            tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 20,
+              color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+            ),
+            onPressed: widget.onToggleTheme,
+          ),
+          const SizedBox(width: 4),
           _buildProfileDropdown(isDark, isMobile),
+          const SizedBox(width: 14),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildTabBar(isDark, isMobile),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                        SizedBox(height: 16),
+                        Text('Cargando datos administrativos...', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      ],
+                    ),
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildUsersTab(isDark),
+                      _buildChatModerationTab(isDark),
+                      _buildModulesTab(isDark),
+                      _buildSystemStatusTab(isDark),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _buildTabBar(bool isDark, bool isMobile) {
     return Container(

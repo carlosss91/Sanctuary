@@ -30,9 +30,43 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
   final ScrollController _scrollController = ScrollController();
   Timer? _refreshTimer;
 
-  static const List<String> _quickEmojis = [
-    '👍', '❤️', '🚀', '🎉', '🔥', '😂', '👏', '✨', '💡', '🛡️', '⚡', '☕'
-  ];
+  bool _showEmojiPicker = false;
+  String _selectedEmojiCategory = '😃 Caras';
+
+  static const Map<String, List<String>> _emojiCategories = {
+    '😃 Caras': [
+      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+      '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+      '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸',
+      '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️',
+      '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
+      '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓',
+      '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄',
+      '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵',
+      '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠',
+    ],
+    '👍 Gestos': [
+      '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
+      '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋',
+      '💪', '🦾', '✍️', '🙏', '🤝', '👏', '🙌', '👐', '🤲', '🤜',
+      '🤛', '✊', '👊', '👀', '🧠', '🫀', '🫁', '👥', '👤', '🧑‍💻',
+      '👨‍🎓', '👩‍🏫', '🕵️', '🧑‍🔧', '👨‍🚒', '🧑‍🚀', '👑', '⭐', '✨', '🔥',
+    ],
+    '✨ Símbolos': [
+      '🔥', '✨', '⭐', '🌟', '💫', '⚡', '💥', '💯', '💢', '🎉',
+      '🎊', '🎈', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+      '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝',
+      '✅', '❌', '✔️', '✖️', '❓', '❗', '⚠️', '⛔', '🚫', '💡',
+      '🔔', '🔕', '🚀', '🎯', '🏆', '🥇', '🥈', '🥉', '💎', '🔮',
+    ],
+    '💼 Trabajo': [
+      '💼', '📁', '📂', '📄', '📃', '📑', '📊', '📈', '📉', '📋',
+      '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🖊️', '🖋️', '✒️',
+      '📝', '✏️', '🔍', '🔎', '🔒', '🔓', '💻', '🖥️', '🖨️', '⌨️',
+      '🖱️', '📱', '📞', '📧', '✉️', '📦', '🏷️', '🛠️', '🔨', '☕',
+      '📚', '🎓', '🏢', '🏛️', '🌐', '📡', '💾', '💿', '⏱️', '⏰',
+    ],
+  };
 
   @override
   void initState() {
@@ -116,11 +150,18 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
   }
 
   void _addEmoji(String emoji) {
-    final cur = _textController.text;
-    _textController.text = cur + emoji;
-    _textController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _textController.text.length),
-    );
+    final text = _textController.text;
+    final selection = _textController.selection;
+    if (selection.start >= 0 && selection.end >= 0) {
+      final newText = text.replaceRange(selection.start, selection.end, emoji);
+      _textController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + emoji.length),
+      );
+    } else {
+      _textController.text = text + emoji;
+      _textController.selection = TextSelection.collapsed(offset: _textController.text.length);
+    }
   }
 
   int get _unreadCount {
@@ -410,38 +451,107 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                       ),
           ),
 
-          // Quick Emoji Bar
-          Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-              border: Border(
-                top: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+          // Categorized Emoji Picker Window (if opened)
+          if (_showEmojiPicker)
+            Container(
+              height: 210,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                border: Border(
+                  top: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                ),
               ),
-            ),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _quickEmojis.length,
-              itemBuilder: (ctx, i) {
-                final em = _quickEmojis[i];
-                return InkWell(
-                  onTap: () => _addEmoji(em),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                    child: Center(
-                      child: Text(em, style: const TextStyle(fontSize: 16)),
+              child: Column(
+                children: [
+                  // Category Tabs Header
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF090D16) : const Color(0xFFEDF2F7),
+                      border: Border(
+                        bottom: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _emojiCategories.keys.map((cat) {
+                                final isSel = _selectedEmojiCategory == cat;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: InkWell(
+                                    onTap: () => setState(() => _selectedEmojiCategory = cat),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isSel ? const Color(0xFF06B6D4) : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        cat,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                          color: isSel
+                                              ? Colors.white
+                                              : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _showEmojiPicker = false),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(Icons.close, size: 16, color: isDark ? Colors.grey : Colors.black54),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
+
+                  // Emoji Grid
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.all(6),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 7,
+                        mainAxisSpacing: 4,
+                        crossAxisSpacing: 4,
+                        childAspectRatio: 1.1,
+                      ),
+                      itemCount: _emojiCategories[_selectedEmojiCategory]?.length ?? 0,
+                      itemBuilder: (ctx, i) {
+                        final em = _emojiCategories[_selectedEmojiCategory]![i];
+                        return InkWell(
+                          onTap: () => _addEmoji(em),
+                          borderRadius: BorderRadius.circular(8),
+                          hoverColor: const Color(0xFF06B6D4).withOpacity(0.15),
+                          child: Center(
+                            child: Text(em, style: const TextStyle(fontSize: 20)),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
           // Input Bar
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF0B132B) : Colors.white,
               borderRadius: const BorderRadius.only(
@@ -451,6 +561,22 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
             ),
             child: Row(
               children: [
+                // Emoji Toggle Button
+                Tooltip(
+                  message: _showEmojiPicker ? 'Ocultar emojis' : 'Seleccionar emoji',
+                  child: IconButton(
+                    icon: Icon(
+                      _showEmojiPicker ? Icons.keyboard_alt_outlined : Icons.emoji_emotions_outlined,
+                      color: _showEmojiPicker ? const Color(0xFF06B6D4) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                      size: 22,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: () => setState(() => _showEmojiPicker = !_showEmojiPicker),
+                  ),
+                ),
+                const SizedBox(width: 4),
+
                 Expanded(
                   child: TextField(
                     controller: _textController,

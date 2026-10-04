@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
 import '../hub/user_profile_dialog.dart';
@@ -47,7 +48,6 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
   final TextEditingController _urlController = TextEditingController();
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _isSidebarCollapsed = true;
   bool _filterTransitions = true;
   bool _filterDuplicates = true;
 
@@ -950,275 +950,150 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
-      drawer: isMobile
-          ? Drawer(
-              backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
-              child: SafeArea(
-                child: TrayectoriaSidebar(
-                  isDark: isDark,
-                  isCollapsed: false,
-                  activeItem: 'Prezi2Pdf',
-                  onSelect: (item) {
-                    Navigator.of(context).maybePop();
-                    if (item == 'Inicio') {
-                      widget.onBackToHub();
-                    } else if (item == 'Orientación') {
-                      if (widget.onOpenCvBuilder != null) {
-                        widget.onOpenCvBuilder!();
-                      } else {
-                        widget.onBackToHub();
-                      }
-                    } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                      widget.onOpenPdfSigner!();
-                    } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                      widget.onOpenAdminPanel!();
-                    }
-                  },
-                  onToggleCollapse: () => Navigator.of(context).maybePop(),
-                ),
-              ),
-            )
-          : null,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Collapsible Sanctuary Sidebar (Desktop / Tablet only)
-          if (!isMobile)
-            TrayectoriaSidebar(
-              isDark: isDark,
-              isCollapsed: _isSidebarCollapsed,
-              activeItem: 'Prezi2Pdf',
-              onSelect: (item) {
-                if (item == 'Inicio') {
+      drawer: Drawer(
+        backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+        child: SafeArea(
+          child: TrayectoriaSidebar(
+            isDark: isDark,
+            isCollapsed: false,
+            activeItem: 'Prezi2Pdf',
+            onSelect: (item) {
+              Navigator.of(context).maybePop();
+              if (item == 'Inicio') {
+                widget.onBackToHub();
+              } else if (item == 'Orientación') {
+                if (widget.onOpenCvBuilder != null) {
+                  widget.onOpenCvBuilder!();
+                } else {
                   widget.onBackToHub();
-                } else if (item == 'Orientación') {
-                  if (widget.onOpenCvBuilder != null) {
-                    widget.onOpenCvBuilder!();
-                  } else {
-                    widget.onBackToHub();
-                  }
-                } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                  widget.onOpenPdfSigner!();
-                } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                  widget.onOpenAdminPanel!();
                 }
-              },
-              onToggleCollapse: () {
-                setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
-              },
-            ),
-
-          // 2. Main Workspace
-          Expanded(
-            child: Column(
-              children: [
-                _buildTopBar(isDark, isMobile),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: isMobile ? 12 : 20),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1150),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // 1. HERO BANNER
-                            _buildHeroBanner(isDark),
-
-                            const SizedBox(height: 24),
-
-                            // 2. INPUT CARD CON SELECTOR DE PLATAFORMAS
-                            _buildInputCard(isDark),
-
-                            const SizedBox(height: 24),
-
-                            // 3. PROGRESS SECTION
-                            if (_state.isProcessing || _state.hasError || _state.isDone)
-                              _buildProgressCard(isDark),
-
-                            // 4. PDF RESULT CARD
-                            if (_state.generatedPdfBytes != null) ...[
-                              const SizedBox(height: 24),
-                              _buildPdfResultCard(isDark),
-                            ],
-
-                            // 5. VIDEOS EXTRACTION & SELECTION SECTION
-                            if (_detectedVideos.isNotEmpty) ...[
-                              const SizedBox(height: 32),
-                              _buildVideosSection(isDark),
-                            ],
-
-                            const SizedBox(height: 48),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar(bool isDark, bool isMobile) {
-    return Container(
-      height: 58,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1,
+              } else if (item == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                widget.onOpenPdfSigner!();
+              } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                widget.onOpenAdminPanel!();
+              }
+            },
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // On Mobile: Sidebar Menu Button
-          if (isMobile) ...[
-            Tooltip(
-              message: 'Abrir barra lateral',
-              child: InkWell(
-                onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.menu_rounded,
-                      size: 20,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        leadingWidth: 92,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Menú principal',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Volver al Santuario Hub',
+              onPressed: widget.onBackToHub,
+            ),
+          ],
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFA855F7).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFA855F7).withOpacity(0.4)),
               ),
+              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
             ),
             const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'SANCTUARY',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.2),
+                ),
+                Text(
+                  'Slide Downloader',
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+              ],
+            ),
           ],
-
-          // Back Button to Hub (Solo flecha compacta, sin texto)
-          Tooltip(
-            message: 'Volver al Santuario Hub',
-            child: InkWell(
-              onTap: widget.onBackToHub,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    size: 18,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // App Icon
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE11D48), Color(0xFF9333EA)],
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.present_to_all_rounded, color: Colors.white, size: 18),
-          ),
-          const SizedBox(width: 8),
-          const Flexible(
-            child: Text(
-              'Slide Downloader',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          const Spacer(),
-
-          // Cosmic Animation Toggle (Hide on mobile to keep top bar clean)
+        ),
+        actions: [
           if (!isMobile) ...[
-            Tooltip(
-              message: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-              child: InkWell(
-                onTap: widget.onToggleCosmic,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: widget.isCosmicActive
-                        ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                      size: 18,
-                      color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                    ),
-                  ),
-                ),
+            IconButton(
+              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+              icon: Icon(
+                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                size: 20,
+                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
               ),
+              onPressed: widget.onToggleCosmic,
             ),
-            const SizedBox(width: 7),
+            const SizedBox(width: 4),
           ],
+          IconButton(
+            tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 20,
+              color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+            ),
+            onPressed: widget.onToggleTheme,
+          ),
+          const SizedBox(width: 4),
+          _buildProfileDropdown(isDark, isMobile),
+          const SizedBox(width: 14),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: isMobile ? 12 : 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1150),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. HERO BANNER
+                _buildHeroBanner(isDark),
 
-          // Theme Toggle (Consistent 36x36 style)
-          Tooltip(
-            message: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-            child: InkWell(
-              onTap: widget.onToggleTheme,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                child: Center(
-                  child: Icon(
-                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                    size: 18,
-                    color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
-                  ),
-                ),
-              ),
+                const SizedBox(height: 24),
+
+                // 2. INPUT CARD CON SELECTOR DE PLATAFORMAS
+                _buildInputCard(isDark),
+
+                const SizedBox(height: 24),
+
+                // 3. PROGRESS SECTION
+                if (_state.isProcessing || _state.hasError || _state.isDone)
+                  _buildProgressCard(isDark),
+
+                // 4. PDF RESULT CARD
+                if (_state.generatedPdfBytes != null) ...[
+                  const SizedBox(height: 24),
+                  _buildPdfResultCard(isDark),
+                ],
+
+                // 5. VIDEOS EXTRACTION & SELECTION SECTION
+                if (_detectedVideos.isNotEmpty) ...[
+                  const SizedBox(height: 32),
+                  _buildVideosSection(isDark),
+                ],
+
+                const SizedBox(height: 48),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-
-          // Profile Dropdown (compact on mobile)
-          _buildProfileDropdown(isDark, isMobile),
-        ],
+        ),
       ),
     );
   }
+
+
 
   Widget _buildProfileDropdown(bool isDark, bool isMobile) {
     final user = widget.apiService.storage.getCurrentUser() ?? const UserModel(username: 'Usuario', role: 'admin');

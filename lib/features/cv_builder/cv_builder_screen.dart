@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../hub/user_profile_dialog.dart';
 import '../../data/models/cv_profile_model.dart';
 import '../../data/services/api_service.dart';
@@ -52,7 +53,6 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
   bool _isSaving = false;
   int _mobileTabIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _isSidebarCollapsed = true;
 
   @override
   void initState() {
@@ -396,477 +396,365 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
     }
 
     final activeProfile = _activeProfile;
-
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
-      drawer: isMobile
-          ? Drawer(
-              backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
-              child: SafeArea(
-                child: TrayectoriaSidebar(
-                  activeItem: 'Orientación',
-                  isDark: isDark,
-                  isCollapsed: false,
-                  onToggleCollapse: () => Navigator.of(context).maybePop(),
-                  onSelect: (itemKey) {
-                    Navigator.of(context).maybePop();
-                    if (itemKey == 'Inicio') {
-                      widget.onBackToHub();
-                    } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                      widget.onOpenPdfSigner!();
-                    } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                      widget.onOpenPreziDownloader!();
-                    } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                      widget.onOpenAdminPanel!();
-                    } else if (itemKey == 'Alumnos') {
-                      _showTeacherManagementDialog();
-                    }
-                  },
-                ),
-              ),
-            )
-          : null,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ================================================================
-          // LEFT SIDEBAR (Desktop / Tablet only)
-          // ================================================================
-          if (!isMobile)
-            TrayectoriaSidebar(
-              activeItem: 'Orientación',
-              isDark: isDark,
-              isCollapsed: _isSidebarCollapsed,
-              onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
-              onSelect: (itemKey) {
-                if (itemKey == 'Inicio') {
-                  widget.onBackToHub();
-                } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
-                  widget.onOpenPdfSigner!();
-                } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                  widget.onOpenPreziDownloader!();
-                } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                  widget.onOpenAdminPanel!();
-                } else if (itemKey == 'Alumnos') {
-                  _showTeacherManagementDialog();
-                } else if (itemKey == 'Orientación') {
-                  // Stay on CV Builder
-                }
-              },
+      drawer: Drawer(
+        backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+        child: SafeArea(
+          child: TrayectoriaSidebar(
+            activeItem: 'Orientación',
+            isDark: isDark,
+            isCollapsed: false,
+            onSelect: (itemKey) {
+              Navigator.of(context).maybePop();
+              if (itemKey == 'Inicio') {
+                widget.onBackToHub();
+              } else if (itemKey == 'PdfSigner' && widget.onOpenPdfSigner != null) {
+                widget.onOpenPdfSigner!();
+              } else if (itemKey == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                widget.onOpenPreziDownloader!();
+              } else if ((itemKey == 'AdminPanel' || itemKey == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                widget.onOpenAdminPanel!();
+              } else if (itemKey == 'Alumnos') {
+                _showTeacherManagementDialog();
+              }
+            },
+          ),
+        ),
+      ),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        leadingWidth: 92,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Menú principal',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
-
-          // ================================================================
-          // MAIN CONTENT AREA
-          // ================================================================
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Volver al Santuario Hub',
+              onPressed: widget.onBackToHub,
+            ),
+          ],
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+              ),
+              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // TOP NAVIGATION BAR (Clean with Back button, title, language, install and user menu)
-                Container(
-                  height: 58,
-                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0E131F) : const Color(0xFFFFFFFF),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                        width: 1,
-                      ),
+                const Text(
+                  'SANCTUARY',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.2),
+                ),
+                Text(
+                  isMobile ? 'Taller de CV' : 'Orientación Laboral · Taller de CV',
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          // Auto-save Status Indicator
+          Tooltip(
+            message: _autoSaveStatus,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isSaving ? Colors.amber : AppTheme.emerald,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      // On Mobile: Sidebar Menu Button
-                      if (isMobile) ...[
-                        Tooltip(
-                          message: 'Abrir barra lateral',
-                          child: InkWell(
-                            onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.menu_rounded,
-                                  size: 20,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-
-                      // PERMANENT "ATRÁS" BUTTON (Solo flecha compacta, sin texto)
-                      Tooltip(
-                        message: 'Volver al Santuario Hub',
-                        child: InkWell(
-                          onTap: widget.onBackToHub,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                size: 18,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      _autoSaveStatus,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                       ),
-                      const SizedBox(width: 10),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
 
-                      // Module tag / Title
-                      Flexible(
-                        child: Text(
-                          isMobile ? 'Taller de CV' : 'Orientación Laboral · Taller de Curriculum Vitae',
+          if (!isMobile) ...[
+            // "Instalar App" Button
+            OutlinedButton.icon(
+              onPressed: _showInstallDialog,
+              icon: const Icon(Icons.install_mobile_outlined, size: 14, color: AppTheme.emerald),
+              label: const Text('Instalar', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // "TrayectorIA" Button
+            ElevatedButton.icon(
+              onPressed: _showTrayectorIaDialog,
+              icon: const Icon(Icons.auto_awesome, size: 14),
+              label: const Text('TrayectorIA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Cosmic Animation Toggle
+            IconButton(
+              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+              icon: Icon(
+                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                size: 20,
+                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              ),
+              onPressed: widget.onToggleCosmic,
+            ),
+            const SizedBox(width: 4),
+          ],
+
+          // Theme Toggle
+          IconButton(
+            tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 20,
+              color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+            ),
+            onPressed: widget.onToggleTheme,
+          ),
+          const SizedBox(width: 4),
+
+          // User Profile Dropdown Button
+          PopupMenuButton<String>(
+            tooltip: 'Perfil de Usuario',
+            offset: const Offset(0, 46),
+            color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+            ),
+            onSelected: (val) {
+              if (val == 'logout') {
+                widget.onLogout();
+              } else if (val == 'hub') {
+                widget.onBackToHub();
+              } else if (val == 'cosmic') {
+                widget.onToggleCosmic();
+              } else if (val == 'admin') {
+                widget.onOpenAdminPanel?.call();
+              } else if (val == 'teacher') {
+                _showTeacherManagementDialog();
+              } else if (val == 'edit_profile' && currentUser != null) {
+                UserProfileDialog.show(
+                  context,
+                  user: currentUser,
+                  apiService: widget.apiService,
+                  onUserUpdated: (updated) {
+                    setState(() {});
+                  },
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              // User Info Header
+              PopupMenuItem<String>(
+                enabled: false,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppTheme.emerald,
+                      backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
+                          ? NetworkImage(currentUser.avatarUrl!)
+                          : null,
+                      child: (currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty)
+                          ? Text(
+                              userInitial,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          username,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: isMobile ? 14 : 13,
-                            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      // Auto-save Status Indicator (compact on mobile)
-                      Tooltip(
-                        message: _autoSaveStatus,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _isSaving ? Colors.amber : AppTheme.emerald,
-                                ),
-                              ),
-                              if (!isMobile) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  _autoSaveStatus,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                  ),
-                                ),
-                              ],
-                            ],
+                            fontSize: 13,
+                            color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      if (!isMobile) ...[
-                        // "Instalar App" Button
-                        OutlinedButton.icon(
-                          onPressed: _showInstallDialog,
-                          icon: const Icon(Icons.install_mobile_outlined, size: 14, color: AppTheme.emerald),
-                          label: const Text('Instalar', style: TextStyle(fontSize: 12, color: AppTheme.emerald)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
-                          ),
+                        Text(
+                          'Usuario Activo · ${currentUser?.role ?? "admin"}',
+                          style: const TextStyle(fontSize: 10, color: Colors.grey),
                         ),
-                        const SizedBox(width: 8),
-
-                        // "TrayectorIA" Button
-                        ElevatedButton.icon(
-                          onPressed: _showTrayectorIaDialog,
-                          icon: const Icon(Icons.auto_awesome, size: 14),
-                          label: const Text('TrayectorIA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F766E),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Cosmic Animation Toggle
-                        Tooltip(
-                          message: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-                          child: InkWell(
-                            onTap: widget.onToggleCosmic,
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: widget.isCosmicActive
-                                    ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
-                                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                                  size: 18,
-                                  color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
 
-                      // Theme Toggle (Consistent 36x36 style)
-                      Tooltip(
-                        message: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-                        child: InkWell(
-                          onTap: widget.onToggleTheme,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                                size: 18,
-                                color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+              const PopupMenuItem<String>(
+                value: 'edit_profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.manage_accounts_outlined, size: 16, color: AppTheme.emerald),
+                    SizedBox(width: 10),
+                    Text('Editar Perfil y Foto', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
 
-                      // USER CIRCLE AVATAR WITH DROPDOWN MENU
-                      PopupMenuButton<String>(
-                        tooltip: 'Perfil de Usuario',
-                        offset: const Offset(0, 46),
-                        color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                        ),
-                        onSelected: (val) {
-                          if (val == 'logout') {
-                            widget.onLogout();
-                          } else if (val == 'hub') {
-                            widget.onBackToHub();
-                          } else if (val == 'cosmic') {
-                            widget.onToggleCosmic();
-                          } else if (val == 'admin') {
-                            widget.onOpenAdminPanel?.call();
-                          } else if (val == 'teacher') {
-                            _showTeacherManagementDialog();
-                          } else if (val == 'edit_profile' && currentUser != null) {
-                            UserProfileDialog.show(
-                              context,
-                              user: currentUser,
-                              apiService: widget.apiService,
-                              onUserUpdated: (updated) {
-                                setState(() {});
-                              },
-                            );
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          // User Info Header
-                          PopupMenuItem<String>(
-                            enabled: false,
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: AppTheme.emerald,
-                                  backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
-                                      ? NetworkImage(currentUser.avatarUrl!)
-                                      : null,
-                                  child: (currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty)
-                                      ? Text(
-                                          userInitial,
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                        )
-                                      : null,
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      username,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: isDark ? Colors.white : Colors.black87,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Usuario Activo · ${currentUser?.role ?? "admin"}',
-                                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'teacher',
+                child: Row(
+                  children: [
+                    Icon(Icons.school, size: 16, color: AppTheme.emerald),
+                    SizedBox(width: 10),
+                    Text('Gestión Docente (FC0003)', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
 
-                          const PopupMenuItem<String>(
-                            value: 'edit_profile',
-                            child: Row(
-                              children: [
-                                Icon(Icons.manage_accounts_outlined, size: 16, color: AppTheme.emerald),
-                                SizedBox(width: 10),
-                                Text('Editar Perfil y Foto', style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          ),
+              const PopupMenuDivider(),
 
-                          const PopupMenuItem<String>(
-                            value: 'teacher',
-                            child: Row(
-                              children: [
-                                Icon(Icons.school, size: 16, color: AppTheme.emerald),
-                                SizedBox(width: 10),
-                                Text('Gestión Docente (FC0003)', style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          ),
-
-                          const PopupMenuDivider(),
-
-                          if (currentUser?.role.toLowerCase() == 'admin' && widget.onOpenAdminPanel != null) ...[
-                            const PopupMenuItem<String>(
-                              value: 'admin',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.admin_panel_settings_rounded, size: 16, color: Color(0xFF06B6D4)),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    'Panel de Administración',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuDivider(),
-                          ],
-
-                          PopupMenuItem<String>(
-                            value: 'hub',
-                            child: const Row(
-                              children: [
-                                Icon(Icons.hub_outlined, size: 16),
-                                SizedBox(width: 10),
-                                Text('Ir al Santuario (Hub)', style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          ),
-
-                          PopupMenuItem<String>(
-                            value: 'cosmic',
-                            child: Row(
-                              children: [
-                                Icon(widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined, size: 16),
-                                SizedBox(width: 10),
-                                Text(
-                                  widget.isCosmicActive ? 'Pausar Estrellas' : 'Activar Estrellas',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const PopupMenuDivider(),
-
-                          // CERRAR SESIÓN (Inside user dropdown as requested!)
-                          const PopupMenuItem<String>(
-                            value: 'logout',
-                            child: Row(
-                              children: [
-                                Icon(Icons.logout, size: 16, color: Colors.redAccent),
-                                SizedBox(width: 10),
-                                Text(
-                                  'Cerrar Sesión',
-                                  style: TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 5 : 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircleAvatar(
-                                radius: 13,
-                                backgroundColor: AppTheme.emerald,
-                                backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
-                                    ? NetworkImage(currentUser.avatarUrl!)
-                                    : null,
-                                child: (currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty)
-                                    ? Text(
-                                        userInitial,
-                                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                      )
-                                    : null,
-                              ),
-                              if (!isMobile) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  username,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
-                              ],
-                            ],
-                          ),
-                        ),
+              if (currentUser?.role.toLowerCase() == 'admin' && widget.onOpenAdminPanel != null) ...[
+                const PopupMenuItem<String>(
+                  value: 'admin',
+                  child: Row(
+                    children: [
+                      Icon(Icons.admin_panel_settings_rounded, size: 16, color: Color(0xFF06B6D4)),
+                      SizedBox(width: 10),
+                      Text(
+                        'Panel de Administración',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
                       ),
                     ],
                   ),
                 ),
+                const PopupMenuDivider(),
+              ],
 
-                // WORKSPACE (Carousel + Action buttons + Editor tabs + A4 Preview)
-                Expanded(
-                  child: LayoutBuilder(
+              PopupMenuItem<String>(
+                value: 'hub',
+                child: const Row(
+                  children: [
+                    Icon(Icons.hub_outlined, size: 16),
+                    SizedBox(width: 10),
+                    Text('Ir al Santuario (Hub)', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+
+              PopupMenuItem<String>(
+                value: 'cosmic',
+                child: Row(
+                  children: [
+                    Icon(widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined, size: 16),
+                    SizedBox(width: 10),
+                    Text(
+                      widget.isCosmicActive ? 'Pausar Estrellas' : 'Activar Estrellas',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+
+              const PopupMenuDivider(),
+
+              // CERRAR SESIÓN
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 16, color: Colors.redAccent),
+                    SizedBox(width: 10),
+                    Text(
+                      'Cerrar Sesión',
+                      style: TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 5 : 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 13,
+                    backgroundColor: AppTheme.emerald,
+                    backgroundImage: currentUser?.avatarUrl != null && currentUser!.avatarUrl!.isNotEmpty
+                        ? NetworkImage(currentUser.avatarUrl!)
+                        : null,
+                    child: (currentUser?.avatarUrl == null || currentUser!.avatarUrl!.isEmpty)
+                        ? Text(
+                            userInitial,
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          )
+                        : null,
+                  ),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      username,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+        ],
+      ),
+      body: LayoutBuilder(
                     builder: (context, constraints) {
                       final isLargeScreen = constraints.maxWidth > 920;
 
@@ -966,12 +854,6 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                       );
                     },
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

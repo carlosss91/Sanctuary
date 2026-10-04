@@ -444,10 +444,10 @@ class ApiService {
         Uri.parse('$baseUrl/admin/users/$id'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          if (role != null) 'role': role,
-          if (fullName != null) 'full_name': fullName,
-          if (email != null) 'email': email,
-          if (isBanned != null) 'is_banned': isBanned,
+          'role': ?role,
+          'full_name': ?fullName,
+          'email': ?email,
+          'is_banned': ?isBanned,
           if (password != null && password.isNotEmpty) 'password': password,
         }),
       ).timeout(const Duration(seconds: 12));
@@ -457,9 +457,6 @@ class ApiService {
         final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
         if (password != null && password.isNotEmpty) {
           await storage.saveLocalUser(user, password);
-        } else {
-          final existingPwds = storage.getLocalUsers();
-          await storage.saveLocalUser(user, 'admin');
         }
         return {'success': true, 'user': user, 'message': data['message']};
       } else {
@@ -583,17 +580,19 @@ class ApiService {
   // --- Ephemeral Community Chat ---
   Future<List<Map<String, dynamic>>> getChatMessages() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 8));
+      final res = await http.get(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true && data['messages'] is List) {
-          return List<Map<String, dynamic>>.from(data['messages']);
+          final list = List<Map<String, dynamic>>.from(data['messages']);
+          await storage.saveChatMessages(list);
+          return list;
         }
       }
     } catch (e) {
-      debugPrint('Error fetching chat messages: $e');
+      debugPrint('Syncing chat with backend failed (using local): $e');
     }
-    return [];
+    return storage.getChatMessages();
   }
 
   Future<Map<String, dynamic>> sendChatMessage({
@@ -602,6 +601,19 @@ class ApiService {
     required String role,
     String? avatarUrl,
   }) async {
+    final localMsg = {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'username': username,
+      'role': role,
+      'message': message,
+      'avatarUrl': avatarUrl,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    // 1. Immediately persist locally (instant UI response)
+    await storage.addChatMessage(localMsg);
+
+    // 2. Try sending to backend
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/chat/messages'),
@@ -612,27 +624,27 @@ class ApiService {
           'role': role,
           'avatarUrl': avatarUrl,
         }),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 4));
 
-      final data = jsonDecode(res.body);
       if (res.statusCode == 201 || res.statusCode == 200) {
-        return {'success': true, 'message': data['chat_message']};
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['chat_message'] != null) {
+          return {'success': true, 'message': data['chat_message']};
+        }
       }
-      return {'success': false, 'message': data['message'] ?? 'Error al enviar mensaje'};
     } catch (e) {
-      debugPrint('Error sending chat message: $e');
-      return {'success': false, 'message': 'Error al enviar mensaje'};
+      debugPrint('Syncing sent message to backend failed (kept locally): $e');
     }
+
+    return {'success': true, 'message': localMsg};
   }
 
   Future<bool> clearChatMessages() async {
+    await storage.clearChatMessages();
     try {
-      final res = await http.delete(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 8));
-      return res.statusCode == 200;
-    } catch (e) {
-      debugPrint('Error clearing chat: $e');
-      return false;
-    }
+      await http.delete(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+    return true;
   }
 
   // --- Real SMTP Email Verification Test ---

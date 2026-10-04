@@ -11,6 +11,7 @@ import 'features/pdf_signer/pdf_signer_screen.dart';
 import 'features/prezi2pdf/prezi_to_pdf_screen.dart';
 import 'features/admin/admin_panel_screen.dart';
 import 'features/chat/chat_floating_widget.dart';
+import 'core/widgets/sanctuary_bottom_dock.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -160,7 +161,23 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
             child: Stack(
               children: [
                 currentScreen,
-                if (_currentUser != null)
+                if (_currentUser != null) ...[
+                  // Centered Floating Bottom App Navigation Dock
+                  Positioned(
+                    bottom: 18,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: SanctuaryBottomDock(
+                        currentRoute: _currentRoute,
+                        userRole: _currentUser?.role ?? 'usuario',
+                        isDark: _isDark,
+                        onNavigate: (route) => setState(() => _currentRoute = route),
+                      ),
+                    ),
+                  ),
+
+                  // Ephemeral Community Chat Floating Widget
                   Positioned(
                     right: 22,
                     bottom: 22,
@@ -170,6 +187,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
                       isDark: _isDark,
                     ),
                   ),
+                ],
               ],
             ),
           );

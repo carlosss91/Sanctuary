@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -54,7 +55,6 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   SignerIdentity? _currentIdentity;
   UserModel? _currentUser;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _isSidebarCollapsed = true;
   double _zoomScale = 1.0;
   bool _isRefreshing = false;
   Timer? _pollingTimer;
@@ -579,35 +579,200 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
-      drawer: isMobile
-          ? Drawer(
-              backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-              child: SafeArea(
-                child: TrayectoriaSidebar(
-                  isDark: isDark,
-                  isCollapsed: false,
-                  activeItem: 'PdfSigner',
-                  onSelect: (item) {
-                    Navigator.of(context).pop();
-                    if (item == 'Inicio') {
-                      widget.onBackToHub();
-                    } else if (item == 'Orientación') {
-                      if (widget.onOpenCvBuilder != null) {
-                        widget.onOpenCvBuilder!();
-                      } else {
-                        widget.onBackToHub();
-                      }
-                    } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                      widget.onOpenPreziDownloader!();
-                    } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                      widget.onOpenAdminPanel!();
-                    }
-                  },
-                  onToggleCollapse: () => Navigator.of(context).pop(),
-                ),
+      drawer: Drawer(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        child: SafeArea(
+          child: TrayectoriaSidebar(
+            isDark: isDark,
+            isCollapsed: false,
+            activeItem: 'PdfSigner',
+            onSelect: (item) {
+              Navigator.of(context).pop();
+              if (item == 'Inicio') {
+                widget.onBackToHub();
+              } else if (item == 'Orientación') {
+                if (widget.onOpenCvBuilder != null) {
+                  widget.onOpenCvBuilder!();
+                } else {
+                  widget.onBackToHub();
+                }
+              } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
+                widget.onOpenPreziDownloader!();
+              } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
+                widget.onOpenAdminPanel!();
+              }
+            },
+            onToggleCollapse: () => Navigator.of(context).pop(),
+          ),
+        ),
+      ),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: isDark ? const Color(0xFF0F172A).withOpacity(0.95) : Colors.white.withOpacity(0.95),
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        leadingWidth: 92,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Menú principal',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Volver al Hub',
+              onPressed: widget.onBackToHub,
+            ),
+          ],
+        ),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D9488).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.4)),
               ),
-            )
-          : null,
+              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'SANCTUARY',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2),
+                ),
+                Text(
+                  isMobile ? 'Firmar PDF' : _document.title,
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.circle, size: 6, color: AppTheme.emerald),
+                  const SizedBox(width: 4),
+                  Text(
+                    isMobile ? '${_document.signatures.length}' : '${_document.signatures.length} Firmas',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // 1. Verified Security Standards (desktop only to save space)
+          if (!isMobile) ...[
+            _buildTopIconButton(
+              icon: Icons.verified_user_rounded,
+              tooltip: 'Seguridad Verificada eIDAS / PAdES (RFC 3161)',
+              onTap: () => SecurityStandardsDialog.show(context, _document),
+              backgroundColor: isDark ? const Color(0xFF059669).withOpacity(0.18) : const Color(0xFF059669).withOpacity(0.12),
+              iconColor: const Color(0xFF059669),
+              border: Border.all(color: const Color(0xFF059669).withOpacity(0.55), width: 1.2),
+            ),
+            const SizedBox(width: 6),
+          ],
+
+          // 2. Attach PDF
+          _buildTopIconButton(
+            icon: Icons.upload_file_rounded,
+            tooltip: 'Adjuntar documento PDF a firmar',
+            onTap: _pickPdfFile,
+            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            iconColor: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+            border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+          ),
+          const SizedBox(width: 6),
+
+          // 3. Sign Document (Emerald)
+          _buildTopIconButton(
+            icon: Icons.draw_rounded,
+            tooltip: 'Firmar documento (Rúbrica Biométrica Digital)',
+            onTap: _openSignModal,
+            backgroundColor: isDark ? const Color(0xFF10B981).withOpacity(0.20) : const Color(0xFF10B981).withOpacity(0.14),
+            iconColor: AppTheme.emerald,
+            border: Border.all(color: AppTheme.emerald.withOpacity(0.6), width: 1.2),
+          ),
+          const SizedBox(width: 6),
+
+          // 4. Share Document (Cyan/Blue)
+          _buildTopIconButton(
+            icon: Icons.share_rounded,
+            tooltip: 'Compartir enlace y firmantes acreditados',
+            onTap: () => ShareDocumentDialog.show(
+              context,
+              _document,
+              onSimulateGuestSigner: _simulateExternalGuestSigner,
+            ),
+            backgroundColor: isDark ? const Color(0xFF06B6D4).withOpacity(0.20) : const Color(0xFF06B6D4).withOpacity(0.14),
+            iconColor: const Color(0xFF06B6D4),
+            border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.6), width: 1.2),
+          ),
+          const SizedBox(width: 6),
+
+          // 5. Download Signed Document (Purple)
+          _buildTopIconButton(
+            icon: Icons.download_rounded,
+            tooltip: 'Descargar documento firmado (.pdf)',
+            onTap: _exportSignedPdf,
+            backgroundColor: isDark ? const Color(0xFF8B5CF6).withOpacity(0.20) : const Color(0xFF8B5CF6).withOpacity(0.14),
+            iconColor: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
+            border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.6), width: 1.2),
+          ),
+
+          // Cosmic & theme buttons on desktop
+          if (!isMobile) ...[
+            const SizedBox(width: 6),
+            _buildTopIconButton(
+              icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+              onTap: widget.onToggleCosmic,
+              backgroundColor: widget.isCosmicActive
+                  ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
+                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+              iconColor: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              border: Border.all(
+                color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                width: 1.2,
+              ),
+            ),
+            const SizedBox(width: 6),
+            _buildTopIconButton(
+              icon: widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              tooltip: widget.isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+              onTap: widget.onToggleTheme,
+              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              iconColor: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+            ),
+          ],
+          const SizedBox(width: 8),
+
+          // Profile Dropdown
+          _buildProfileDropdown(isDark, isMobile),
+          const SizedBox(width: 14),
+        ],
+      ),
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerMove: (event) {
@@ -652,289 +817,34 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             });
           }
         },
-        child: Row(
-          children: [
-            // 1. Collapsible Sanctuary Sidebar (Desktop only)
-            if (!isMobile)
-              TrayectoriaSidebar(
-                isDark: isDark,
-                isCollapsed: _isSidebarCollapsed,
-                activeItem: 'PdfSigner',
-                onSelect: (item) {
-                  if (item == 'Inicio') {
-                    widget.onBackToHub();
-                  } else if (item == 'Orientación') {
-                    if (widget.onOpenCvBuilder != null) {
-                      widget.onOpenCvBuilder!();
-                    } else {
-                      widget.onBackToHub();
-                    }
-                  } else if (item == 'Prezi2Pdf' && widget.onOpenPreziDownloader != null) {
-                    widget.onOpenPreziDownloader!();
-                  } else if ((item == 'AdminPanel' || item == 'Ajustes') && widget.onOpenAdminPanel != null) {
-                    widget.onOpenAdminPanel!();
-                  }
-                },
-                onToggleCollapse: () {
-                  setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
-                },
-              ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWideScreen = constraints.maxWidth > 960;
 
-            // 2. Main PDF Signer Workspace
-            Expanded(
-              child: Column(
+            return Padding(
+              padding: EdgeInsets.all(isMobile ? 6 : 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Top App Navigation Bar
-                  _buildTopBar(isDark, isMobile),
-
-                  // Main Workspace Layout
+                  // Document Sheet & Viewer Area
                   Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWideScreen = constraints.maxWidth > 960;
-
-                        return Padding(
-                          padding: EdgeInsets.all(isMobile ? 6 : 14),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Document Sheet & Viewer Area
-                              Expanded(
-                                flex: 14,
-                                child: _buildDocumentCanvas(isDark),
-                              ),
-
-                              // Audit Trail Sidebar (for wide screens)
-                              if (isWideScreen) ...[
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  flex: 6,
-                                  child: _buildAuditSidebar(isDark, dateFormat),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                    flex: 14,
+                    child: _buildDocumentCanvas(isDark),
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildTopBar(bool isDark, bool isMobile) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D121D).withOpacity(0.85) : Colors.white.withOpacity(0.9),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Mobile Menu Drawer Button
-          if (isMobile) ...[
-            _buildTopIconButton(
-              icon: Icons.menu_rounded,
-              tooltip: 'Menú principal',
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
-              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              iconColor: isDark ? Colors.white : Colors.black87,
-              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-            ),
-            const SizedBox(width: 8),
-          ],
-
-          // Back Button to Hub (Solo flecha compacta, sin texto)
-          Tooltip(
-            message: 'Volver al Santuario Hub',
-            child: InkWell(
-              onTap: widget.onBackToHub,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    size: 18,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: isMobile ? 8 : 14),
-
-          // Document Title and Status Badge
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        isMobile ? 'Firmar PDF' : _document.title,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 12.5 : 13.5),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.circle, size: 6, color: AppTheme.emerald),
-                          const SizedBox(width: 4),
-                          Text(
-                            isMobile ? '${_document.signatures.length}' : '${_document.signatures.length} Firmas',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                          ),
-                        ],
-                      ),
+                  // Audit Trail Sidebar (for wide screens)
+                  if (isWideScreen) ...[
+                    const SizedBox(width: 14),
+                    Expanded(
+                      flex: 6,
+                      child: _buildAuditSidebar(isDark, dateFormat),
                     ),
                   ],
-                ),
-                Text(
-                  _pdfPageImages.isNotEmpty
-                      ? '${_document.fileName} · ${_pdfPageImages.length} pág.'
-                      : _document.fileName,
-                  style: TextStyle(fontSize: 9.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Coherent Top Action Buttons (All 36x36, rounded 10, themed surface)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 1. Verified Security Standards (desktop only to save space)
-                if (!isMobile) ...[
-                  _buildTopIconButton(
-                    icon: Icons.verified_user_rounded,
-                    tooltip: 'Seguridad Verificada eIDAS / PAdES (RFC 3161)',
-                    onTap: () => SecurityStandardsDialog.show(context, _document),
-                    backgroundColor: isDark ? const Color(0xFF059669).withOpacity(0.18) : const Color(0xFF059669).withOpacity(0.12),
-                    iconColor: const Color(0xFF059669),
-                    border: Border.all(color: const Color(0xFF059669).withOpacity(0.55), width: 1.2),
-                  ),
-                  const SizedBox(width: 7),
                 ],
-
-                // 2. Attach PDF
-                _buildTopIconButton(
-                  icon: Icons.upload_file_rounded,
-                  tooltip: 'Adjuntar documento PDF a firmar',
-                  onTap: _pickPdfFile,
-                  backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  iconColor: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                ),
-                const SizedBox(width: 7),
-
-                // 3. Sign Document (Emerald)
-                _buildTopIconButton(
-                  icon: Icons.draw_rounded,
-                  tooltip: 'Firmar documento (Rúbrica Biométrica Digital)',
-                  onTap: _openSignModal,
-                  backgroundColor: isDark ? const Color(0xFF10B981).withOpacity(0.20) : const Color(0xFF10B981).withOpacity(0.14),
-                  iconColor: AppTheme.emerald,
-                  border: Border.all(color: AppTheme.emerald.withOpacity(0.6), width: 1.2),
-                ),
-                const SizedBox(width: 7),
-
-                // 4. Share Document (Cyan/Blue)
-                _buildTopIconButton(
-                  icon: Icons.share_rounded,
-                  tooltip: 'Compartir enlace y firmantes acreditados',
-                  onTap: () => ShareDocumentDialog.show(
-                    context,
-                    _document,
-                    onSimulateGuestSigner: _simulateExternalGuestSigner,
-                  ),
-                  backgroundColor: isDark ? const Color(0xFF06B6D4).withOpacity(0.20) : const Color(0xFF06B6D4).withOpacity(0.14),
-                  iconColor: const Color(0xFF06B6D4),
-                  border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.6), width: 1.2),
-                ),
-                const SizedBox(width: 7),
-
-                // 5. Download Signed Document (Purple)
-                _buildTopIconButton(
-                  icon: Icons.download_rounded,
-                  tooltip: 'Descargar documento firmado (.pdf)',
-                  onTap: _exportSignedPdf,
-                  backgroundColor: isDark ? const Color(0xFF8B5CF6).withOpacity(0.20) : const Color(0xFF8B5CF6).withOpacity(0.14),
-                  iconColor: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
-                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.6), width: 1.2),
-                ),
-
-                // Hide cosmic & theme buttons on mobile from top bar (they are accessible in profile)
-                if (!isMobile) ...[
-                  const SizedBox(width: 10),
-                  // 6. Cosmic Animation Toggle (Consistent 36x36 style)
-                  _buildTopIconButton(
-                    icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                    tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-                    onTap: widget.onToggleCosmic,
-                    backgroundColor: widget.isCosmicActive
-                        ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    iconColor: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                    border: Border.all(
-                      color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                      width: 1.2,
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-
-                  // 7. Light / Dark Theme Toggle (Consistent 36x36 style)
-                  _buildTopIconButton(
-                    icon: widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                    tooltip: widget.isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-                    onTap: widget.onToggleTheme,
-                    backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    iconColor: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-                  ),
-                ],
-                const SizedBox(width: 10),
-
-                // 8. Profile Dropdown (Consistent 36x36 style)
-                _buildProfileDropdown(isDark, isMobile),
-              ],
-            ),
-          ),
-        ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ class StorageService {
   static const String _keyRepoLinks = 'sanctuary_repo_links';
   static const String _keyThemeMode = 'sanctuary_theme_mode';
   static const String _keyCosmicActive = 'sanctuary_cosmic_active';
+  static const String _keyChatMessages = 'sanctuary_chat_messages';
 
   final SharedPreferences _prefs;
 
@@ -374,5 +375,34 @@ class StorageService {
 
   Future<void> setGitHubUsername(String username) async {
     await _prefs.setString(_keyGitHubUsername, username.trim());
+  }
+
+  // --- Community Chat ---
+  List<Map<String, dynamic>> getChatMessages() {
+    final str = _prefs.getString(_keyChatMessages);
+    if (str == null) return [];
+    try {
+      final list = jsonDecode(str) as List;
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveChatMessages(List<Map<String, dynamic>> msgs) async {
+    await _prefs.setString(_keyChatMessages, jsonEncode(msgs));
+  }
+
+  Future<void> addChatMessage(Map<String, dynamic> msg) async {
+    final list = getChatMessages();
+    list.add(msg);
+    if (list.length > 100) {
+      list.removeRange(0, list.length - 100);
+    }
+    await saveChatMessages(list);
+  }
+
+  Future<void> clearChatMessages() async {
+    await _prefs.remove(_keyChatMessages);
   }
 }
