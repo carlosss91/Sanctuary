@@ -39,6 +39,57 @@
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
     }
+
+    window.extractPdfTextFromBase64 = async function(base64Data) {
+      try {
+        if (typeof pdfjsLib === 'undefined') {
+          console.warn('[Sanctuary] pdfjsLib is not defined, cannot extract PDF text on web.');
+          return '';
+        }
+        const binaryString = atob(base64Data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const loadingTask = pdfjsLib.getDocument({
+          data: bytes,
+          cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/cmaps/",
+          cMapPacked: true,
+          standardFontDataUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/standard_fonts/"
+        });
+        const pdf = await loadingTask.promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          let lastY = null;
+          let pageText = '';
+          for (const item of textContent.items) {
+            if (!item || typeof item.str !== 'string') continue;
+            const str = item.str;
+            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+              pageText += '\n';
+            } else if (str.trim().length > 0 && pageText.length > 0 && !pageText.endsWith(' ') && !pageText.endsWith('\n')) {
+              pageText += ' ';
+            }
+            pageText += str;
+            if (item.hasEOL) {
+              pageText += '\n';
+            }
+            if (str.trim().length > 0) {
+              lastY = item.transform[5];
+            }
+          }
+          fullText += pageText + '\n\n';
+        }
+        console.log('[Sanctuary] PDF text extraction completed. Characters extracted:', fullText.length);
+        return fullText;
+      } catch (err) {
+        console.error('[Sanctuary] Error extracting text from PDF with pdf.js:', err);
+        return '';
+      }
+    };
   </script>
 </head>
 <body>
