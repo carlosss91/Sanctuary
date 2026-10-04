@@ -48,7 +48,6 @@ class _HubScreenState extends State<HubScreen> {
   bool _isLoading = true;
   String _selectedCategory = 'Todos';
   String _searchQuery = '';
-  bool _dbHealthy = false;
 
   // GitHub Widget state
   late String _githubUsername;
@@ -93,11 +92,9 @@ class _HubScreenState extends State<HubScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final links = await widget.apiService.getLinks();
-    final health = await widget.apiService.checkHealth();
     if (mounted) {
       setState(() {
         _links = links;
-        _dbHealthy = health;
         _isLoading = false;
       });
     }
@@ -224,6 +221,98 @@ class _HubScreenState extends State<HubScreen> {
     }
   }
 
+  void _showInstallDialog(BuildContext context, bool isDark) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.download_for_offline_rounded, color: AppTheme.emerald),
+              SizedBox(width: 10),
+              Text('Instalar Sanctuary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Elige cómo prefieres utilizar o instalar Sanctuary en tus dispositivos:',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.desktop_windows_rounded, color: AppTheme.emerald, size: 22),
+                    ),
+                    title: const Text('Instalar como Web App (PWA)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    subtitle: const Text(
+                      'Úsala como una aplicación nativa de escritorio sin barras de navegación.\n'
+                      '• En Chrome / Edge: Pulsa el icono ⊕ o monitor en la barra de direcciones, o Menú ⋮ > "Instalar Sanctuary".\n'
+                      '• En Móvil: Menú ⋮ / Compartir > "Añadir a la pantalla de inicio".',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06B6D4).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.android_rounded, color: Color(0xFF06B6D4), size: 22),
+                    ),
+                    title: const Text('Compilar APK para Android', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    subtitle: const Text('Ejecuta "bash build_apk.sh" en terminal para compilar el paquete nativo instalable en Android.', style: TextStyle(fontSize: 11)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Ejecuta "bash build_apk.sh" en terminal para generar el APK.'),
+                          backgroundColor: AppTheme.emerald,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido', style: TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
@@ -301,42 +390,36 @@ class _HubScreenState extends State<HubScreen> {
           ],
         ),
         actions: [
-          // DB Health status indicator (compact on mobile)
+          // "Instalar App" Button (Desktop Web App / PWA & APK)
           Tooltip(
-            message: _dbHealthy ? 'Base de datos en línea (Postgres)' : 'Base de datos sin conexión (Modo local)',
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: _dbHealthy ? AppTheme.emerald.withOpacity(0.12) : Colors.orange.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: _dbHealthy ? AppTheme.emerald.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+            message: 'Instalar Sanctuary en tu Escritorio o Móvil',
+            child: InkWell(
+              onTap: () => _showInstallDialog(context, isDark),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _dbHealthy ? AppTheme.emerald : Colors.orange,
-                    ),
-                  ),
-                  if (!isMobile) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      _dbHealthy ? 'Postgres 5438' : 'Modo Offline',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _dbHealthy ? AppTheme.emerald : Colors.orange,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.install_desktop_rounded, size: 15, color: AppTheme.emerald),
+                    if (!isMobile) ...[
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Instalar',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.emerald,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

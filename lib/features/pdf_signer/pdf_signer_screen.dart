@@ -56,6 +56,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   UserModel? _currentUser;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   double _zoomScale = 1.0;
+  bool _isCustomZoom = false;
+  double _effectiveZoomScale = 1.0;
   bool _isRefreshing = false;
   Timer? _pollingTimer;
 
@@ -680,69 +682,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ],
         ),
         actions: [
-          // 1. Verified Security Standards (desktop only to save space)
+          // Cosmic & theme buttons
           if (!isMobile) ...[
-            _buildTopIconButton(
-              icon: Icons.verified_user_rounded,
-              tooltip: 'Seguridad Verificada eIDAS / PAdES (RFC 3161)',
-              onTap: () => SecurityStandardsDialog.show(context, _document),
-              backgroundColor: isDark ? const Color(0xFF059669).withOpacity(0.18) : const Color(0xFF059669).withOpacity(0.12),
-              iconColor: const Color(0xFF059669),
-              border: Border.all(color: const Color(0xFF059669).withOpacity(0.55), width: 1.2),
-            ),
-            const SizedBox(width: 6),
-          ],
-
-          // 2. Attach PDF
-          _buildTopIconButton(
-            icon: Icons.upload_file_rounded,
-            tooltip: 'Adjuntar documento PDF a firmar',
-            onTap: _pickPdfFile,
-            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-            iconColor: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
-            border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-          ),
-          const SizedBox(width: 6),
-
-          // 3. Sign Document (Emerald)
-          _buildTopIconButton(
-            icon: Icons.draw_rounded,
-            tooltip: 'Firmar documento (Rúbrica Biométrica Digital)',
-            onTap: _openSignModal,
-            backgroundColor: isDark ? const Color(0xFF10B981).withOpacity(0.20) : const Color(0xFF10B981).withOpacity(0.14),
-            iconColor: AppTheme.emerald,
-            border: Border.all(color: AppTheme.emerald.withOpacity(0.6), width: 1.2),
-          ),
-          const SizedBox(width: 6),
-
-          // 4. Share Document (Cyan/Blue)
-          _buildTopIconButton(
-            icon: Icons.share_rounded,
-            tooltip: 'Compartir enlace y firmantes acreditados',
-            onTap: () => ShareDocumentDialog.show(
-              context,
-              _document,
-              onSimulateGuestSigner: _simulateExternalGuestSigner,
-            ),
-            backgroundColor: isDark ? const Color(0xFF06B6D4).withOpacity(0.20) : const Color(0xFF06B6D4).withOpacity(0.14),
-            iconColor: const Color(0xFF06B6D4),
-            border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.6), width: 1.2),
-          ),
-          const SizedBox(width: 6),
-
-          // 5. Download Signed Document (Purple)
-          _buildTopIconButton(
-            icon: Icons.download_rounded,
-            tooltip: 'Descargar documento firmado (.pdf)',
-            onTap: _exportSignedPdf,
-            backgroundColor: isDark ? const Color(0xFF8B5CF6).withOpacity(0.20) : const Color(0xFF8B5CF6).withOpacity(0.14),
-            iconColor: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
-            border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.6), width: 1.2),
-          ),
-
-          // Cosmic & theme buttons on desktop
-          if (!isMobile) ...[
-            const SizedBox(width: 6),
             _buildTopIconButton(
               icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
               tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
@@ -757,15 +698,15 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               ),
             ),
             const SizedBox(width: 6),
-            _buildTopIconButton(
-              icon: widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              tooltip: widget.isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-              onTap: widget.onToggleTheme,
-              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              iconColor: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
-              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
-            ),
           ],
+          _buildTopIconButton(
+            icon: widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            tooltip: widget.isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+            onTap: widget.onToggleTheme,
+            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            iconColor: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+            border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder, width: 1.2),
+          ),
           const SizedBox(width: 8),
 
           // Profile Dropdown
@@ -773,77 +714,233 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           const SizedBox(width: 14),
         ],
       ),
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerMove: (event) {
-          if (_isDraggingSig && _activeDraggingSigId != null && _dragStartGlobalPointer != null) {
-            final idx = _document.signatures.indexWhere((s) => s.id == _activeDraggingSigId);
-            if (idx != -1) {
-              final activeSig = _document.signatures[idx];
-              final screenDeltaX = event.position.dx - _dragStartGlobalPointer!.dx;
-              final screenDeltaY = event.position.dy - _dragStartGlobalPointer!.dy;
+      body: Stack(
+        children: [
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerMove: (event) {
+              if (_isDraggingSig && _activeDraggingSigId != null && _dragStartGlobalPointer != null) {
+                final idx = _document.signatures.indexWhere((s) => s.id == _activeDraggingSigId);
+                if (idx != -1) {
+                  final activeSig = _document.signatures[idx];
+                  final screenDeltaX = event.position.dx - _dragStartGlobalPointer!.dx;
+                  final screenDeltaY = event.position.dy - _dragStartGlobalPointer!.dy;
 
-              final docDeltaX = screenDeltaX / _zoomScale;
-              final docDeltaY = screenDeltaY / _zoomScale;
+                  final docDeltaX = screenDeltaX / _effectiveZoomScale;
+                  final docDeltaY = screenDeltaY / _effectiveZoomScale;
 
-              final maxNormX = (pageA4Width - sigCardWidth) / pageA4Width;
-              final maxNormY = (pageA4Height - sigCardHeight) / pageA4Height;
+                  final maxNormX = (pageA4Width - sigCardWidth) / pageA4Width;
+                  final maxNormY = (pageA4Height - sigCardHeight) / pageA4Height;
 
-              final newNormX = (_dragStartSigNormX + (docDeltaX / pageA4Width)).clamp(0.0, maxNormX);
-              final newNormY = (_dragStartSigNormY + (docDeltaY / pageA4Height)).clamp(0.0, maxNormY);
+                  final newNormX = (_dragStartSigNormX + (docDeltaX / pageA4Width)).clamp(0.0, maxNormX);
+                  final newNormY = (_dragStartSigNormY + (docDeltaY / pageA4Height)).clamp(0.0, maxNormY);
 
-              setState(() {
-                activeSig.normalizedX = newNormX;
-                activeSig.normalizedY = newNormY;
-              });
-            }
-          }
-        },
-        onPointerUp: (_) {
-          if (_isDraggingSig) {
-            setState(() {
-              _isDraggingSig = false;
-              _activeDraggingSigId = null;
-              _dragStartGlobalPointer = null;
-            });
-          }
-        },
-        onPointerCancel: (_) {
-          if (_isDraggingSig) {
-            setState(() {
-              _isDraggingSig = false;
-              _activeDraggingSigId = null;
-              _dragStartGlobalPointer = null;
-            });
-          }
-        },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWideScreen = constraints.maxWidth > 960;
+                  setState(() {
+                    activeSig.normalizedX = newNormX;
+                    activeSig.normalizedY = newNormY;
+                  });
+                }
+              }
+            },
+            onPointerUp: (_) {
+              if (_isDraggingSig) {
+                setState(() {
+                  _isDraggingSig = false;
+                  _activeDraggingSigId = null;
+                  _dragStartGlobalPointer = null;
+                });
+              }
+            },
+            onPointerCancel: (_) {
+              if (_isDraggingSig) {
+                setState(() {
+                  _isDraggingSig = false;
+                  _activeDraggingSigId = null;
+                  _dragStartGlobalPointer = null;
+                });
+              }
+            },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWideScreen = constraints.maxWidth > 960;
 
-            return Padding(
-              padding: EdgeInsets.all(isMobile ? 6 : 14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Document Sheet & Viewer Area
-                  Expanded(
-                    flex: 14,
-                    child: _buildDocumentCanvas(isDark),
+                return Padding(
+                  padding: EdgeInsets.all(isMobile ? 6 : 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Document Sheet & Viewer Area
+                      Expanded(
+                        flex: 14,
+                        child: _buildDocumentCanvas(isDark, isMobile),
+                      ),
+
+                      // Audit Trail Sidebar (for wide screens)
+                      if (isWideScreen) ...[
+                        const SizedBox(width: 14),
+                        Expanded(
+                          flex: 6,
+                          child: _buildAuditSidebar(isDark, dateFormat),
+                        ),
+                      ],
+                    ],
                   ),
+                );
+              },
+            ),
+          ),
 
-                  // Audit Trail Sidebar (for wide screens)
-                  if (isWideScreen) ...[
-                    const SizedBox(width: 14),
-                    Expanded(
-                      flex: 6,
-                      child: _buildAuditSidebar(isDark, dateFormat),
-                    ),
-                  ],
-                ],
+          // Floating Bottom Action Dock (Adjuntar, Firmar, Compartir, Descargar, Seguridad)
+          Positioned(
+            bottom: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildSignerFloatingDock(isDark, isMobile),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignerFloatingDock(bool isDark, bool isMobile) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A).withOpacity(0.92) : Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.45 : 0.15),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. Adjuntar PDF
+          _buildDockButton(
+            icon: Icons.upload_file_rounded,
+            label: isMobile ? null : 'Adjuntar PDF',
+            tooltip: 'Adjuntar documento PDF a firmar',
+            onTap: _pickPdfFile,
+            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+            bgColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+          ),
+          const SizedBox(width: 8),
+
+          // 2. Firmar Documento (Destacado en Esmeralda)
+          _buildDockButton(
+            icon: Icons.draw_rounded,
+            label: isMobile ? null : 'Firmar',
+            tooltip: 'Firmar documento (Rúbrica Biométrica Digital)',
+            onTap: _openSignModal,
+            color: Colors.white,
+            bgColor: AppTheme.emerald,
+            isPrimary: true,
+          ),
+          const SizedBox(width: 8),
+
+          // 3. Compartir
+          _buildDockButton(
+            icon: Icons.share_rounded,
+            label: isMobile ? null : 'Compartir',
+            tooltip: 'Compartir enlace y firmantes acreditados',
+            onTap: () => ShareDocumentDialog.show(
+              context,
+              _document,
+              onSimulateGuestSigner: _simulateExternalGuestSigner,
+            ),
+            color: const Color(0xFF06B6D4),
+            bgColor: isDark ? const Color(0xFF06B6D4).withOpacity(0.18) : const Color(0xFF06B6D4).withOpacity(0.12),
+          ),
+          const SizedBox(width: 8),
+
+          // 4. Descargar PDF
+          _buildDockButton(
+            icon: Icons.download_rounded,
+            label: isMobile ? null : 'Descargar',
+            tooltip: 'Descargar documento firmado (.pdf)',
+            onTap: _exportSignedPdf,
+            color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
+            bgColor: isDark ? const Color(0xFF8B5CF6).withOpacity(0.18) : const Color(0xFF8B5CF6).withOpacity(0.12),
+          ),
+          const SizedBox(width: 8),
+
+          // 5. Seguridad eIDAS
+          _buildDockButton(
+            icon: Icons.verified_user_rounded,
+            label: isMobile ? null : 'Seguridad',
+            tooltip: 'Seguridad Verificada eIDAS / PAdES (RFC 3161)',
+            onTap: () => SecurityStandardsDialog.show(context, _document),
+            color: const Color(0xFF059669),
+            bgColor: isDark ? const Color(0xFF059669).withOpacity(0.18) : const Color(0xFF059669).withOpacity(0.12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDockButton({
+    required IconData icon,
+    String? label,
+    required String tooltip,
+    required VoidCallback onTap,
+    required Color color,
+    required Color bgColor,
+    bool isPrimary = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: label != null ? 12 : 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: isPrimary ? color.withOpacity(0.8) : color.withOpacity(0.35),
+                width: isPrimary ? 1.5 : 1.0,
               ),
-            );
-          },
+              boxShadow: isPrimary
+                  ? [
+                      BoxShadow(
+                        color: color.withOpacity(0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 17, color: color),
+                if (label != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1073,7 +1170,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     );
   }
 
-  Widget _buildDocumentCanvas(bool isDark) {
+  Widget _buildDocumentCanvas(bool isDark, bool isMobile) {
     final activeSignatures = _pdfPageImages.isNotEmpty
         ? _document.signatures.where((s) => s.pageNumber == _currentPageIndex + 1).toList()
         : _document.signatures;
@@ -1133,18 +1230,40 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   ),
                 ],
                 const Spacer(),
+                InkWell(
+                  onTap: () => setState(() {
+                    _isCustomZoom = false;
+                    _zoomScale = 1.0;
+                  }),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text('Ajustar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 IconButton(
                   icon: const Icon(Icons.remove, size: 16),
                   tooltip: 'Reducir zoom',
-                  onPressed: () => setState(() => _zoomScale = (_zoomScale - 0.1).clamp(0.7, 1.4)),
+                  onPressed: () => setState(() {
+                    _isCustomZoom = true;
+                    _zoomScale = (_zoomScale - 0.1).clamp(0.4, 1.6);
+                  }),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                 ),
-                Text('${(_zoomScale * 100).toInt()}%', style: const TextStyle(fontSize: 11)),
+                Text('${(_effectiveZoomScale * 100).toInt()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: const Icon(Icons.add, size: 16),
                   tooltip: 'Aumentar zoom',
-                  onPressed: () => setState(() => _zoomScale = (_zoomScale + 0.1).clamp(0.7, 1.4)),
+                  onPressed: () => setState(() {
+                    _isCustomZoom = true;
+                    _zoomScale = (_zoomScale + 0.1).clamp(0.4, 1.6);
+                  }),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 ),
@@ -1152,84 +1271,99 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             ),
           ),
 
-          // Document Sheet Area
+          // Document Sheet Area (Adaptive to screen width, fits mobile cleanly)
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SingleChildScrollView(
-                physics: _isDraggingSig
-                    ? const NeverScrollableScrollPhysics()
-                    : const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-                child: Center(
-                  child: Transform.scale(
-                    scale: _zoomScale,
-                    alignment: Alignment.topCenter,
-                    child: _isRasterizingPdf
-                        ? Container(
-                            width: pageA4Width,
-                            height: pageA4Height,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(color: AppTheme.emerald),
-                                  SizedBox(height: 16),
-                                  Text('Procesando y renderizando páginas del PDF...', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                                ],
-                              ),
-                            ),
-                          )
-                        : Container(
-                            width: pageA4Width,
-                            height: pageA4Height,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Stack(
-                                children: [
-                                  // Document Body: real PDF page image or contract layout
-                                  if (_pdfPageImages.isNotEmpty)
-                                    Positioned.fill(
-                                      child: Image.memory(
-                                        _pdfPageImages[_currentPageIndex],
-                                        fit: BoxFit.contain,
-                                      ),
-                                    )
-                                  else
-                                    Positioned.fill(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(32),
-                                        child: _buildContractDocumentBody(),
-                                      ),
-                                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth - (isMobile ? 12 : 28);
+                final autoFitScale = (availableWidth / pageA4Width).clamp(0.35, 1.25);
+                final effectiveScale = _isCustomZoom ? _zoomScale : (isMobile ? autoFitScale : 1.0);
+                _effectiveZoomScale = effectiveScale;
 
-                                  // Embedded Placed Signatures Overlay for current page
-                                  ...activeSignatures.map((sig) => _buildDraggableSignatureWidget(sig)),
-                                ],
-                              ),
-                            ),
-                          ),
+                return SingleChildScrollView(
+                  physics: _isDraggingSig
+                      ? const NeverScrollableScrollPhysics()
+                      : const BouncingScrollPhysics(),
+                  padding: EdgeInsets.only(
+                    top: isMobile ? 12 : 20,
+                    bottom: 85, // Breathing space for bottom floating dock
+                    left: isMobile ? 6 : 14,
+                    right: isMobile ? 6 : 14,
                   ),
-                ),
-              ),
+                  child: Center(
+                    child: SizedBox(
+                      width: pageA4Width * effectiveScale,
+                      height: pageA4Height * effectiveScale,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        alignment: Alignment.topCenter,
+                        child: _isRasterizingPdf
+                            ? Container(
+                                width: pageA4Width,
+                                height: pageA4Height,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
+                                  ],
+                                ),
+                                child: const Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(color: AppTheme.emerald),
+                                      SizedBox(height: 16),
+                                      Text('Procesando y renderizando páginas del PDF...', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                width: pageA4Width,
+                                height: pageA4Height,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Stack(
+                                    children: [
+                                      // Document Body: real PDF page image or contract layout
+                                      if (_pdfPageImages.isNotEmpty)
+                                        Positioned.fill(
+                                          child: Image.memory(
+                                            _pdfPageImages[_currentPageIndex],
+                                            fit: BoxFit.contain,
+                                          ),
+                                        )
+                                      else
+                                        Positioned.fill(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(32),
+                                            child: _buildContractDocumentBody(),
+                                          ),
+                                        ),
+
+                                      // Embedded Placed Signatures Overlay for current page
+                                      ...activeSignatures.map((sig) => _buildDraggableSignatureWidget(sig)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

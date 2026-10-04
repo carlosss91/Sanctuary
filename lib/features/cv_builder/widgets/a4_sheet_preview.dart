@@ -24,22 +24,25 @@ class A4SheetPreview extends StatefulWidget {
 }
 
 class _A4SheetPreviewState extends State<A4SheetPreview> {
-  double _scale = 0.52;
+  double? _customScale;
+  double _lastAutoFitScale = 0.85;
 
   void _zoomIn() {
-    setState(() => _scale = (_scale + 0.08).clamp(0.25, 1.8));
+    final current = _customScale ?? _lastAutoFitScale;
+    setState(() => _customScale = (current + 0.08).clamp(0.3, 1.8));
   }
 
   void _zoomOut() {
-    setState(() => _scale = (_scale - 0.08).clamp(0.25, 1.8));
+    final current = _customScale ?? _lastAutoFitScale;
+    setState(() => _customScale = (current - 0.08).clamp(0.3, 1.8));
   }
 
   void _resetZoom() {
-    setState(() => _scale = 1.0);
+    setState(() => _customScale = 1.0);
   }
 
   void _autoFit() {
-    setState(() => _scale = 0.52);
+    setState(() => _customScale = null);
   }
 
   Color _parseAccent(String hex) {
@@ -284,7 +287,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('${(_scale * 100).toInt()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        child: Text('${((_customScale ?? _lastAutoFitScale) * 100).toInt()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       IconButton(
                         icon: const Icon(Icons.add, size: 13),
@@ -299,36 +302,49 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
             ),
           ),
 
-          // Main Sheet Canvas
+          // Main Sheet Canvas (Proportional A4 Layout, Auto-fits width gracefully)
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              child: Center(
-                child: Transform.scale(
-                  scale: _scale,
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    width: 595,
-                    height: 842,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.35),
-                          blurRadius: 28,
-                          offset: const Offset(0, 12),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth - 32;
+                final autoScale = (availableWidth / 595).clamp(0.40, 1.25);
+                _lastAutoFitScale = autoScale;
+                final effectiveScale = _customScale ?? autoScale;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 595 * effectiveScale,
+                      height: 842 * effectiveScale,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          width: 595,
+                          height: 842,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.35),
+                                blurRadius: 28,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: DefaultTextStyle.merge(
+                            style: _getTextStyle(fontSize: 8.8, color: const Color(0xFF1E293B)),
+                            child: _buildTemplateLayout(accentColor, isEn),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: DefaultTextStyle.merge(
-                      style: _getTextStyle(fontSize: 8.8, color: const Color(0xFF1E293B)),
-                      child: _buildTemplateLayout(accentColor, isEn),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
 

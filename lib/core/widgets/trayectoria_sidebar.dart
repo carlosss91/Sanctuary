@@ -89,14 +89,32 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Header Logo & Title & Collapse Button in Top Corner
+          // 1. Header: Fixed Hamburger Button on the Left, Logo & Title to the Right
           if (!isCollapsed)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               child: Row(
                 children: [
-                  const SanctuaryPlanetLogo(size: 34, showGlow: true),
-                  const SizedBox(width: 10),
+                  IconButton(
+                    icon: Icon(
+                      Icons.menu_open_rounded,
+                      size: 24,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    tooltip: 'Cerrar barra lateral',
+                    onPressed: () {
+                      if (widget.onToggleCollapse != null) {
+                        widget.onToggleCollapse!();
+                      } else {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                  ),
+                  const SizedBox(width: 6),
+                  const SanctuaryPlanetLogo(size: 28, showGlow: true),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,40 +140,27 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                       ],
                     ),
                   ),
-                  if (widget.onToggleCollapse != null)
-                    IconButton(
-                      icon: Icon(
-                        Icons.chevron_left,
-                        size: 20,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                      ),
-                      tooltip: 'Plegar barra lateral',
-                      onPressed: widget.onToggleCollapse,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    ),
                 ],
               ),
             )
           else
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Column(
                 children: [
-                  const SanctuaryPlanetLogo(size: 32, showGlow: true),
-                  const SizedBox(height: 8),
-                  if (widget.onToggleCollapse != null)
-                    IconButton(
-                      icon: Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                      ),
-                      tooltip: 'Desplegar barra lateral',
-                      onPressed: widget.onToggleCollapse,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  IconButton(
+                    icon: Icon(
+                      Icons.menu_rounded,
+                      size: 24,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
+                    tooltip: 'Desplegar barra lateral',
+                    onPressed: widget.onToggleCollapse,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                  ),
+                  const SizedBox(height: 8),
+                  const SanctuaryPlanetLogo(size: 28, showGlow: true),
                 ],
               ),
             ),
