@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../models/cv_profile_model.dart';
 import '../../core/theme/app_theme.dart';
+import 'pdf_extractor_stub.dart'
+    if (dart.library.html) 'pdf_extractor_web.dart';
 
 class CvDocumentParserService {
   /// Prompts user to select a .pdf or .docx document, extracts its text, and parses into a CvProfileModel
@@ -46,7 +48,20 @@ class CvDocumentParserService {
           return null;
         }
 
-        extractedText = _extractTextFromPdf(bytes);
+        // 2. High-fidelity extraction via Mozilla pdf.js (decodes subsetted font glyphs & CMaps on Web / GitHub Pages)
+        try {
+          final webPdfText = await extractTextWithPdfJsWeb(bytes);
+          if (webPdfText.trim().isNotEmpty) {
+            extractedText = webPdfText;
+          }
+        } catch (e) {
+          debugPrint('[CvDocumentParserService] extractTextWithPdfJsWeb aviso: $e');
+        }
+
+        // 3. Fallback to native Dart PDF extraction (with CMap stream decoding & TJ array parsing)
+        if (extractedText.trim().isEmpty) {
+          extractedText = _extractTextFromPdf(bytes);
+        }
       } else {
         extractedText = utf8.decode(bytes, allowMalformed: true);
       }
@@ -54,7 +69,7 @@ class CvDocumentParserService {
       if (extractedText.trim().isEmpty) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se encontró contenido de texto legible en el documento.')),
+            const SnackBar(content: Text('No se encontró contenido de texto legible en el documento seleccionado.')),
           );
         }
         return null;
@@ -64,7 +79,7 @@ class CvDocumentParserService {
 
       if (!context.mounted) return parsed;
 
-      // Show Confirmation / Review Modal to the user before overwriting
+      // Show Confirmation / Review Modal to the user before populating the CV
       final confirmed = await _showReviewImportDialog(context, parsed, fileName);
       if (confirmed == true) {
         return parsed;
@@ -113,18 +128,23 @@ class CvDocumentParserService {
   }
 
   /// Extracts readable text strings from a PDF document, decompressing FlateDecode streams
+  /// and applying ToUnicode CMap translation for subsetted fonts.
   static String _extractTextFromPdf(Uint8List bytes) {
     final buffer = StringBuffer();
     try {
       // 1. Scan and decompress all FlateDecode streams (where actual page text is stored)
       final decompressedStreams = _extractAndDecompressPdfStreams(bytes);
+
+      // Extract ToUnicode CMap tables if present in streams
+      final cMap = _extractCMapTable(decompressedStreams);
+
       for (final streamText in decompressedStreams) {
-        _extractTextFromStreamContent(streamText, buffer);
+        _extractTextFromStreamContent(streamText, buffer, cMap);
       }
 
       // 2. Also scan uncompressed raw string for uncompressed PDFs
       final rawStr = latin1.decode(bytes);
-      _extractTextFromStreamContent(rawStr, buffer);
+      _extractTextFromStreamContent(rawStr, buffer, cMap);
 
       // 3. Fallback: if very little text found, extract readable ASCII words
       if (buffer.length < 50) {
@@ -213,6 +233,120 @@ class CvDocumentParserService {
     return result;
   }
 
+  /// Extracts character mapping tables (/ToUnicode CMaps) from decompressed streams
+  static Map<String, String> _extractCMapTable(List<String> streams) {
+    final Map<String, String> cMap = {};
+    try {
+      for (final s in streams) {
+        if (!s.contains('beginbfchar') && !s.contains('beginbfrange')) continue;
+
+        // Parse beginbfchar ... endbfchar
+        final bfcharBlocks = RegExp(r'beginbfchar\s*(.*?)\s*endbfchar', dotAll: true).allMatches(s);
+        for (final block in bfcharBlocks) {
+          final content = block.group(1) ?? '';
+          final lines = RegExp(r'<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>').allMatches(content);
+          for (final m in lines) {
+            final srcHex = m.group(1)!.toUpperCase();
+            final dstHex = m.group(2)!;
+            final charCode = int.tryParse(dstHex, radix: 16);
+            if (charCode != null && charCode > 0) {
+              cMap[srcHex] = String.fromCharCode(charCode);
+            }
+          }
+        }
+
+        // Parse beginbfrange ... endbfrange
+        final bfrangeBlocks = RegExp(r'beginbfrange\s*(.*?)\s*endbfrange', dotAll: true).allMatches(s);
+        for (final block in bfrangeBlocks) {
+          final content = block.group(1) ?? '';
+          // Format 1: <start> <end> <destStart>
+          final rangeMatches = RegExp(r'<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>').allMatches(content);
+          for (final m in rangeMatches) {
+            final startHex = m.group(1)!;
+            final endHex = m.group(2)!;
+            final dstHex = m.group(3)!;
+            final start = int.tryParse(startHex, radix: 16);
+            final end = int.tryParse(endHex, radix: 16);
+            final dst = int.tryParse(dstHex, radix: 16);
+            if (start != null && end != null && dst != null && end >= start && (end - start) < 1000) {
+              final pad = startHex.length;
+              for (int c = start; c <= end; c++) {
+                final key = c.toRadixString(16).padLeft(pad, '0').toUpperCase();
+                cMap[key] = String.fromCharCode(dst + (c - start));
+              }
+            }
+          }
+
+          // Format 2: <start> <end> [ <dest1> <dest2> ... ]
+          final arrayMatches = RegExp(r'<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*\[(.*?)\]', dotAll: true).allMatches(content);
+          for (final m in arrayMatches) {
+            final startHex = m.group(1)!;
+            final start = int.tryParse(startHex, radix: 16);
+            final arrContent = m.group(3) ?? '';
+            final destList = RegExp(r'<([0-9a-fA-F]+)>').allMatches(arrContent).map((im) => im.group(1)!).toList();
+            if (start != null && destList.isNotEmpty) {
+              final pad = startHex.length;
+              for (int idx = 0; idx < destList.length; idx++) {
+                final key = (start + idx).toRadixString(16).padLeft(pad, '0').toUpperCase();
+                final code = int.tryParse(destList[idx], radix: 16);
+                if (code != null) {
+                  cMap[key] = String.fromCharCode(code);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return cMap;
+  }
+
+  /// Decodes hex string using CMap lookup table or fallback UTF-16BE / Latin-1
+  static String _decodeHexWithCMap(String hex, Map<String, String> cMap) {
+    final clean = hex.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    if (clean.isEmpty) return '';
+
+    if (cMap.isNotEmpty) {
+      // 1. Try 4-char chunks (standard 2-byte CID font codes)
+      if (clean.length % 4 == 0) {
+        final sb = StringBuffer();
+        bool allFound = true;
+        for (int i = 0; i < clean.length; i += 4) {
+          final code = clean.substring(i, i + 4);
+          if (cMap.containsKey(code)) {
+            sb.write(cMap[code]);
+          } else {
+            allFound = false;
+            break;
+          }
+        }
+        if (allFound && sb.isNotEmpty) {
+          return sb.toString();
+        }
+      }
+
+      // 2. Try 2-char chunks (1-byte codes)
+      if (clean.length % 2 == 0) {
+        final sb = StringBuffer();
+        bool allFound = true;
+        for (int i = 0; i < clean.length; i += 2) {
+          final code = clean.substring(i, i + 2);
+          if (cMap.containsKey(code)) {
+            sb.write(cMap[code]);
+          } else {
+            allFound = false;
+            break;
+          }
+        }
+        if (allFound && sb.isNotEmpty) {
+          return sb.toString();
+        }
+      }
+    }
+
+    return _decodePdfHexString(clean);
+  }
+
   /// Tries extracting embedded Sanctuary CV JSON metadata across all encoding layers:
   /// 1. Direct ASCII trailer comment (%SanctuaryCV::$jsonPayload%)
   /// 2. Raw Latin1/UTF-8 string (/Subject SanctuaryCV::...)
@@ -286,7 +420,9 @@ class CvDocumentParserService {
     }
   }
 
-  static void _extractTextFromStreamContent(String content, StringBuffer buffer) {
+  static void _extractTextFromStreamContent(String content, StringBuffer buffer, [Map<String, String>? cMap]) {
+    final map = cMap ?? const {};
+
     // 1. Text inside ( ... ) Tj
     final tjRegex = RegExp(r'\((.*?)\)\s*Tj', dotAll: true);
     for (final m in tjRegex.allMatches(content)) {
@@ -296,14 +432,31 @@ class CvDocumentParserService {
       }
     }
 
-    // 2. Text array [ (part1) 120 (part2) ] TJ
+    // 2. Text array [ (part1) -250 (part2) ] TJ or [ <HEX> -250 <HEX> ] TJ
     final arrayTjRegex = RegExp(r'\[(.*?)\]\s*TJ', dotAll: true);
     for (final m in arrayTjRegex.allMatches(content)) {
       final arr = m.group(1) ?? '';
-      final innerStrings = RegExp(r'\((.*?)\)').allMatches(arr);
-      final line = innerStrings.map((im) => im.group(1) ?? '').join(' ');
-      if (line.trim().isNotEmpty) {
-        buffer.writeln(_sanitizePdfString(line));
+      final tokenRegex = RegExp(r'\((.*?)\)|<([0-9a-fA-F\s]+)>|(-?\d+(?:\.\d+)?)');
+      final lineBuffer = StringBuffer();
+      for (final tm in tokenRegex.allMatches(arr)) {
+        if (tm.group(1) != null) {
+          lineBuffer.write(_sanitizePdfString(tm.group(1)!));
+        } else if (tm.group(2) != null) {
+          final decoded = _decodeHexWithCMap(tm.group(2)!, map);
+          lineBuffer.write(decoded);
+        } else if (tm.group(3) != null) {
+          final numVal = double.tryParse(tm.group(3)!);
+          // Negative spacing number <= -100 indicates an inter-word space in PDF
+          if (numVal != null && numVal <= -100) {
+            if (lineBuffer.isNotEmpty && !lineBuffer.toString().endsWith(' ')) {
+              lineBuffer.write(' ');
+            }
+          }
+        }
+      }
+      final line = lineBuffer.toString().trim();
+      if (line.isNotEmpty) {
+        buffer.writeln(line);
       }
     }
 
@@ -321,24 +474,10 @@ class CvDocumentParserService {
     for (final m in hexTjRegex.allMatches(content)) {
       final hex = m.group(1);
       if (hex != null && hex.isNotEmpty) {
-        final decoded = _decodePdfHexString(hex);
+        final decoded = _decodeHexWithCMap(hex, map);
         if (decoded.trim().isNotEmpty) {
           buffer.writeln(decoded.trim());
         }
-      }
-    }
-
-    // 5. Hex strings inside array [ <HEX> 120 <HEX> ] TJ
-    final hexArrayRegex = RegExp(r'\[(.*?)\]\s*TJ', dotAll: true);
-    for (final m in hexArrayRegex.allMatches(content)) {
-      final arr = m.group(1) ?? '';
-      final innerHex = RegExp(r'<([0-9a-fA-F\s]+)>').allMatches(arr);
-      final line = innerHex
-          .map((im) => _decodePdfHexString(im.group(1) ?? ''))
-          .where((s) => s.isNotEmpty)
-          .join('');
-      if (line.trim().isNotEmpty) {
-        buffer.writeln(line.trim());
       }
     }
   }
@@ -353,9 +492,10 @@ class CvDocumentParserService {
         .trim();
   }
 
-  /// Heuristic semantic parser for CV contents
+  /// Robust heuristic semantic parser for CV contents
   static CvProfileModel _parseCvText(String rawText, CvProfileModel baseProfile) {
-    final lines = rawText
+    final cleanText = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final lines = cleanText
         .split('\n')
         .map((l) => l.trim())
         .where((l) => l.isNotEmpty)
@@ -378,18 +518,18 @@ class CvDocumentParserService {
 
     // 1. Regex search for email
     final emailRegex = RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}');
-    final emailMatch = emailRegex.firstMatch(rawText);
+    final emailMatch = emailRegex.firstMatch(cleanText);
     if (emailMatch != null) {
-      email = emailMatch.group(0)!;
+      email = emailMatch.group(0)!.replaceAll(RegExp(r'[.,;:]+$'), '');
     }
 
     // 2. Regex search for phone number (strictly rejecting PDF timestamps like 20260916...)
-    final phoneRegex = RegExp(r'(?:\+?34[-.\s]?)?[6789]\d{2}[-.\s]?\d{3}[-.\s]?\d{3}|(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}');
-    for (final m in phoneRegex.allMatches(rawText)) {
-      final cand = m.group(0)!.trim();
+    final phoneRegex = RegExp(r'(?:\+?34[-.\s]?)?[6789]\d{2}[-.\s]?\d{2,3}[-.\s]?\d{2,3}[-.\s]?\d{2,3}|(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}');
+    for (final m in phoneRegex.allMatches(cleanText)) {
+      final cand = m.group(0)!.trim().replaceAll(RegExp(r'[.,;:]+$'), '');
       final digits = cand.replaceAll(RegExp(r'\D'), '');
       // Strict rejection of PDF timestamps and metadata numbers (e.g. 20260916164141, 1999..., /CreationDate)
-      if (digits.length > 12) continue;
+      if (digits.length > 14) continue;
       if (digits.startsWith('202') && digits.length >= 8 && !cand.contains('+')) continue;
       if (digits.startsWith('199') && digits.length >= 8 && !cand.contains('+')) continue;
       if (digits.length < 9) continue;
@@ -399,19 +539,42 @@ class CvDocumentParserService {
 
     // 3. Location detection
     final locationPatterns = [
-      'gran canaria', 'canarias', 'arucas', 'las palmas', 'tenerife',
-      'madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao', 'zaragoza',
-      'málaga', 'malaga', 'españa', 'spain'
+      'gran canaria', 'las palmas', 'tenerife', 'canarias', 'arucas', 'telde', 'gáldar', 'vecindario', 'maspalomas',
+      'madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao', 'zaragoza', 'málaga', 'malaga', 'alicante', 'murcia',
+      'valladolid', 'vigo', 'gijón', 'oviedo', 'españa', 'spain'
     ];
     for (final line in lines) {
       final lower = line.toLowerCase();
-      if (locationPatterns.any((pat) => lower.contains(pat)) && line.length < 60 && !line.contains('@')) {
+      // Check explicit label
+      final labelMatch = RegExp(r'^(?:ubicación|ubicacion|dirección|direccion|ciudad|localidad|residencia|domicilio|address|location)\s*[:\-]\s*(.+)$', caseSensitive: false).firstMatch(line);
+      if (labelMatch != null && labelMatch.group(1)!.trim().isNotEmpty) {
+        location = labelMatch.group(1)!.trim();
+        break;
+      }
+      if (locationPatterns.any((pat) => lower.contains(pat)) && line.length < 65 && !line.contains('@')) {
         location = line;
         break;
       }
     }
 
-    // 4. Name & Job title detection from header lines (filtering out noise and document titles)
+    // 4. Name & Job title detection from header lines
+    // First, check explicit label matches
+    for (final line in lines) {
+      if (fullName.isEmpty) {
+        final nameMatch = RegExp(r'^(?:nombre(?:\s+completo|\s+y\s+apellidos)?|candidato|datos\s+personales)\s*[:\-]\s*(.+)$', caseSensitive: false).firstMatch(line);
+        if (nameMatch != null && nameMatch.group(1)!.trim().length >= 3) {
+          fullName = nameMatch.group(1)!.trim();
+        }
+      }
+      if (jobTitle.isEmpty) {
+        final jobMatch = RegExp(r'^(?:puesto|cargo|profesión|profesion|titular|perfil|especialidad|ocupación|ocupacion)\s*[:\-]\s*(.+)$', caseSensitive: false).firstMatch(line);
+        if (jobMatch != null && jobMatch.group(1)!.trim().length >= 3) {
+          jobTitle = jobMatch.group(1)!.trim();
+        }
+      }
+    }
+
+    // Candidate lines for header if not found via labels
     final candidateLines = lines.where((line) {
       final up = line.toUpperCase().trim();
       return up != 'CURRICULUM' &&
@@ -420,6 +583,9 @@ class CvDocumentParserService {
           up != 'CV' &&
           up != 'HOJA DE VIDA' &&
           up != 'RESUME' &&
+          up != 'DATOS PERSONALES' &&
+          up != 'CONTACTO' &&
+          up != 'PORTFOLIO' &&
           !up.startsWith('PAGE ') &&
           !up.startsWith('PÁGINA ') &&
           !up.contains('CREATIONDATE') &&
@@ -429,17 +595,28 @@ class CvDocumentParserService {
           !RegExp(r'^\d+$').hasMatch(line);
     }).toList();
 
-    for (int i = 0; i < candidateLines.length && i < 8; i++) {
+    final professionKeywords = [
+      'desarrollador', 'developer', 'ingeniero', 'engineer', 'arquitecto', 'técnico', 'tecnico',
+      'diseñador', 'designer', 'administrativo', 'operario', 'auxiliar', 'profesor', 'docente',
+      'consultor', 'responsable', 'encargado', 'director', 'analista', 'comercial', 'enfermero',
+      'médico', 'psicólogo', 'coordinador', 'especialista', 'camarero', 'cocinero', 'electricista',
+      'fontanero', 'mecánico', 'conductor', 'almacenero', 'soldador', 'jardinero', 'dependiente'
+    ];
+
+    for (int i = 0; i < candidateLines.length && i < 10; i++) {
       final line = candidateLines[i].trim();
       if (line.isEmpty || line.contains(':')) continue;
 
       if (fullName.isEmpty) {
-        if (line.length >= 3 && line.length <= 48 && !RegExp(r'\d').hasMatch(line)) {
+        // Name usually has 2-5 words, no digits, proper length
+        final words = line.split(RegExp(r'\s+'));
+        if (line.length >= 4 && line.length <= 48 && words.length >= 2 && words.length <= 5 && !RegExp(r'\d').hasMatch(line)) {
           fullName = line;
           continue;
         }
-      } else if (jobTitle.isEmpty) {
-        if (line.length >= 3 && line.length <= 55) {
+      } else if (jobTitle.isEmpty && line != fullName) {
+        final lower = line.toLowerCase();
+        if (professionKeywords.any((pk) => lower.contains(pk)) || (line.length >= 3 && line.length <= 55 && !RegExp(r'\d').hasMatch(line))) {
           jobTitle = line;
           break;
         }
@@ -456,27 +633,31 @@ class CvDocumentParserService {
     final sectionHeaders = {
       'summary': [
         'perfil', 'resumen', 'sobre mí', 'sobre mi', 'summary', 'about me', 'acerca de',
-        'perfil profesional', 'resumen profesional', 'presentación', 'bio'
+        'perfil profesional', 'resumen profesional', 'presentación', 'bio', 'extracto',
+        'objetivo profesional', 'objetivo', 'perfil laboral'
       ],
       'experience': [
         'experiencia', 'experiencia laboral', 'experiencia profesional', 'historial laboral',
-        'trayectoria', 'trayectoria laboral', 'work experience', 'experience', 'empleo',
-        'cargos', 'puestos desempeñados'
+        'historial profesional', 'trayectoria', 'trayectoria laboral', 'work experience', 'experience',
+        'empleo', 'cargos', 'puestos desempeñados', 'vida laboral', 'actividad profesional'
       ],
       'education': [
-        'educación', 'educacion', 'formación', 'formacion', 'formación académica',
-        'estudios', 'education', 'certificaciones', 'titulación', 'titulaciones',
-        'titulacion', 'cursos y certificaciones', 'diplomas'
+        'educación', 'educacion', 'formación', 'formacion', 'formación académica', 'formacion academica',
+        'estudios', 'estudios realizados', 'education', 'certificaciones', 'titulación', 'titulaciones',
+        'titulacion', 'cursos y certificaciones', 'diplomas', 'cursos', 'formación complementaria',
+        'formacion complementaria', 'grados'
       ],
       'skills': [
-        'habilidades', 'competencias', 'competencias clave', 'skills', 'conocimientos',
-        'aptitudes', 'tecnologías', 'herramientas', 'destrezas'
+        'habilidades', 'competencias', 'competencias clave', 'competencias profesionales', 'skills',
+        'conocimientos', 'conocimientos técnicos', 'aptitudes', 'tecnologías', 'tecnologias',
+        'herramientas', 'destrezas', 'habilidades técnicas', 'habilidades blandas'
       ],
-      'contact': ['contacto', 'datos personales', 'contact', 'datos de contacto'],
+      'contact': ['contacto', 'datos personales', 'contact', 'datos de contacto', 'información de contacto'],
     };
 
     for (final line in lines) {
-      final lower = line.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final cleanLine = line.replaceAll(RegExp(r'^[0-9.\-–—\s*•|]+'), '').trim();
+      final lower = cleanLine.toLowerCase().replaceAll(RegExp(r'[^\w\sáéíóúñ]'), '').trim();
 
       String? matchedSection;
       for (final entry in sectionHeaders.entries) {
@@ -504,7 +685,7 @@ class CvDocumentParserService {
           rawEduBlocks.add(line);
           break;
         case 'skills':
-          if (line.contains(',') || line.contains('•') || line.contains('-') || line.contains('|')) {
+          if (line.contains(',') || line.contains('•') || line.contains('-') || line.contains('|') || line.contains('/')) {
             rawSkillTokens.addAll(line.split(RegExp(r'[,•|/\-]')).map((s) => s.trim()).where((s) => s.length >= 2));
           } else if (line.length < 40) {
             rawSkillTokens.add(line);
@@ -532,10 +713,33 @@ class CvDocumentParserService {
             line.toLowerCase().contains('presente');
 
         if (isDateLine && parsedExperiences.length < 8) {
-          final title = (i > 0 && rawExpBlocks[i - 1].length < 75) ? rawExpBlocks[i - 1] : 'Operario / Especialista';
-          final company = (i + 1 < rawExpBlocks.length && rawExpBlocks[i + 1].length < 75) ? rawExpBlocks[i + 1] : 'Empresa / Entidad';
+          String title = '';
+          String company = '';
+          String period = line;
+
+          if (i >= 2 && rawExpBlocks[i - 2].length < 80 && rawExpBlocks[i - 1].length < 80) {
+            title = rawExpBlocks[i - 2];
+            company = rawExpBlocks[i - 1];
+          } else if (i >= 1 && rawExpBlocks[i - 1].length < 80) {
+            title = rawExpBlocks[i - 1];
+            if (i + 1 < rawExpBlocks.length && rawExpBlocks[i + 1].length < 80) {
+              company = rawExpBlocks[i + 1];
+            }
+          }
+
+          if (line.contains('|') || line.contains(' - ')) {
+            final parts = line.split(RegExp(r'[|–—\-]')).map((s) => s.trim()).toList();
+            if (parts.length >= 2) {
+              if (title.isEmpty) title = parts[0];
+              period = parts.last;
+            }
+          }
+
+          if (title.isEmpty) title = 'Puesto / Responsabilidad';
+          if (company.isEmpty) company = 'Empresa / Entidad';
+
           final descLines = <String>[];
-          int d = i + 2;
+          int d = (company == (i + 1 < rawExpBlocks.length ? rawExpBlocks[i + 1] : '')) ? i + 2 : i + 1;
           while (d < rawExpBlocks.length && !RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(rawExpBlocks[d]) && descLines.length < 4) {
             descLines.add(rawExpBlocks[d]);
             d++;
@@ -544,7 +748,7 @@ class CvDocumentParserService {
           parsedExperiences.add(CvExperience(
             jobTitle: title,
             company: company,
-            period: line,
+            period: period,
             description: descLines.join('\n'),
           ));
         }
@@ -564,10 +768,33 @@ class CvDocumentParserService {
             line.toLowerCase().contains('curso');
 
         if (isDateLine && parsedEducation.length < 6) {
-          final degree = (i > 0 && rawEduBlocks[i - 1].length < 85) ? rawEduBlocks[i - 1] : 'Certificado de Profesionalidad / Titulación';
-          final institution = (i + 1 < rawEduBlocks.length && rawEduBlocks[i + 1].length < 85) ? rawEduBlocks[i + 1] : 'Centro Formativo';
+          String degree = '';
+          String institution = '';
+          String period = line;
+
+          if (i >= 2 && rawEduBlocks[i - 2].length < 90 && rawEduBlocks[i - 1].length < 90) {
+            degree = rawEduBlocks[i - 2];
+            institution = rawEduBlocks[i - 1];
+          } else if (i >= 1 && rawEduBlocks[i - 1].length < 90) {
+            degree = rawEduBlocks[i - 1];
+            if (i + 1 < rawEduBlocks.length && rawEduBlocks[i + 1].length < 90) {
+              institution = rawEduBlocks[i + 1];
+            }
+          }
+
+          if (line.contains('|') || line.contains(' - ')) {
+            final parts = line.split(RegExp(r'[|–—\-]')).map((s) => s.trim()).toList();
+            if (parts.length >= 2) {
+              if (degree.isEmpty) degree = parts[0];
+              period = parts.last;
+            }
+          }
+
+          if (degree.isEmpty) degree = 'Certificado / Titulación';
+          if (institution.isEmpty) institution = 'Centro Formativo';
+
           final detailLines = <String>[];
-          int d = i + 2;
+          int d = (institution == (i + 1 < rawEduBlocks.length ? rawEduBlocks[i + 1] : '')) ? i + 2 : i + 1;
           while (d < rawEduBlocks.length && !RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(rawEduBlocks[d]) && detailLines.length < 3) {
             detailLines.add(rawEduBlocks[d]);
             d++;
@@ -576,7 +803,7 @@ class CvDocumentParserService {
           parsedEducation.add(CvEducation(
             degree: degree,
             institution: institution,
-            period: line,
+            period: period,
             details: detailLines.isNotEmpty ? detailLines.join('. ') : '',
           ));
         }
@@ -592,7 +819,7 @@ class CvDocumentParserService {
           .map((s) => s.trim())
           .where((s) => s.length >= 2 && s.length <= 40 && !s.contains(':') && !s.toLowerCase().startsWith('http'))
           .toSet()
-          .take(12)
+          .take(15)
           .map((name) => CvSkillItem(name: name, level: 5, description: 'Competencia técnica o profesional'))
           .toList();
 
@@ -656,7 +883,7 @@ class CvDocumentParserService {
             ],
           ),
           content: SizedBox(
-            width: 480,
+            width: 500,
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,6 +930,71 @@ class CvDocumentParserService {
                       _buildStatChip('${parsed.skillItems.length}', 'Competencias', Icons.stars_outlined),
                     ],
                   ),
+
+                  if (parsed.experiences.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text('Experiencias Detectadas (${parsed.experiences.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    ...parsed.experiences.take(3).map((exp) => Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${exp.jobTitle} · ${exp.company} (${exp.period})',
+                              style: const TextStyle(fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+
+                  if (parsed.educations.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text('Titulaciones Detectadas (${parsed.educations.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    ...parsed.educations.take(3).map((edu) => Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${edu.degree} · ${edu.institution} (${edu.period})',
+                              style: const TextStyle(fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+
+                  if (parsed.skillItems.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text('Competencias Detectadas (${parsed.skillItems.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 5,
+                      children: parsed.skillItems.take(10).map((sk) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                        ),
+                        child: Text(sk.name, style: const TextStyle(fontSize: 10.5, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                      )).toList(),
+                    ),
+                  ],
 
                   if (parsed.summary.isNotEmpty) ...[
                     const SizedBox(height: 12),
