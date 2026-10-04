@@ -163,14 +163,43 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           });
 
           List<Uint8List> rasterPages = [];
+          // Method 1: High quality 150 DPI rasterization
           try {
             await for (final page in Printing.raster(bytes, dpi: 150)) {
               final png = await page.toPng();
               rasterPages.add(png);
             }
           } catch (err) {
-            debugPrint('Error rasterizing PDF: $err');
+            debugPrint('Aviso: raster 150 DPI no completado ($err). Reintentando con DPI optimizado...');
           }
+
+          // Method 2: Low-memory 96 DPI fallback if Method 1 produced 0 pages
+          if (rasterPages.isEmpty) {
+            try {
+              await for (final page in Printing.raster(bytes, dpi: 96)) {
+                final png = await page.toPng();
+                rasterPages.add(png);
+              }
+            } catch (err) {
+              debugPrint('Aviso: raster 96 DPI no completado ($err). Reintentando con 72 DPI...');
+            }
+          }
+
+          // Method 3: 72 DPI emergency fallback
+          if (rasterPages.isEmpty) {
+            try {
+              await for (final page in Printing.raster(bytes, dpi: 72)) {
+                final png = await page.toPng();
+                rasterPages.add(png);
+              }
+            } catch (err) {
+              debugPrint('Error en rasterización PDF en navegador: $err');
+            }
+          }
+
+          final cleanTitle = file.name
+              .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '')
+              .replaceAll('_', ' ');
 
           setState(() {
             _pdfPageImages = rasterPages;
@@ -178,7 +207,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             _isRasterizingPdf = false;
             _document = PdfSignerDocument(
               id: 'doc-${DateTime.now().millisecondsSinceEpoch}',
-              title: file.name.replaceAll('.pdf', '').replaceAll('_', ' '),
+              title: cleanTitle,
               fileName: file.name,
               pdfBytes: bytes,
               signatures: [],
@@ -194,12 +223,23 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           });
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Documento PDF "${file.name}" cargado (${rasterPages.length} págs.).'),
-                backgroundColor: AppTheme.emerald,
-              ),
-            );
+            if (rasterPages.isNotEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Documento PDF "$cleanTitle" cargado con éxito (${rasterPages.length} páginas detectadas).'),
+                  backgroundColor: AppTheme.emerald,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('PDF adjuntado: "${file.name}". Cargando motor de visualización...'),
+                  backgroundColor: const Color(0xFFF59E0B),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           }
         }
       }
@@ -207,7 +247,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       setState(() => _isRasterizingPdf = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al adjuntar archivo PDF: $e')),
+          SnackBar(
+            content: Text('Error al adjuntar archivo PDF: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -613,75 +657,57 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         backgroundColor: isDark ? const Color(0xFF0F172A).withOpacity(0.95) : Colors.white.withOpacity(0.95),
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        leadingWidth: 92,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Menú principal',
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Volver al Hub',
-              onPressed: widget.onBackToHub,
-            ),
-          ],
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          tooltip: 'Volver a Sanctuary Hub',
+          onPressed: widget.onBackToHub,
         ),
-        titleSpacing: 0,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D9488).withOpacity(0.18),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.4)),
-              ),
-              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'SANCTUARY',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2),
-                ),
-                Text(
-                  isMobile ? 'Firmar PDF' : _document.title,
-                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
                 color: AppTheme.emerald.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.circle, size: 6, color: AppTheme.emerald),
-                  const SizedBox(width: 4),
-                  Text(
-                    isMobile ? '${_document.signatures.length}' : '${_document.signatures.length} Firmas',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                  ),
-                ],
+              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
+            ),
+            const SizedBox(width: 9),
+            const Text(
+              'SANCTUARY',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 2.0,
               ),
             ),
           ],
         ),
         actions: [
+          // Signatures count pill badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.draw_rounded, size: 12, color: AppTheme.emerald),
+                const SizedBox(width: 4),
+                Text(
+                  isMobile ? '${_document.signatures.length}' : '${_document.signatures.length} Firmas',
+                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
           // Cosmic & theme buttons
           _buildTopIconButton(
             icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,

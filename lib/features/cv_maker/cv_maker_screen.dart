@@ -14,7 +14,7 @@ import 'widgets/template_selector_bar.dart';
 import 'widgets/cv_editor_tabs.dart';
 import 'widgets/a4_sheet_preview.dart';
 
-class CvBuilderScreen extends StatefulWidget {
+class CvMakerScreen extends StatefulWidget {
   final ApiService apiService;
   final VoidCallback onBackToHub;
   final VoidCallback onLogout;
@@ -26,7 +26,7 @@ class CvBuilderScreen extends StatefulWidget {
   final bool isDark;
   final bool isCosmicActive;
 
-  const CvBuilderScreen({
+  const CvMakerScreen({
     super.key,
     required this.apiService,
     required this.onBackToHub,
@@ -41,10 +41,12 @@ class CvBuilderScreen extends StatefulWidget {
   });
 
   @override
-  State<CvBuilderScreen> createState() => _CvBuilderScreenState();
+  State<CvMakerScreen> createState() => _CvMakerScreenState();
 }
 
-class _CvBuilderScreenState extends State<CvBuilderScreen> {
+typedef CvBuilderScreen = CvMakerScreen;
+
+class _CvMakerScreenState extends State<CvMakerScreen> {
   List<CvProfileModel> _profiles = [];
   String _activeId = 'profile-1';
   bool _isLoading = true;
@@ -307,24 +309,14 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
       ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        leadingWidth: 92,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Menú principal',
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Volver al Santuario Hub',
-              onPressed: widget.onBackToHub,
-            ),
-          ],
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          tooltip: 'Volver a Sanctuary Hub',
+          onPressed: widget.onBackToHub,
         ),
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(4),
@@ -333,22 +325,16 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
+              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'SANCTUARY',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.2),
-                ),
-                Text(
-                  isMobile ? 'Taller de CV' : 'Orientación Laboral · Taller de CV',
-                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
-              ],
+            const SizedBox(width: 9),
+            const Text(
+              'SANCTUARY',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 2.0,
+              ),
             ),
           ],
         ),

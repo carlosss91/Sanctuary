@@ -368,13 +368,33 @@ class StorageService {
     await _prefs.setBool(_keyCosmicActive, active);
   }
 
-  // --- GitHub Config ---
+  // --- GitHub Config (Per-user, unconfigured by default) ---
   static const String _keyGitHubUsername = 'sanctuary_github_username';
 
-  String getGitHubUsername() => _prefs.getString(_keyGitHubUsername) ?? 'carlosss91';
+  String? getGitHubUsername([String? usernameOrId]) {
+    if (usernameOrId != null && usernameOrId.trim().isNotEmpty) {
+      return _prefs.getString('sanctuary_github_${usernameOrId.trim().toLowerCase()}');
+    }
+    return _prefs.getString(_keyGitHubUsername);
+  }
 
-  Future<void> setGitHubUsername(String username) async {
-    await _prefs.setString(_keyGitHubUsername, username.trim());
+  Future<void> setGitHubUsername(String username, [String? usernameOrId]) async {
+    final clean = username.trim();
+    if (usernameOrId != null && usernameOrId.trim().isNotEmpty) {
+      final key = 'sanctuary_github_${usernameOrId.trim().toLowerCase()}';
+      if (clean.isEmpty) {
+        await _prefs.remove(key);
+      } else {
+        await _prefs.setString(key, clean);
+      }
+      return;
+    }
+
+    if (clean.isEmpty) {
+      await _prefs.remove(_keyGitHubUsername);
+    } else {
+      await _prefs.setString(_keyGitHubUsername, clean);
+    }
   }
 
   // --- Community Chat ---

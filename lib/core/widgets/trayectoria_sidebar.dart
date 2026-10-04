@@ -101,7 +101,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                       size: 24,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
-                    tooltip: 'Cerrar barra lateral',
+                    tooltip: 'Plegar barra lateral',
                     onPressed: () {
                       if (widget.onToggleCollapse != null) {
                         widget.onToggleCollapse!();
@@ -187,7 +187,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
 
                 _buildNavItem(
                   icon: Icons.badge_outlined,
-                  title: 'Creador de Currículum',
+                  title: 'CV Maker',
                   itemKey: 'Orientación',
                   isDark: isDark,
                   isActive: widget.activeItem == 'Orientación',
@@ -196,7 +196,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
 
                 _buildNavItem(
                   icon: Icons.draw_outlined,
-                  title: 'Firmador de PDF',
+                  title: 'PDF Signer',
                   itemKey: 'PdfSigner',
                   isDark: isDark,
                   isActive: widget.activeItem == 'PdfSigner',
@@ -290,37 +290,47 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
             ),
             child: isCollapsed
                 ? Tooltip(
-                    message: 'Desarrollado por Cristian Falcón',
+                    message: 'Property of Carlos Santana Sánchez · GitHub: carlosss91',
                     preferBelow: false,
                     child: InkWell(
                       onTap: () => _openExternal('https://github.com/carlosss91'),
                       child: const Center(
-                        child: Icon(Icons.code, size: 16, color: AppTheme.emerald),
+                        child: Icon(Icons.code_rounded, size: 16, color: AppTheme.emerald),
                       ),
                     ),
                   )
                 : FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Desarrollado por ',
+                          'Property of Carlos Santana Sánchez',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                           ),
                         ),
+                        const SizedBox(height: 2),
                         InkWell(
                           onTap: () => _openExternal('https://github.com/carlosss91'),
-                          child: const Text(
-                            'Cristian Falcón',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.emerald,
-                              decoration: TextDecoration.underline,
-                            ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.code_rounded, size: 12, color: AppTheme.emerald),
+                              SizedBox(width: 4),
+                              Text(
+                                'GitHub: carlosss91',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.emerald,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

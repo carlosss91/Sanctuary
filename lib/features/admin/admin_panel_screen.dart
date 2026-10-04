@@ -682,48 +682,32 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        leadingWidth: 92,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Menú principal',
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Volver al Santuario Hub',
-              onPressed: widget.onBackToHub,
-            ),
-          ],
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          tooltip: 'Volver a Sanctuary Hub',
+          onPressed: widget.onBackToHub,
         ),
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF06B6D4).withOpacity(0.18),
+                color: AppTheme.emerald.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
+              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'SANCTUARY',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.2),
-                ),
-                Text(
-                  'Panel de Administración',
-                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
-              ],
+            const SizedBox(width: 9),
+            const Text(
+              'SANCTUARY',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 2.0,
+              ),
             ),
           ],
         ),
@@ -1995,7 +1979,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     final modules = [
       {
         'id': 'cv_builder',
-        'title': 'Taller de Currículum Vitae (A4)',
+        'title': 'CV Maker · Taller de Currículum Vitae (A4)',
         'description': 'Maquetador interactivo con autoguardado, vista previa continua, exportación PDF y perfiles docentes.',
         'icon': Icons.description_rounded,
         'color': AppTheme.emerald,
@@ -2011,7 +1995,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       },
       {
         'id': 'pdf_signer',
-        'title': 'Firma Digital Biométrica eIDAS / PAdES',
+        'title': 'PDF Signer · Firma Digital Biométrica eIDAS / PAdES',
         'description': 'Firma electrónica avanzada en documentos PDF con sello temporal, verificación criptográfica SHA-256 y trazabilidad de auditoría.',
         'icon': Icons.draw_rounded,
         'color': const Color(0xFF2563EB),

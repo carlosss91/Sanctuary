@@ -6,7 +6,7 @@ import 'data/services/storage_service.dart';
 import 'data/services/api_service.dart';
 import 'features/auth/login_dialog.dart';
 import 'features/hub/hub_screen.dart';
-import 'features/cv_builder/cv_builder_screen.dart';
+import 'features/cv_maker/cv_maker_screen.dart';
 import 'features/pdf_signer/pdf_signer_screen.dart';
 import 'features/prezi2pdf/prezi_to_pdf_screen.dart';
 import 'features/admin/admin_panel_screen.dart';
@@ -92,15 +92,15 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
-              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_maker'),
               onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
               onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
               onLogout: _logout,
               onToggleTheme: _toggleTheme,
               onToggleCosmic: _toggleCosmic,
             );
-          } else if (_currentRoute == 'cv_builder') {
-            currentScreen = CvBuilderScreen(
+          } else if (_currentRoute == 'cv_maker' || _currentRoute == 'cv_builder') {
+            currentScreen = CvMakerScreen(
               apiService: widget.apiService,
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
@@ -118,7 +118,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
-              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_maker'),
               onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
               onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),
               onLogout: _logout,
@@ -131,7 +131,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
               onBackToHub: () => setState(() => _currentRoute = 'hub'),
-              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_maker'),
               onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
               onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),
               onLogout: _logout,
@@ -144,7 +144,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
               currentUser: _currentUser!,
               isDark: _isDark,
               isCosmicActive: _isCosmicActive,
-              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_builder'),
+              onOpenCvBuilder: () => setState(() => _currentRoute = 'cv_maker'),
               onOpenPdfSigner: () => setState(() => _currentRoute = 'pdf_signer'),
               onOpenPreziDownloader: () => setState(() => _currentRoute = 'prezi2pdf'),
               onOpenAdminPanel: () => setState(() => _currentRoute = 'admin_panel'),

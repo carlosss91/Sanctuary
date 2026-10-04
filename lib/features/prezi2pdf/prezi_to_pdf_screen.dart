@@ -978,48 +978,32 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
       ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        leadingWidth: 92,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Menú principal',
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Volver al Santuario Hub',
-              onPressed: widget.onBackToHub,
-            ),
-          ],
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          tooltip: 'Volver a Sanctuary Hub',
+          onPressed: widget.onBackToHub,
         ),
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFFA855F7).withOpacity(0.18),
+                color: AppTheme.emerald.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFA855F7).withOpacity(0.4)),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: const SanctuaryPlanetLogo(size: 24, showGlow: true),
+              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'SANCTUARY',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.2),
-                ),
-                Text(
-                  'Slide Downloader',
-                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
-              ],
+            const SizedBox(width: 9),
+            const Text(
+              'SANCTUARY',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 2.0,
+              ),
             ),
           ],
         ),

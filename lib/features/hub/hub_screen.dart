@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
+import '../../core/widgets/sanctuary_footer.dart';
 import '../../data/models/repo_link_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
@@ -84,9 +85,11 @@ class _HubScreenState extends State<HubScreen> {
   void initState() {
     super.initState();
     _currentUser = widget.currentUser;
-    _githubUsername = widget.apiService.storage.getGitHubUsername();
+    _githubUsername = widget.apiService.storage.getGitHubUsername(_currentUser.username) ?? '';
     _loadData();
-    _loadGitHubRepos();
+    if (_githubUsername.isNotEmpty) {
+      _loadGitHubRepos();
+    }
   }
 
   Future<void> _loadData() async {
@@ -101,6 +104,15 @@ class _HubScreenState extends State<HubScreen> {
   }
 
   Future<void> _loadGitHubRepos() async {
+    if (_githubUsername.trim().isEmpty) {
+      if (mounted) {
+        setState(() {
+          _githubRepos = [];
+          _isLoadingGitHub = false;
+        });
+      }
+      return;
+    }
     setState(() => _isLoadingGitHub = true);
     final repos = await widget.apiService.fetchGitHubRepos(_githubUsername);
     if (mounted) {
@@ -132,7 +144,7 @@ class _HubScreenState extends State<HubScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Introduce el usuario u organización de GitHub para explorar sus repositorios en tiempo real dentro del Widget de Sanctuary:',
+                'Introduce tu usuario u organización de GitHub para explorar tus repositorios en tiempo real dentro de tu cuenta en Sanctuary:',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 14),
@@ -141,7 +153,7 @@ class _HubScreenState extends State<HubScreen> {
                 autofocus: true,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person, size: 18),
-                  hintText: 'carlosss91',
+                  hintText: 'ej. torvalds, tu-usuario...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
@@ -166,11 +178,15 @@ class _HubScreenState extends State<HubScreen> {
       },
     );
 
-    if (res != null && res.isNotEmpty) {
-      await widget.apiService.storage.setGitHubUsername(res);
+    if (res != null) {
+      await widget.apiService.storage.setGitHubUsername(res, _currentUser.username);
       setState(() => _githubUsername = res);
-      await _loadGitHubRepos();
-      if (mounted) {
+      if (res.isNotEmpty) {
+        await _loadGitHubRepos();
+      } else {
+        setState(() => _githubRepos = []);
+      }
+      if (mounted && res.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Sincronizado con cuenta de GitHub: @$res'),
@@ -354,38 +370,32 @@ class _HubScreenState extends State<HubScreen> {
       ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        titleSpacing: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.menu_rounded),
           tooltip: 'Menú principal',
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AppTheme.emerald.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
               ),
-              child: const SanctuaryPlanetLogo(size: 26, showGlow: true),
+              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
             ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'SANCTUARY',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.5),
-                ),
-                if (!isMobile)
-                  Text(
-                    'Portal de Web Apps & Repositorios',
-                    style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                  ),
-              ],
+            const SizedBox(width: 9),
+            const Text(
+              'SANCTUARY',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 2.0,
+              ),
             ),
           ],
         ),
@@ -763,7 +773,7 @@ class _HubScreenState extends State<HubScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             children: [
                               _buildIPhoneAppIcon(
-                                title: 'Creador de CV',
+                                title: 'CV Maker',
                                 subtitle: 'Taller FC0003',
                                 icon: Icons.badge_rounded,
                                 gradient: const [Color(0xFF10B981), Color(0xFF047857)],
@@ -771,7 +781,7 @@ class _HubScreenState extends State<HubScreen> {
                                 onTap: widget.onOpenCvBuilder,
                               ),
                               _buildIPhoneAppIcon(
-                                title: 'Firmador PDF',
+                                title: 'PDF Signer',
                                 subtitle: 'Firma en Vivo',
                                 icon: Icons.draw_rounded,
                                 gradient: const [Color(0xFF2563EB), Color(0xFF1D4ED8)],
@@ -802,7 +812,7 @@ class _HubScreenState extends State<HubScreen> {
                                 badge: 'Activo',
                                 onTap: () {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Gestor de alumnos activo en el creador de CV')),
+                                    const SnackBar(content: Text('Gestor de alumnos activo en CV Maker')),
                                   );
                                 },
                               ),
@@ -824,24 +834,7 @@ class _HubScreenState extends State<HubScreen> {
                                 icon: Icons.menu_book_rounded,
                                 gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
                                 badge: 'Docs',
-                                onTap: () => _openUrl('https://github.com/$_githubUsername/Sanctuary'),
-                              ),
-                              _buildIPhoneAppIcon(
-                                title: 'Mi Perfil',
-                                subtitle: 'Ajustes de cuenta',
-                                icon: Icons.manage_accounts_rounded,
-                                gradient: const [Color(0xFF64748B), Color(0xFF334155)],
-                                badge: 'User',
-                                onTap: () {
-                                  UserProfileDialog.show(
-                                    context,
-                                    user: _currentUser,
-                                    apiService: widget.apiService,
-                                    onUserUpdated: (updated) {
-                                      setState(() => _currentUser = updated);
-                                    },
-                                  );
-                                },
+                                onTap: () => _openUrl('https://github.com/carlosss91/Sanctuary'),
                               ),
                             ],
                           );
@@ -1010,6 +1003,8 @@ class _HubScreenState extends State<HubScreen> {
                             );
                           },
                         ),
+                      const SizedBox(height: 36),
+                      SanctuaryFooter(isDark: isDark),
                     ],
                   ),
                 ),
@@ -1200,7 +1195,9 @@ class _HubScreenState extends State<HubScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Repositorios públicos en vivo de @$_githubUsername',
+                  _githubUsername.isNotEmpty
+                      ? 'Repositorios públicos en vivo de @$_githubUsername'
+                      : 'Conecta tu cuenta de GitHub para explorar tus repositorios',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 10),
@@ -1209,7 +1206,10 @@ class _HubScreenState extends State<HubScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _showConnectGitHubDialog,
                     icon: const Icon(Icons.link, size: 14),
-                    label: Text('@$_githubUsername', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: Text(
+                      _githubUsername.isNotEmpty ? '@$_githubUsername' : 'Conectar GitHub',
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.emerald,
                       side: const BorderSide(color: AppTheme.emerald, width: 1.2),
@@ -1259,7 +1259,9 @@ class _HubScreenState extends State<HubScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Explora y accede en directo a los repositorios de @$_githubUsername',
+                            _githubUsername.isNotEmpty
+                                ? 'Explora y accede en directo a los repositorios de @$_githubUsername'
+                                : 'Conecta tu cuenta u organización de GitHub para explorar tus repositorios en vivo',
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
@@ -1270,7 +1272,10 @@ class _HubScreenState extends State<HubScreen> {
                     OutlinedButton.icon(
                       onPressed: _showConnectGitHubDialog,
                       icon: const Icon(Icons.link, size: 15),
-                      label: Text('@$_githubUsername', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(
+                        _githubUsername.isNotEmpty ? '@$_githubUsername' : 'Conectar GitHub',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.emerald,
                         side: const BorderSide(color: AppTheme.emerald, width: 1.2),
@@ -1303,11 +1308,57 @@ class _HubScreenState extends State<HubScreen> {
               padding: EdgeInsets.all(32),
               child: Center(child: CircularProgressIndicator(color: AppTheme.emerald)),
             )
+          else if (_githubUsername.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppTheme.emerald.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                    ),
+                    child: const Icon(Icons.hub_outlined, color: AppTheme.emerald, size: 26),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Widget de GitHub sin conectar',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Cada usuario dispone de este widget sin configurar previamente.\nConecta tu cuenta de GitHub para visualizar tus repositorios en tiempo real.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _showConnectGitHubDialog,
+                    icon: const Icon(Icons.link, size: 16),
+                    label: const Text('Conectar con GitHub'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            )
           else if (_githubRepos.isEmpty)
             Container(
               padding: const EdgeInsets.all(28),
               alignment: Alignment.center,
-              child: const Text('No se pudieron obtener repositorios públicos para este usuario.', style: TextStyle(color: Colors.grey)),
+              child: Text(
+                'No se pudieron obtener repositorios públicos para @$_githubUsername.',
+                style: const TextStyle(color: Colors.grey),
+              ),
             )
           else
             LayoutBuilder(

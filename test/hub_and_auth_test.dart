@@ -5,7 +5,7 @@ import 'package:sanctuary/core/widgets/trayectoria_sidebar.dart';
 import 'package:sanctuary/data/models/cv_profile_model.dart';
 import 'package:sanctuary/data/models/user_model.dart';
 import 'package:sanctuary/data/services/translation_service.dart';
-import 'package:sanctuary/features/cv_builder/widgets/image_crop_dialog.dart';
+import 'package:sanctuary/features/cv_maker/widgets/image_crop_dialog.dart';
 
 void main() {
   group('UserModel Profile Enhancements', () {
