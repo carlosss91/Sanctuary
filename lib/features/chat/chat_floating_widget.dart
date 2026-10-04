@@ -50,36 +50,82 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
       ],
     },
     {
-      'icon': '👍',
+      'icon': '👋',
       'label': 'Gestos y Personas',
       'emojis': [
-        '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
-        '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋',
-        '💪', '🦾', '✍️', '🙏', '🤝', '👏', '🙌', '👐', '🤲', '🤜',
-        '🤛', '✊', '👊', '👀', '🧠', '🫀', '🫁', '👥', '👤', '🧑‍💻',
-        '👨‍🎓', '👩‍🏫', '🕵️', '🧑‍🔧', '👨‍🚒', '🧑‍🚀', '👑', '⭐', '✨', '🔥',
+        '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞',
+        '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍',
+        '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝',
+        '🙏', '✍️', '💪', '🦾', '🧠', '🫀', '🫁', '👀', '👁️', '🧑‍💻',
+        '👨‍🎓', '👩‍🎓', '👨‍🏫', '👩‍🏫', '🧑‍🔧', '👨‍🚒', '🧑‍🚀', '🕵️', '👮', '👑',
+      ],
+    },
+    {
+      'icon': '🐶',
+      'label': 'Animales y Naturaleza',
+      'emojis': [
+        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+        '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🦆', '🦅',
+        '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌',
+        '🐞', '🐜', '🐢', '🐍', '🐙', '🦑', '🦐', '🦀', '🐡', '🐠',
+        '🐟', '🐬', '🐳', '🐋', '🦈', '🌲', '🌳', '🌴', '🌱', '🌿',
+        '🍀', '🌸', '🌺', '🌻', '🌹', '🌞', '⭐', '🌈', '🌧️', '⚡',
+      ],
+    },
+    {
+      'icon': '🍔',
+      'label': 'Comida y Bebida',
+      'emojis': [
+        '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐',
+        '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥑', '🍆', '🥕', '🌽',
+        '🌶️', '🥒', '🍄', '🥜', '🌰', '🍞', '🥐', '🥖', '🧀', '🍖',
+        '🍗', '🥩', '🥓', '🍔', '🍟', '🍕', '🌭', '🥪', '🌮', '🌯',
+        '🍝', '🍜', '🍣', '🍦', '🍧', '🍨', '🍩', '🍪', '🎂', '🍰',
+        '🍫', '🍬', '🍭', '☕', '🍵', '🧃', '🥤', '🍺', '🍻', '🍷',
+      ],
+    },
+    {
+      'icon': '🚀',
+      'label': 'Viajes y Lugares',
+      'emojis': [
+        '🚀', '🛸', '✈️', '🛫', '🛬', '🚁', '🚗', '🚕', '🚙', '🚌',
+        '🏎️', '🚓', '🚑', '🚒', '🚲', '🛵', '🏍️', '🚂', '🚆', '🚇',
+        '🚢', '⛵', '🚤', '⚓', '🗺️', '🧭', '🏔️', '🌋', '🏖️', '🏝️',
+        '🏛️', '🏟️', '🏰', '🗼', '🗽', '⛲', '⛺', '🏠', '🏡', '🏢',
+        '🏣', '🏥', '🏦', '🏨', '🏪', '🏫', '🌅', '🌄', '🌉', '🎡',
+      ],
+    },
+    {
+      'icon': '💡',
+      'label': 'Objetos y Tecnología',
+      'emojis': [
+        '💡', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '💾', '💿',
+        '📀', '🎥', '📷', '📸', '📹', '📞', '☎️', '📟', '📠', '📺',
+        '📻', '🎙️', '⏱️', '⏰', '⏳', '⌛', '📡', '🔋', '🔌', '🔦',
+        '🕯️', '🧯', '📦', '🏷️', '✉️', '📩', '📫', '📪', '📰', '🔑',
+        '🗝️', '🔨', '🪓', '🔧', '🔩', '⚙️', '🧰', '🧲', '🔬', '🔭',
       ],
     },
     {
       'icon': '✨',
-      'label': 'Símbolos y Objetos',
+      'label': 'Símbolos y Formas',
       'emojis': [
-        '🔥', '✨', '⭐', '🌟', '💫', '⚡', '💥', '💯', '💢', '🎉',
+        '✨', '🔥', '⭐', '🌟', '💫', '⚡', '💥', '💯', '💢', '🎉',
         '🎊', '🎈', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
         '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝',
-        '✅', '❌', '✔️', '✖️', '❓', '❗', '⚠️', '⛔', '🚫', '💡',
-        '🔔', '🔕', '🚀', '🎯', '🏆', '🥇', '🥈', '🥉', '💎', '🔮',
+        '✅', '❌', '✔️', '✖️', '❓', '❗', '⚠️', '⛔', '🚫', '🔔',
+        '🔕', '🎯', '🏆', '🥇', '🥈', '🥉', '💎', '🔮', '🧿', '🎵',
       ],
     },
     {
       'icon': '💼',
-      'label': 'Trabajo y Educación',
+      'label': 'Trabajo y Estudio',
       'emojis': [
         '💼', '📁', '📂', '📄', '📃', '📑', '📊', '📈', '📉', '📋',
         '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🖊️', '🖋️', '✒️',
-        '📝', '✏️', '🔍', '🔎', '🔒', '🔓', '💻', '🖥️', '🖨️', '⌨️',
-        '🖱️', '📱', '📞', '📧', '✉️', '📦', '🏷️', '🛠️', '🔨', '☕',
-        '📚', '🎓', '🏢', '🏛️', '🌐', '📡', '💾', '💿', '⏱️', '⏰',
+        '📝', '✏️', '🖍️', '🖌️', '🔍', '🔎', '🔒', '🔓', '🔏', '🔐',
+        '📚', '📖', '📕', '📗', '📘', '📙', '🎓', '📜', '🏷️', '✉️',
+        '📧', '💻', '🖥️', '🖨️', '🗂️', '🗃️', '🗄️', '🗑️', '⏰', '☕',
       ],
     },
   ];
@@ -327,63 +373,75 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
     final isDark = widget.isDark;
 
     if (!_isOpen) {
-      // Closed Floating Bubble
-      return Tooltip(
-        message: 'Abrir Chat Comunitario (Reinicio diario a las 00:00)',
-        child: InkWell(
-          onTap: () {
-            setState(() {
-              _isOpen = true;
-              _lastSeenCount = _messages.length;
-            });
-            _scrollToBottom();
-          },
-          borderRadius: BorderRadius.circular(30),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF06B6D4), Color(0xFF0891B2)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF06B6D4).withOpacity(0.45),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+      // Closed Floating Bubble (Icon only, no text label, with unread badge)
+      return Material(
+        color: Colors.transparent,
+        child: Tooltip(
+          message: 'Abrir Chat Comunitario (Reinicio diario a las 00:00)',
+          child: InkWell(
+            onTap: () {
+              setState(() {
+                _isOpen = true;
+                _lastSeenCount = _messages.length;
+              });
+              _scrollToBottom();
+            },
+            borderRadius: BorderRadius.circular(28),
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                const Icon(Icons.forum_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Chat',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                if (_unreadCount > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      borderRadius: BorderRadius.circular(10),
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF06B6D4), Color(0xFF0891B2)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    child: Text(
-                      '$_unreadCount',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF06B6D4).withOpacity(0.45),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.forum_rounded, color: Colors.white, size: 24),
+                  ),
+                ),
+                if (_unreadCount > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF0B132B) : Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        '$_unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
@@ -392,9 +450,22 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
     }
 
     // Open Floating Chat Window
-    return Container(
-      width: 350,
-      height: 480,
+    return Material(
+      color: Colors.transparent,
+      textStyle: TextStyle(
+        fontFamily: 'Inter',
+        decoration: TextDecoration.none,
+        color: isDark ? Colors.white : Colors.black87,
+      ),
+      child: DefaultTextStyle(
+        style: TextStyle(
+          fontFamily: 'Inter',
+          decoration: TextDecoration.none,
+          color: isDark ? Colors.white : Colors.black87,
+        ),
+        child: Container(
+          width: 350,
+          height: 480,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0B132B).withOpacity(0.96) : Colors.white.withOpacity(0.98),
         borderRadius: BorderRadius.circular(22),
@@ -444,11 +515,20 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                     children: [
                       Text(
                         'Chat de la Comunidad',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                       Text(
                         'Efímero · Se borra cada día a las 00:00',
-                        style: TextStyle(color: Colors.white70, fontSize: 9.5),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 9.5,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ],
                   ),
@@ -487,12 +567,21 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                             const SizedBox(height: 8),
                             const Text(
                               'Aún no hay mensajes hoy.',
-                              style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.none,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             const Text(
                               '¡Sé el primero en saludar al equipo!',
-                              style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.grey,
+                                decoration: TextDecoration.none,
+                              ),
                             ),
                           ],
                         ),
@@ -663,28 +752,31 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                               final idx = entry.key;
                               final cat = entry.value;
                               final isSel = _selectedCategoryIndex == idx;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: Tooltip(
-                                  message: cat['label'] as String,
-                                  child: InkWell(
-                                    onTap: () => setState(() => _selectedCategoryIndex = idx),
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isSel
-                                            ? const Color(0xFF06B6D4)
-                                            : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05)),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: isSel ? const Color(0xFF06B6D4) : Colors.transparent,
-                                          width: 1,
+                              return Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                  child: Tooltip(
+                                    message: cat['label'] as String,
+                                    child: InkWell(
+                                      onTap: () => setState(() => _selectedCategoryIndex = idx),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        height: 28,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: isSel
+                                              ? const Color(0xFF06B6D4)
+                                              : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05)),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isSel ? const Color(0xFF06B6D4) : Colors.transparent,
+                                            width: 1,
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        cat['icon'] as String,
-                                        style: const TextStyle(fontSize: 16),
+                                        child: Text(
+                                          cat['icon'] as String,
+                                          style: const TextStyle(fontSize: 15, decoration: TextDecoration.none),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -693,6 +785,7 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                             }).toList(),
                           ),
                         ),
+                        const SizedBox(width: 4),
                         InkWell(
                           onTap: () => setState(() => _showEmojiPicker = false),
                           borderRadius: BorderRadius.circular(8),
@@ -723,7 +816,10 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
                           borderRadius: BorderRadius.circular(8),
                           hoverColor: const Color(0xFF06B6D4).withOpacity(0.15),
                           child: Center(
-                            child: Text(em, style: const TextStyle(fontSize: 20)),
+                            child: Text(
+                              em,
+                              style: const TextStyle(fontSize: 20, decoration: TextDecoration.none),
+                            ),
                           ),
                         );
                       },
@@ -789,6 +885,8 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }
