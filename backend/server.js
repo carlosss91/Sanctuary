@@ -7,6 +7,21 @@ const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
+let PDFParseClass = null;
+try {
+  const pdfParsePkg = require('pdf-parse');
+  PDFParseClass = pdfParsePkg.PDFParse || pdfParsePkg;
+} catch (e) {
+  console.warn('[Backend] pdf-parse opcional no disponible:', e.message);
+}
+
+let Tesseract = null;
+try {
+  Tesseract = require('tesseract.js');
+} catch (e) {
+  console.warn('[Backend] tesseract.js opcional no disponible:', e.message);
+}
+
 const app = express();
 const port = process.env.PORT || 8088;
 const connectionString = process.env.DATABASE_URL || 'postgres://sanctuary_user:sanctuary_secret@localhost:5438/sanctuary_db';
@@ -112,7 +127,7 @@ async function purgeOldChatMessages() {
   const ldb = getLocalDb();
   if (ldb.chat_messages && ldb.chat_messages.length > 0) {
     const origCount = ldb.chat_messages.length;
-    ldb.chat_messages = ldb.chat_messages.filter(m => new Date(m.created_at) >= todayMidnight);
+    ldb.chat_messages = ldb.chat_messages.filter(m => new Date(m.created_at || m.timestamp || Date.now()) >= todayMidnight);
     if (ldb.chat_messages.length !== origCount) {
       saveLocalDb(ldb);
     }
@@ -1202,6 +1217,379 @@ app.delete('/api/cv/profiles/:id', async (req, res) => {
     saveLocalDb(ldb);
   }
   res.json({ success: true, message: 'Perfil eliminado con éxito' });
+});
+
+// --- CV PDF Extraction & OCR Service ---
+function cleanSpacedTextNode(str) {
+  if (!str) return '';
+  if (/^([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\.]\s+){3,}/.test(str)) {
+    return str.replace(/\s+/g, ' ').replace(/([A-Za-zÁÉÍÓÚáéíóúñÑ0-9])\s+(?=[A-Za-zÁÉÍÓÚáéíóúñÑ0-9])/g, '$1').trim();
+  }
+  return str;
+}
+
+function parseCvTextNode(rawText, fileName) {
+  const clean = (rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = clean.split('\n')
+    .map(l => cleanSpacedTextNode(l.trim()))
+    .filter(l => l.length > 0 && l !== '-- 1 of 1 --');
+
+  let email = '';
+  const emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) email = emailMatch[0].replace(/[.,;:]+$/, '');
+
+  let phone = '';
+  const phoneRegex = /(?:\+?34[-.\s]?)?[6789]\d{2}[-.\s]?\d{2,3}[-.\s]?\d{2,3}[-.\s]?\d{2,3}|(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/g;
+  for (const m of clean.matchAll(phoneRegex)) {
+    const cand = m[0].trim().replace(/[.,;:]+$/, '');
+    const digits = cand.replace(/\D/g, '');
+    if (digits.length >= 9 && digits.length <= 14 && !digits.startsWith('202') && !digits.startsWith('199')) {
+      phone = cand;
+      break;
+    }
+  }
+
+  let nameFromFilename = '';
+  if (fileName) {
+    let fnClean = fileName.replace(/\.[a-zA-Z0-9]+$/i, '');
+    fnClean = fnClean.replace(/^(?:curriculum(?:\s*vitae)?|cv|hoja\s*de\s*vida|resume)\s*[-_ ]*/i, '');
+    fnClean = fnClean.replace(/[-_ ]*(?:curriculum(?:\s*vitae)?|cv|final|v\d+|\b20\d\d\b)\b.*$/i, '');
+    fnClean = fnClean.replace(/[_\-]+/g, ' ').trim();
+    if (fnClean.length >= 3 && fnClean.length <= 50) {
+      nameFromFilename = fnClean;
+    }
+  }
+
+  const professionKeywords = [
+    'desarrollador', 'developer', 'ingeniero', 'engineer', 'arquitecto', 'técnico', 'tecnico',
+    'diseñador', 'designer', 'administrativo', 'operario', 'auxiliar', 'profesor', 'docente',
+    'consultor', 'responsable', 'encargado', 'director', 'analista', 'comercial', 'enfermero',
+    'médico', 'psicólogo', 'coordinador', 'especialista', 'camarero', 'cocinero', 'electricista',
+    'fontanero', 'mecánico', 'conductor', 'almacenero', 'soldador', 'jardinero', 'dependiente',
+    'maestro', 'monitor'
+  ];
+
+  const educationDegreeKeywords = [
+    'grado', 'fp', 'formación profesional', 'formacion profesional', 'diplomatura', 'licenciatura',
+    'máster', 'master', 'bachillerato', 'eso', 'educación secundaria', 'curso', 'adaptación al grado',
+    'adaptacion al grado', 'técnico superior en', 'tecnico superior en', 'ciclo formativo', 'doctorado'
+  ];
+
+  const educationInstKeywords = [
+    'universidad', 'instituto', 'i.e.s.', 'ies', 'colegio', 'facultad', 'academia', 'ilerna',
+    'ulpgc', 'ull', 'uned', 'uoc', 'ceip', 'c.e.i.p.'
+  ];
+
+  const dateRegex = /\b(?:(?:\d{1,2}\/)?(?:19\d\d|20\d\d)\b(?:\s*[-–—]\s*(?:(?:\d{1,2}\/)?(?:19\d\d|20\d\d)|actualidad|presente))?|(?:19\d\d|20\d\d)\s*[-–—]\s*(?:19\d\d|20\d\d)|actualidad|presente)\b/i;
+
+  const dateIndices = [];
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (dateRegex.test(l) && l.length < 50 && !l.includes('@')) {
+      dateIndices.push(i);
+    }
+  }
+
+  const experiences = [];
+  const educations = [];
+  const consumedIndices = new Set();
+
+  for (let k = 0; k < dateIndices.length; k++) {
+    const i = dateIndices[k];
+    const period = lines[i];
+    consumedIndices.add(i);
+
+    let title = '';
+    let org = '';
+
+    if (i >= 2 && !consumedIndices.has(i - 2) && !consumedIndices.has(i - 1)) {
+      title = lines[i - 2];
+      org = lines[i - 1];
+      consumedIndices.add(i - 2);
+      consumedIndices.add(i - 1);
+    } else if (i >= 1 && !consumedIndices.has(i - 1)) {
+      title = lines[i - 1];
+      consumedIndices.add(i - 1);
+      if (i + 1 < lines.length && (k === dateIndices.length - 1 || i + 1 < dateIndices[k + 1] - 1) && lines[i + 1].length < 75) {
+        org = lines[i + 1];
+        consumedIndices.add(i + 1);
+      }
+    }
+
+    const nextLimit = (k + 1 < dateIndices.length) ? dateIndices[k + 1] - 2 : lines.length;
+    const descLines = [];
+    let d = i + 1;
+    while (d < nextLimit && d < lines.length) {
+      if (consumedIndices.has(d)) { d++; continue; }
+      const dl = lines[d];
+      if (/^(datos|sobre m[ií]|competencias|experiencia|formaci[oó]n)/i.test(dl)) break;
+      if (dl.includes('@') || phoneRegex.test(dl)) break;
+      if (dl.length > 25) {
+        descLines.push(dl);
+        consumedIndices.add(d);
+      }
+      d++;
+    }
+
+    const lowerTitle = title.toLowerCase();
+    const lowerOrg = org.toLowerCase();
+
+    const isExplicitJob = professionKeywords.some(pk => lowerTitle.startsWith(pk) || lowerTitle.includes(' ' + pk));
+    const isExplicitEduDegree = educationDegreeKeywords.some(ek => lowerTitle.includes(ek));
+    const isExplicitEduInst = educationInstKeywords.some(ik => lowerOrg.includes(ik));
+
+    const isEdu = (!isExplicitJob && (isExplicitEduDegree || isExplicitEduInst)) || (isExplicitEduDegree && !isExplicitJob);
+
+    if (isEdu) {
+      educations.push({
+        degree: title.replace(/[…\.]+$/, '').trim(),
+        institution: org.replace(/[…\.]+$/, '').trim(),
+        period,
+        details: descLines.join('\n')
+      });
+    } else {
+      experiences.push({
+        jobTitle: title.replace(/[…\.]+$/, '').trim(),
+        company: org.replace(/[…\.]+$/, '').trim(),
+        period,
+        description: descLines.join('\n')
+      });
+    }
+  }
+
+  let location = '';
+  let availability = '';
+  let drivingLicense = '';
+
+  const locationPatterns = [
+    'arrecife', 'lanzarote', 'puerto del rosario', 'fuerteventura', 'las palmas', 'gran canaria',
+    'tenerife', 'santa cruz', 'la palma', 'la gomera', 'el hierro', 'canarias', 'telde', 'arucas',
+    'madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao', 'españa', 'spain'
+  ];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (consumedIndices.has(i)) continue;
+    const l = lines[i];
+    const lower = l.toLowerCase();
+
+    if (/disponib|incorporaci[oó]n|jornada/i.test(lower) && l.length < 80) {
+      availability = (availability ? availability + ' ' : '') + l;
+      consumedIndices.add(i);
+      continue;
+    }
+    if (/permiso|carnet|veh[ií]culo/i.test(lower) && l.length < 60) {
+      drivingLicense = l;
+      consumedIndices.add(i);
+      continue;
+    }
+    if (!location && locationPatterns.some(p => lower.includes(p)) && l.length < 60 && !l.includes('@')) {
+      location = l;
+      consumedIndices.add(i);
+      continue;
+    }
+  }
+
+  const norm = str => str.toLowerCase()
+    .replace(/[áàäâã]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöôõ]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .replace(/ñ/g, 'n')
+    .replace(/[^a-z0-9]/g, '');
+
+  let summary = '';
+  for (let i = 0; i < lines.length; i++) {
+    if (consumedIndices.has(i)) continue;
+    const l = lines[i];
+    const n = norm(l);
+    if (/^(datos|s?obremi|competencia|experiencia|formacion|certificac|educacion)/.test(n)) {
+      consumedIndices.add(i);
+      continue;
+    }
+    if (l === l.toUpperCase() && l.length <= 40) continue;
+
+    let isSkillList = l.includes('•') || l.includes('|');
+    if (!isSkillList && l.includes(',')) {
+      const commaParts = l.split(',').map(s => s.trim()).filter(Boolean);
+      if (commaParts.length >= 3) {
+        const allShort = commaParts.every(p => p.split(/\s+/).length <= 3 && p.length <= 25);
+        if (allShort) isSkillList = true;
+      }
+    }
+    if (isSkillList) continue;
+
+    const isProse = (l !== l.toUpperCase()) && (l.length > 55 || /^(?:soy|me considero|profesional|graduado|técnico|ingeniero|busco|mi objetivo)\b/i.test(l));
+
+    if (isProse || /profesional|comprometido|trayectoria|busco|metodología|aporto|responsable/i.test(l)) {
+      summary = (summary ? summary + ' ' : '') + l;
+      consumedIndices.add(i);
+    }
+  }
+
+  const skillItems = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (consumedIndices.has(i)) continue;
+    const l = lines[i];
+    const n = norm(l);
+
+    const isHeaderOrDegree = !n ||
+      n.startsWith('sobremi') ||
+      n === 'datos' ||
+      n.startsWith('competencia') ||
+      n.startsWith('habilidad') ||
+      n.startsWith('experiencia') ||
+      n.startsWith('formacion') ||
+      n.startsWith('certificac') ||
+      n.startsWith('educacion') ||
+      n.includes('desarrollo') ||
+      n.includes('tecnico') ||
+      n.includes('sistemas') ||
+      n.includes('daw') ||
+      n.includes('asir') ||
+      n.includes('dam') ||
+      n.startsWith('contacto') ||
+      professionKeywords.some(pk => n.includes(norm(pk))) ||
+      educationDegreeKeywords.some(ek => n.includes(norm(ek)));
+
+    if (isHeaderOrDegree) {
+      consumedIndices.add(i);
+      continue;
+    }
+
+    if (/[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && l.length >= 3 && l.length <= 40 && !l.includes('@') && !phoneRegex.test(l)) {
+      let cleanSkillName = l.replace(/[…\.]+$/, '').trim();
+      if (cleanSkillName.startsWith('PUNTUALIDAD Y SERIED')) cleanSkillName = 'PUNTUALIDAD Y SERIEDAD';
+      if (cleanSkillName.startsWith('MANEJO DE HERRAMIEN')) cleanSkillName = 'MANEJO DE HERRAMIENTAS';
+      if (cleanSkillName.startsWith('CAPACIDAD DE APRENDI')) cleanSkillName = 'CAPACIDAD DE APRENDIZAJE';
+      if (cleanSkillName.startsWith('PREVENCIÓN Y EPI') || cleanSkillName.startsWith('PREVENCION Y EPI')) cleanSkillName = 'PREVENCIÓN Y EPIS';
+
+      let desc = '';
+      if (i + 1 < lines.length && !consumedIndices.has(i + 1)) {
+        const nextLine = lines[i + 1];
+        const nextN = norm(nextLine);
+        const isNextHeader = nextN.startsWith('sobremi') || nextN.startsWith('competencia') || nextN.startsWith('experiencia') || nextN.startsWith('formacion') || nextN.includes('desarrollo');
+        if (nextLine.length < 85 && nextLine !== nextLine.toUpperCase() && !isNextHeader) {
+          desc = nextLine;
+          consumedIndices.add(i + 1);
+        }
+      }
+      skillItems.push({
+        name: cleanSkillName,
+        level: 5,
+        description: desc
+      });
+      consumedIndices.add(i);
+    } else if (l.includes('•') || l.includes('|') || (l.includes(',') && l.length <= 60 && !l.endsWith('.'))) {
+      const tokens = l.split(/[,•|]/).map(s => s.trim()).filter(s => s.length >= 2 && s.length <= 35);
+      for (const tok of tokens) {
+        skillItems.push({ name: tok, level: 5, description: '' });
+      }
+      consumedIndices.add(i);
+    }
+  }
+
+  let jobTitle = '';
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^(T\.S\.|TÉCNICO SUPERIOR|DESARROLLADOR|INGENIERO)/i.test(l) && l.length < 55) {
+      jobTitle = l.replace(/[…\.]+$/, '').trim();
+      break;
+    }
+  }
+  if (!jobTitle && experiences.length > 0) {
+    jobTitle = experiences[0].jobTitle;
+  }
+
+  let fullName = nameFromFilename;
+  if (!fullName) {
+    for (let i = 0; i < lines.length && i < 10; i++) {
+      const l = lines[i];
+      const lower = l.toLowerCase();
+      if (professionKeywords.some(pk => lower.includes(pk))) continue;
+      if (educationDegreeKeywords.some(ek => lower.includes(ek))) continue;
+      const words = l.split(/\s+/);
+      if (words.length >= 2 && words.length <= 4 && l.length >= 4 && l.length <= 40 && !/\d/.test(l) && !l.includes('@')) {
+        fullName = l;
+        break;
+      }
+    }
+  }
+
+  return {
+    fullName: fullName || '',
+    jobTitle: jobTitle || '',
+    email: email || '',
+    phone: phone || '',
+    location: location || '',
+    availability: availability || '',
+    drivingLicense: drivingLicense || '',
+    summary: summary.trim(),
+    experiences,
+    educations,
+    skillItems,
+    skills: skillItems.map(s => s.name)
+  };
+}
+
+app.post('/api/cv/extract-pdf', async (req, res) => {
+  try {
+    const { pdfBase64, filename } = req.body;
+    if (!pdfBase64) {
+      return res.status(400).json({ success: false, message: 'No se enviaron datos PDF en base64' });
+    }
+
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+
+    // 1. Exact SanctuaryCV Metadata check
+    const rawLatin = pdfBuffer.toString('latin1');
+    const match = rawLatin.match(/SanctuaryCV::([A-Za-z0-9+/=]+)/);
+    if (match) {
+      try {
+        const jsonStr = Buffer.from(match[1], 'base64').toString('utf8');
+        const exactProfile = JSON.parse(jsonStr);
+        if (exactProfile && exactProfile.fullName) {
+          return res.json({ success: true, isExactMetadata: true, profile: exactProfile });
+        }
+      } catch (_) {}
+    }
+
+    // 2. High-Fidelity PDF Text Extraction via PDFParse
+    let extractedText = '';
+    if (PDFParseClass) {
+      try {
+        const parser = new PDFParseClass({ data: pdfBuffer });
+        const result = await parser.getText();
+        extractedText = (typeof result === 'string') ? result : (result?.text || '');
+      } catch (err) {
+        console.warn('[Backend] Error en PDFParse:', err.message);
+      }
+    }
+
+    // 3. Fallback to Tesseract OCR if text extraction was sparse (< 60 chars)
+    if (extractedText.trim().length < 60 && Tesseract) {
+      try {
+        console.log('[Backend] Extracción de texto escasa en PDF. Ejecutando OCR con Tesseract...');
+        const ocrResult = await Tesseract.recognize(pdfBuffer, 'spa+eng');
+        if (ocrResult && ocrResult.data && ocrResult.data.text.trim().length > extractedText.trim().length) {
+          extractedText = ocrResult.data.text;
+        }
+      } catch (ocrErr) {
+        console.warn('[Backend] Error en OCR Tesseract:', ocrErr.message);
+      }
+    }
+
+    const parsedProfile = parseCvTextNode(extractedText, filename || '');
+
+    return res.json({
+      success: true,
+      rawText: extractedText,
+      profile: parsedProfile
+    });
+  } catch (err) {
+    console.error('[Backend] Error en /api/cv/extract-pdf:', err);
+    return res.status(500).json({ success: false, message: 'Error procesando documento PDF: ' + err.message });
+  }
 });
 
 // Repository Links: List

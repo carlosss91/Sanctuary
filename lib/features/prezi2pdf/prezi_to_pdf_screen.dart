@@ -987,15 +987,7 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
-              ),
-              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
-            ),
+            const SanctuaryPlanetLogo(size: 26, showGlow: true),
             const SizedBox(width: 9),
             const Text(
               'SANCTUARY',
@@ -1696,218 +1688,283 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
     final sizeMb = (bytes.lengthInBytes / (1024 * 1024)).toStringAsFixed(2);
     final sizeText = bytes.lengthInBytes > 1024 * 1024 ? '$sizeMb MB' : '$sizeKb KB';
 
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF064E3B).withOpacity(0.25) : const Color(0xFFECFDF5),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.emerald.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.emerald, size: 36),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 650;
+
+        final pdfIcon = Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.emerald.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _state.generatedPdfFilename ?? 'Presentacion_Slides.pdf',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          child: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.emerald, size: 32),
+        );
+
+        final pdfInfo = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _state.generatedPdfFilename ?? 'Presentacion_Slides.pdf',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Documento PDF generado · Tamaño: $sizeText · Formato apaisado',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        );
+
+        final previewBtn = OutlinedButton.icon(
+          onPressed: _previewPdf,
+          icon: const Icon(Icons.visibility_outlined, size: 16),
+          label: const Text('Visualizar'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.emerald,
+            side: const BorderSide(color: AppTheme.emerald),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+
+        final downloadBtn = ElevatedButton.icon(
+          onPressed: _shareOrDownloadPdf,
+          icon: const Icon(Icons.download_rounded, size: 16),
+          label: const Text('Descargar PDF'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+          ),
+        );
+
+        return Container(
+          padding: EdgeInsets.all(isNarrow ? 14 : 22),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF064E3B).withOpacity(0.25) : const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+          ),
+          child: isNarrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        pdfIcon,
+                        const SizedBox(width: 12),
+                        Expanded(child: pdfInfo),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(child: previewBtn),
+                        const SizedBox(width: 10),
+                        Expanded(child: downloadBtn),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    pdfIcon,
+                    const SizedBox(width: 18),
+                    Expanded(child: pdfInfo),
+                    const SizedBox(width: 14),
+                    previewBtn,
+                    const SizedBox(width: 10),
+                    downloadBtn,
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Documento PDF generado · Tamaño: $sizeText · Páginas nítidas en formato apaisado',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          OutlinedButton.icon(
-            onPressed: _previewPdf,
-            icon: const Icon(Icons.visibility_outlined, size: 18),
-            label: const Text('Visualizar / Imprimir'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.emerald,
-              side: const BorderSide(color: AppTheme.emerald),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(width: 10),
-          ElevatedButton.icon(
-            onPressed: _shareOrDownloadPdf,
-            icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('Descargar PDF'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildVideosSection(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(10),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 650;
+
+        final videoIcon = Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withOpacity(0.18),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.video_library_rounded, color: Color(0xFF8B5CF6), size: 20),
+        );
+
+        final videoTitleAndCount = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    isNarrow ? 'VIDEOS DETECTADOS' : 'VIDEOS DETECTADOS EN LA PRESENTACIÓN',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                child: const Icon(Icons.video_library_rounded, color: Color(0xFF8B5CF6), size: 20),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_detectedVideos.length}',
+                    style: const TextStyle(
+                      color: Color(0xFF8B5CF6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '$_selectedVideosCount de ${_detectedVideos.length} seleccionados para descarga',
+              style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+            ),
+          ],
+        );
+
+        final selectAllBtn = InkWell(
+          onTap: () => _toggleSelectAllVideos(!_isAllVideosSelected),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isAllVideosSelected
+                  ? AppTheme.emerald.withOpacity(0.15)
+                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _isAllVideosSelected ? AppTheme.emerald : Colors.grey.withOpacity(0.3),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            child: Row(
+              mainAxisSize: isNarrow ? MainAxisSize.max : MainAxisSize.min,
+              mainAxisAlignment: isNarrow ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: _isAllVideosSelected,
+                  activeColor: AppTheme.emerald,
+                  onChanged: _toggleSelectAllVideos,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _isAllVideosSelected ? 'Desmarcar todos' : 'Marcar todos',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _isAllVideosSelected ? AppTheme.emerald : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        final downloadVideosBtn = ElevatedButton.icon(
+          onPressed: (_selectedVideosCount > 0 && !_isBatchDownloading) ? _downloadSelectedVideos : null,
+          icon: _isBatchDownloading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.download_rounded, size: 18),
+          label: Text(
+            _isBatchDownloading ? 'Descargando...' : 'Descargar ($_selectedVideosCount)',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+          ),
+        );
+
+        return Container(
+          padding: EdgeInsets.all(isNarrow ? 14 : 24),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isNarrow)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
-                        const Text(
-                          'VIDEOS DETECTADOS EN LA PRESENTACIÓN',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8B5CF6).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${_detectedVideos.length}',
-                            style: const TextStyle(
-                              color: Color(0xFF8B5CF6),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        videoIcon,
+                        const SizedBox(width: 10),
+                        Expanded(child: videoTitleAndCount),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$_selectedVideosCount de ${_detectedVideos.length} seleccionados para descarga',
-                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: selectAllBtn),
+                        const SizedBox(width: 10),
+                        Expanded(child: downloadVideosBtn),
+                      ],
                     ),
                   ],
+                )
+              else
+                Row(
+                  children: [
+                    videoIcon,
+                    const SizedBox(width: 12),
+                    Expanded(child: videoTitleAndCount),
+                    selectAllBtn,
+                    const SizedBox(width: 14),
+                    downloadVideosBtn,
+                  ],
                 ),
-              ),
-
-              // TICK MASTER: SELECCIONAR / MARCAR TODOS
-              InkWell(
-                onTap: () => _toggleSelectAllVideos(!_isAllVideosSelected),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _isAllVideosSelected
-                        ? AppTheme.emerald.withOpacity(0.15)
-                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isAllVideosSelected ? AppTheme.emerald : Colors.grey.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Checkbox(
-                        value: _isAllVideosSelected,
-                        activeColor: AppTheme.emerald,
-                        onChanged: _toggleSelectAllVideos,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _isAllVideosSelected ? 'Desmarcar todos' : 'Marcar todos',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: _isAllVideosSelected ? AppTheme.emerald : null,
-                        ),
-                      ),
-                    ],
-                  ),
+              const SizedBox(height: 18),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 360,
+                  mainAxisExtent: 250,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
                 ),
-              ),
-
-              const SizedBox(width: 14),
-
-              ElevatedButton.icon(
-                onPressed: (_selectedVideosCount > 0 && !_isBatchDownloading) ? _downloadSelectedVideos : null,
-                icon: _isBatchDownloading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.download_rounded, size: 18),
-                label: Text(
-                  _isBatchDownloading ? 'Descargando...' : 'Descargar ($_selectedVideosCount)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                ),
+                itemCount: _detectedVideos.length,
+                itemBuilder: (context, idx) {
+                  final video = _detectedVideos[idx];
+                  return _buildVideoCard(video, isDark);
+                },
               ),
             ],
           ),
-
-          const SizedBox(height: 18),
-
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 360,
-              mainAxisExtent: 250,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: _detectedVideos.length,
-            itemBuilder: (context, idx) {
-              final video = _detectedVideos[idx];
-              return _buildVideoCard(video, isDark);
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

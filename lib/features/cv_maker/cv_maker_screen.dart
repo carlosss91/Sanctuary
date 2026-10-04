@@ -184,7 +184,11 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
   }
 
   Future<void> _handleImportCvDocument(CvProfileModel activeProfile) async {
-    final parsed = await CvDocumentParserService.pickAndParseCvDocument(context, activeProfile);
+    final parsed = await CvDocumentParserService.pickAndParseCvDocument(
+      context,
+      activeProfile,
+      apiService: widget.apiService,
+    );
     if (parsed != null) {
       _onProfileEdited(parsed);
       if (mounted) {
@@ -318,15 +322,7 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
-              ),
-              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
-            ),
+            const SanctuaryPlanetLogo(size: 26, showGlow: true),
             const SizedBox(width: 9),
             const Text(
               'SANCTUARY',

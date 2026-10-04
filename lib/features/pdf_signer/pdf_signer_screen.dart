@@ -666,15 +666,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
-              ),
-              child: const SanctuaryPlanetLogo(size: 22, showGlow: true),
-            ),
+            const SanctuaryPlanetLogo(size: 26, showGlow: true),
             const SizedBox(width: 9),
             const Text(
               'SANCTUARY',
@@ -788,12 +780,36 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               builder: (context, constraints) {
                 final isWideScreen = constraints.maxWidth > 960;
 
+                if (!isWideScreen) {
+                  return SingleChildScrollView(
+                    physics: _isDraggingSig
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.only(
+                      left: 8,
+                      right: 8,
+                      top: 8,
+                      bottom: 86, // Sits cleanly above the bottom floating dock
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 1. Document Sheet (cuadro del PDF más corto, ajustado a A4)
+                        _buildDocumentCanvas(isDark, isMobile, isEmbeddedScroll: true),
+                        const SizedBox(height: 14),
+                        // 2. Tarjeta de Auditoría y Firmantes debajo
+                        _buildAuditSidebar(isDark, dateFormat, isMobile: true),
+                      ],
+                    ),
+                  );
+                }
+
                 return Padding(
-                  padding: EdgeInsets.only(
-                    left: isMobile ? 8 : 16,
-                    right: isMobile ? 8 : 16,
-                    top: isMobile ? 8 : 14,
-                    bottom: isMobile ? 76 : 82, // Sits cleanly above the bottom floating dock
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 14,
+                    bottom: 82, // Sits cleanly above the bottom floating dock
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -805,13 +821,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                       ),
 
                       // Audit Trail Sidebar (for wide screens)
-                      if (isWideScreen) ...[
-                        const SizedBox(width: 14),
-                        Expanded(
-                          flex: 6,
-                          child: _buildAuditSidebar(isDark, dateFormat),
-                        ),
-                      ],
+                      const SizedBox(width: 14),
+                      Expanded(
+                        flex: 6,
+                        child: _buildAuditSidebar(isDark, dateFormat),
+                      ),
                     ],
                   ),
                 );
@@ -1199,10 +1213,116 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     );
   }
 
-  Widget _buildDocumentCanvas(bool isDark, bool isMobile) {
+  Widget _buildDocumentCanvas(bool isDark, bool isMobile, {bool isEmbeddedScroll = false}) {
     final activeSignatures = _pdfPageImages.isNotEmpty
         ? _document.signatures.where((s) => s.pageNumber == _currentPageIndex + 1).toList()
         : _document.signatures;
+
+    final sheetArea = LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth - (isMobile ? 12 : 28);
+        final autoFitScale = (availableWidth / pageA4Width).clamp(0.35, 1.25);
+        final effectiveScale = _isCustomZoom ? _zoomScale : (isMobile ? autoFitScale : 1.0);
+        _effectiveZoomScale = effectiveScale;
+
+        final docWidth = pageA4Width * effectiveScale;
+        final docHeight = pageA4Height * effectiveScale;
+
+        final documentWidget = Center(
+          child: SizedBox(
+            width: docWidth,
+            height: docHeight,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.topCenter,
+              child: _isRasterizingPdf
+                  ? Container(
+                      width: pageA4Width,
+                      height: pageA4Height,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: AppTheme.emerald),
+                            SizedBox(height: 16),
+                            Text('Procesando y renderizando páginas del PDF...', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    )
+                  : Container(
+                      width: pageA4Width,
+                      height: pageA4Height,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Stack(
+                          children: [
+                            // Document Body: real PDF page image or contract layout
+                            if (_pdfPageImages.isNotEmpty)
+                              Positioned.fill(
+                                child: Image.memory(
+                                  _pdfPageImages[_currentPageIndex],
+                                  fit: BoxFit.contain,
+                                ),
+                              )
+                            else
+                              Positioned.fill(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(32),
+                                  child: _buildContractDocumentBody(),
+                                ),
+                              ),
+
+                            // Embedded Placed Signatures Overlay for current page
+                            ...activeSignatures.map((sig) => _buildDraggableSignatureWidget(sig)),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        );
+
+        if (isEmbeddedScroll) {
+          // Surrounds A4 with a small neat margin on all 4 sides on mobile
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            child: documentWidget,
+          );
+        }
+
+        return SingleChildScrollView(
+          physics: _isDraggingSig
+              ? const NeverScrollableScrollPhysics()
+              : const BouncingScrollPhysics(),
+          padding: EdgeInsets.only(
+            top: isMobile ? 12 : 20,
+            bottom: isMobile ? 18 : 24,
+            left: isMobile ? 6 : 14,
+            right: isMobile ? 6 : 14,
+          ),
+          child: documentWidget,
+        );
+      },
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -1211,6 +1331,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
       ),
       child: Column(
+        mainAxisSize: isEmbeddedScroll ? MainAxisSize.min : MainAxisSize.max,
         children: [
           // Toolbar: Zoom, Page Info & Multi-page controls
           Container(
@@ -1301,100 +1422,10 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ),
 
           // Document Sheet Area (Adaptive to screen width, fits mobile cleanly)
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final availableWidth = constraints.maxWidth - (isMobile ? 12 : 28);
-                final autoFitScale = (availableWidth / pageA4Width).clamp(0.35, 1.25);
-                final effectiveScale = _isCustomZoom ? _zoomScale : (isMobile ? autoFitScale : 1.0);
-                _effectiveZoomScale = effectiveScale;
-
-                return SingleChildScrollView(
-                  physics: _isDraggingSig
-                      ? const NeverScrollableScrollPhysics()
-                      : const BouncingScrollPhysics(),
-                  padding: EdgeInsets.only(
-                    top: isMobile ? 12 : 20,
-                    bottom: isMobile ? 18 : 24, // Sits slightly below the A4 page within the canvas card
-                    left: isMobile ? 6 : 14,
-                    right: isMobile ? 6 : 14,
-                  ),
-                  child: Center(
-                    child: SizedBox(
-                      width: pageA4Width * effectiveScale,
-                      height: pageA4Height * effectiveScale,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        alignment: Alignment.topCenter,
-                        child: _isRasterizingPdf
-                            ? Container(
-                                width: pageA4Width,
-                                height: pageA4Height,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(4),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
-                                  ],
-                                ),
-                                child: const Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      CircularProgressIndicator(color: AppTheme.emerald),
-                                      SizedBox(height: 16),
-                                      Text('Procesando y renderizando páginas del PDF...', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            : Container(
-                                width: pageA4Width,
-                                height: pageA4Height,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(4),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.3),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Stack(
-                                    children: [
-                                      // Document Body: real PDF page image or contract layout
-                                      if (_pdfPageImages.isNotEmpty)
-                                        Positioned.fill(
-                                          child: Image.memory(
-                                            _pdfPageImages[_currentPageIndex],
-                                            fit: BoxFit.contain,
-                                          ),
-                                        )
-                                      else
-                                        Positioned.fill(
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(32),
-                                            child: _buildContractDocumentBody(),
-                                          ),
-                                        ),
-
-                                      // Embedded Placed Signatures Overlay for current page
-                                      ...activeSignatures.map((sig) => _buildDraggableSignatureWidget(sig)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          if (isEmbeddedScroll)
+            sheetArea
+          else
+            Expanded(child: sheetArea),
         ],
       ),
     );
@@ -1672,7 +1703,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     );
   }
 
-  Widget _buildAuditSidebar(bool isDark, DateFormat dateFormat) {
+  Widget _buildAuditSidebar(bool isDark, DateFormat dateFormat, {bool isMobile = false}) {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard.withOpacity(0.9) : AppTheme.lightCard,
@@ -1681,6 +1712,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
         children: [
           // Sidebar Header
           Padding(
@@ -1812,63 +1844,22 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ),
 
           // Signers List
-          Expanded(
-            child: ListView.builder(
+          if (isMobile)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               itemCount: _document.signatures.length,
-              itemBuilder: (ctx, i) {
-                final sig = _document.signatures[i];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.16),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.check, color: AppTheme.emerald, size: 14),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${sig.fullName} (Pág. ${sig.pageNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            if (sig.nationalId != null)
-                              Text('DNI/NIF: ${sig.nationalId}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                            const SizedBox(height: 2),
-                            Text(
-                              dateFormat.format(sig.signedAt),
-                              style: const TextStyle(fontSize: 9.5, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          sig.verificationHash,
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              itemBuilder: (ctx, i) => _buildSignatureListItem(ctx, _document.signatures[i], isDark, dateFormat),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                itemCount: _document.signatures.length,
+                itemBuilder: (ctx, i) => _buildSignatureListItem(ctx, _document.signatures[i], isDark, dateFormat),
+              ),
             ),
-          ),
 
           const Divider(height: 1),
 
@@ -1900,6 +1891,57 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   style: const TextStyle(fontSize: 9.5, fontFamily: 'monospace', color: Colors.grey),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignatureListItem(BuildContext context, PlacedSignature sig, bool isDark, DateFormat dateFormat) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withOpacity(0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, color: AppTheme.emerald, size: 14),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${sig.signerName} ${sig.signerSurname} (Pág. ${sig.pageNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                if (sig.nationalId != null)
+                  Text('DNI/NIF: ${sig.nationalId}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                const SizedBox(height: 2),
+                Text(
+                  dateFormat.format(sig.signedAt),
+                  style: const TextStyle(fontSize: 9.5, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              sig.verificationHash,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald),
             ),
           ),
         ],

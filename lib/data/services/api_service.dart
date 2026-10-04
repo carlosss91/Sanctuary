@@ -180,6 +180,33 @@ class ApiService {
     }
   }
 
+  /// Sends PDF bytes to the backend on Render for high-fidelity PDF text extraction & OCR
+  Future<CvProfileModel?> extractCvPdfOnline(Uint8List bytes, String fileName, CvProfileModel baseProfile) async {
+    try {
+      final b64 = base64Encode(bytes);
+      final res = await http.post(
+        Uri.parse('$baseUrl/cv/extract-pdf'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'pdfBase64': b64,
+          'filename': fileName,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic> && data['success'] == true && data['profile'] is Map<String, dynamic>) {
+          final profileMap = Map<String, dynamic>.from(data['profile'] as Map);
+          profileMap['id'] = baseProfile.id;
+          return CvProfileModel.fromJson(profileMap);
+        }
+      }
+    } catch (e) {
+      debugPrint('[ApiService] extractCvPdfOnline notice/fallback: $e');
+    }
+    return null;
+  }
+
   // --- Repo Links ---
   Future<List<RepoLinkModel>> getLinks() async {
     try {
@@ -579,20 +606,52 @@ class ApiService {
 
   // --- Ephemeral Community Chat ---
   Future<List<Map<String, dynamic>>> getChatMessages() async {
+    final localMsgs = storage.getChatMessages();
+
     try {
       final res = await http.get(Uri.parse('$baseUrl/chat/messages')).timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true && data['messages'] is List) {
-          final list = List<Map<String, dynamic>>.from(data['messages']);
-          await storage.saveChatMessages(list);
-          return list;
+          final serverList = (data['messages'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+
+          // Merge server messages with local messages without losing local unsynced today's messages
+          final Map<String, Map<String, dynamic>> mergedMap = {};
+
+          // Add local messages
+          for (final msg in localMsgs) {
+            final key = (msg['id'] ?? msg['timestamp'] ?? msg['created_at'])?.toString() ?? '';
+            if (key.isNotEmpty) mergedMap[key] = msg;
+          }
+
+          // Add/Update with server messages
+          for (final msg in serverList) {
+            final key = (msg['id'] ?? msg['timestamp'] ?? msg['created_at'])?.toString() ?? '';
+            if (key.isNotEmpty) mergedMap[key] = msg;
+          }
+
+          // Filter strictly for today's messages (renew daily at 00:00)
+          final mergedList = mergedMap.values.where((m) {
+            final ts = m['timestamp'] ?? m['created_at'] ?? m['id'];
+            return storage.isMessageFromToday(ts);
+          }).toList();
+
+          mergedList.sort((a, b) {
+            final tA = a['timestamp'] ?? a['created_at'] ?? a['id'] ?? '';
+            final tB = b['timestamp'] ?? b['created_at'] ?? b['id'] ?? '';
+            return tA.toString().compareTo(tB.toString());
+          });
+
+          await storage.saveChatMessages(mergedList);
+          return mergedList;
         }
       }
     } catch (e) {
       debugPrint('Syncing chat with backend failed (using local): $e');
     }
-    return storage.getChatMessages();
+    return localMsgs;
   }
 
   Future<Map<String, dynamic>> sendChatMessage({
@@ -601,13 +660,17 @@ class ApiService {
     required String role,
     String? avatarUrl,
   }) async {
+    final nowIso = DateTime.now().toIso8601String();
     final localMsg = {
       'id': DateTime.now().millisecondsSinceEpoch,
       'username': username,
       'role': role,
       'message': message,
+      'text': message,
       'avatarUrl': avatarUrl,
-      'timestamp': DateTime.now().toIso8601String(),
+      'avatar_url': avatarUrl,
+      'timestamp': nowIso,
+      'created_at': nowIso,
     };
 
     // 1. Immediately persist locally (instant UI response)

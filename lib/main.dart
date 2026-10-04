@@ -164,7 +164,7 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
                   // Ephemeral Community Chat Floating Widget
                   Positioned(
                     right: 22,
-                    bottom: 22,
+                    bottom: 78,
                     child: SanctuaryChatWidget(
                       apiService: widget.apiService,
                       currentUser: _currentUser!,

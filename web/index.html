@@ -35,6 +35,8 @@
 
   <!-- PDF.js for Web PDF Rendering & Text Extraction (required for GitHub Pages & Printing.raster) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <!-- Tesseract.js for Browser-based Client-side OCR on GitHub Pages -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="text/javascript">
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
@@ -83,6 +85,33 @@
           }
           fullText += pageText + '\n\n';
         }
+
+        // OCR Fallback with Tesseract.js if text extraction yielded very sparse text (< 60 chars)
+        if (fullText.trim().length < 60 && typeof Tesseract !== 'undefined') {
+          console.log('[Sanctuary] Texto escaso extraído con PDF.js (' + fullText.trim().length + ' chars). Iniciando OCR con Tesseract.js...');
+          let ocrFullText = '';
+          for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+            try {
+              const page = await pdf.getPage(i);
+              const viewport = page.getViewport({ scale: 2.0 });
+              const canvas = document.createElement('canvas');
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              const ctx = canvas.getContext('2d');
+              await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+              const ocrRes = await Tesseract.recognize(canvas, 'spa+eng');
+              if (ocrRes && ocrRes.data && ocrRes.data.text) {
+                ocrFullText += ocrRes.data.text + '\n\n';
+              }
+            } catch (ocrErr) {
+              console.warn('[Sanctuary] Error en OCR de página ' + i + ':', ocrErr);
+            }
+          }
+          if (ocrFullText.trim().length > fullText.trim().length) {
+            fullText = ocrFullText;
+          }
+        }
+
         console.log('[Sanctuary] PDF text extraction completed. Characters extracted:', fullText.length);
         return fullText;
       } catch (err) {

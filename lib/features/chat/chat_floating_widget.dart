@@ -133,6 +133,9 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
   @override
   void initState() {
     super.initState();
+    // 1. Immediately hydrate with persisted messages from today (never blank across sessions/logouts)
+    _messages = widget.apiService.storage.getChatMessages();
+    _lastSeenCount = _messages.length;
     _fetchMessages();
     _refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (mounted) _fetchMessages(silent: true);

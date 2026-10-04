@@ -397,13 +397,41 @@ class StorageService {
     }
   }
 
-  // --- Community Chat ---
+  // --- Community Chat (Permanent across sessions, auto-renewed daily at 00:00) ---
+  bool isMessageFromToday(dynamic timestamp) {
+    if (timestamp == null) return false;
+    try {
+      DateTime dt;
+      if (timestamp is int) {
+        dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      } else {
+        dt = DateTime.parse(timestamp.toString()).toLocal();
+      }
+      final now = DateTime.now();
+      return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
   List<Map<String, dynamic>> getChatMessages() {
     final str = _prefs.getString(_keyChatMessages);
     if (str == null) return [];
     try {
       final list = jsonDecode(str) as List;
-      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final parsed = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+      // Keep strictly messages from today (renewed automatically at 00:00 midnight)
+      final todayList = parsed.where((m) {
+        final ts = m['timestamp'] ?? m['created_at'] ?? m['id'];
+        return isMessageFromToday(ts);
+      }).toList();
+
+      // If older messages were pruned across midnight, persist the updated today's list
+      if (todayList.length != parsed.length) {
+        saveChatMessages(todayList);
+      }
+      return todayList;
     } catch (_) {
       return [];
     }
@@ -416,8 +444,8 @@ class StorageService {
   Future<void> addChatMessage(Map<String, dynamic> msg) async {
     final list = getChatMessages();
     list.add(msg);
-    if (list.length > 100) {
-      list.removeRange(0, list.length - 100);
+    if (list.length > 200) {
+      list.removeRange(0, list.length - 200);
     }
     await saveChatMessages(list);
   }

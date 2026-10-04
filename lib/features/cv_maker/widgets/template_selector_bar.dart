@@ -83,25 +83,38 @@ class TemplateSelectorBar extends StatelessWidget {
           final isNarrow = constraints.maxWidth < 780;
 
           if (isNarrow) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildTitleLabel(isDark),
-                  const SizedBox(width: 12),
-                  const SizedBox(height: 24, child: VerticalDivider(width: 1)),
-                  const SizedBox(width: 12),
-                  _buildProfileSelector(context, activeProfile, isDark),
-                  const SizedBox(width: 12),
-                  const SizedBox(height: 24, child: VerticalDivider(width: 1)),
-                  const SizedBox(width: 12),
-                  ...templates.map((tpl) => _buildTemplateCard(tpl, isDark)),
-                  if (onImportCv != null) ...[
-                    const SizedBox(width: 10),
-                    _buildImportButton(),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. Título arriba de la tarjeta + botón de importar más pequeño
+                Row(
+                  children: [
+                    _buildTitleLabel(isDark, isCompact: true),
+                    const Spacer(),
+                    if (onImportCv != null)
+                      _buildCompactImportButton(isDark),
                   ],
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                // 2. Debajo: selector de perfiles guardados + iconos de plantilla (sin texto para que quepa todo sin deslizar)
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: _buildProfileSelector(context, activeProfile, isDark, isCompact: true),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 6,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: templates.map((tpl) => _buildTemplateIconButton(tpl, isDark)).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             );
           }
 
@@ -140,41 +153,118 @@ class TemplateSelectorBar extends StatelessWidget {
     );
   }
 
-  Widget _buildTitleLabel(bool isDark) {
+  Widget _buildTitleLabel(bool isDark, {bool isCompact = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: EdgeInsets.all(isCompact ? 5 : 6),
           decoration: BoxDecoration(
             color: AppTheme.emerald.withOpacity(0.18),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.style_outlined, color: AppTheme.emerald, size: 18),
+          child: Icon(Icons.style_outlined, color: AppTheme.emerald, size: isCompact ? 16 : 18),
         ),
         const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Plantillas de Currículum',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
             Text(
-              'Diferentes disposiciones de datos',
-              style: TextStyle(
-                fontSize: 10,
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-              ),
+              'Plantillas de Currículum',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: isCompact ? 12 : 13),
             ),
+            if (!isCompact)
+              Text(
+                'Diferentes disposiciones de datos',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildProfileSelector(BuildContext context, CvProfileModel activeProfile, bool isDark) {
+  Widget _buildTemplateIconButton(TemplateOption tpl, bool isDark) {
+    final isSelected = activeTemplate == tpl.id;
+    return Tooltip(
+      message: '${tpl.name}: ${tpl.description}',
+      child: InkWell(
+        onTap: () => onSelectTemplate(tpl.id),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.emerald.withOpacity(0.22)
+                : (isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? AppTheme.emerald
+                  : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+              width: isSelected ? 1.8 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.emerald.withOpacity(0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Icon(
+            tpl.icon,
+            size: 20,
+            color: isSelected
+                ? AppTheme.emerald
+                : (isDark ? Colors.white70 : const Color(0xFF475569)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactImportButton(bool isDark) {
+    return Tooltip(
+      message: 'Importar currículum desde archivo PDF o DOCX',
+      child: InkWell(
+        onTap: onImportCv,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppTheme.emerald.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.file_upload_outlined, size: 14, color: AppTheme.emerald),
+              SizedBox(width: 4),
+              Text(
+                'Importar',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.emerald,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileSelector(BuildContext context, CvProfileModel activeProfile, bool isDark, {bool isCompact = false}) {
     return PopupMenuButton<String>(
       tooltip: 'Cambiar Alumno / Ficha Activa',
       offset: const Offset(0, 42),
@@ -254,8 +344,8 @@ class TemplateSelectorBar extends StatelessWidget {
         ),
       ],
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        constraints: BoxConstraints(maxWidth: isCompact ? double.infinity : 160),
+        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 5 : 7),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(10),

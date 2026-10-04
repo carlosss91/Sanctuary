@@ -5,12 +5,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../models/cv_profile_model.dart';
 import '../../core/theme/app_theme.dart';
+import 'api_service.dart';
 import 'pdf_extractor_stub.dart'
     if (dart.library.html) 'pdf_extractor_web.dart';
 
 class CvDocumentParserService {
   /// Prompts user to select a .pdf or .docx document, extracts its text, and parses into a CvProfileModel
-  static Future<CvProfileModel?> pickAndParseCvDocument(BuildContext context, CvProfileModel baseProfile) async {
+  static Future<CvProfileModel?> pickAndParseCvDocument(
+    BuildContext context,
+    CvProfileModel baseProfile, {
+    ApiService? apiService,
+  }) async {
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -48,7 +53,22 @@ class CvDocumentParserService {
           return null;
         }
 
-        // 2. High-fidelity extraction via Mozilla pdf.js (decodes subsetted font glyphs & CMaps on Web / GitHub Pages)
+        // 2. High-fidelity Server/Render extraction with OCR if online
+        if (apiService != null) {
+          try {
+            final onlineProfile = await apiService.extractCvPdfOnline(bytes, fileName, baseProfile);
+            if (onlineProfile != null && (onlineProfile.experiences.isNotEmpty || onlineProfile.educations.isNotEmpty)) {
+              if (!context.mounted) return onlineProfile;
+              final confirmed = await _showReviewImportDialog(context, onlineProfile, fileName);
+              if (confirmed == true) return onlineProfile;
+              return null;
+            }
+          } catch (e) {
+            debugPrint('[CvDocumentParserService] Online PDF extraction notice: $e');
+          }
+        }
+
+        // 3. High-fidelity extraction via Mozilla pdf.js (decodes subsetted font glyphs & CMaps on Web / GitHub Pages with OCR)
         try {
           final webPdfText = await extractTextWithPdfJsWeb(bytes);
           if (webPdfText.trim().isNotEmpty) {
@@ -58,7 +78,7 @@ class CvDocumentParserService {
           debugPrint('[CvDocumentParserService] extractTextWithPdfJsWeb aviso: $e');
         }
 
-        // 3. Fallback to native Dart PDF extraction (with CMap stream decoding & TJ array parsing)
+        // 4. Fallback to native Dart PDF extraction (with CMap stream decoding & TJ array parsing)
         if (extractedText.trim().isEmpty) {
           extractedText = _extractTextFromPdf(bytes);
         }
@@ -75,7 +95,7 @@ class CvDocumentParserService {
         return null;
       }
 
-      final parsed = _parseCvText(extractedText, baseProfile);
+      final parsed = parseCvText(extractedText, baseProfile, fileName);
 
       if (!context.mounted) return parsed;
 
@@ -492,13 +512,37 @@ class CvDocumentParserService {
         .trim();
   }
 
-  /// Robust heuristic semantic parser for CV contents
-  static CvProfileModel _parseCvText(String rawText, CvProfileModel baseProfile) {
+  /// Cleans artificially spaced characters from fonts/PDF layouts (e.g. 'T . S . E N   D E S A R R O L L O')
+  static String _cleanSpacedLetters(String str) {
+    if (RegExp(r'^([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\.]\s+){3,}').hasMatch(str)) {
+      return str
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAllMapped(RegExp(r'([A-Za-zÁÉÍÓÚáéíóúñÑ0-9])\s+(?=[A-Za-zÁÉÍÓÚáéíóúñÑ0-9])'), (m) => m.group(1)!)
+          .trim();
+    }
+    return str;
+  }
+
+  /// Normalizes string for fuzzy/squashed layout checks (removes accents and non-alphanumeric chars)
+  static String _normalizeLetters(String str) {
+    return str
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàäâã]'), 'a')
+        .replaceAll(RegExp(r'[éèëê]'), 'e')
+        .replaceAll(RegExp(r'[íìïî]'), 'i')
+        .replaceAll(RegExp(r'[óòöôõ]'), 'o')
+        .replaceAll(RegExp(r'[úùüû]'), 'u')
+        .replaceAll(RegExp(r'[ñ]'), 'n')
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  /// Robust heuristic semantic parser for CV contents with filename awareness and layout independence
+  static CvProfileModel parseCvText(String rawText, CvProfileModel baseProfile, [String fileName = '']) {
     final cleanText = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final lines = cleanText
+    final rawLines = cleanText
         .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
+        .map((l) => _cleanSpacedLetters(l.trim()))
+        .where((l) => l.isNotEmpty && l != '-- 1 of 1 --')
         .toList();
 
     // Check if baseProfile was just an unedited placeholder template
@@ -511,24 +555,25 @@ class CvDocumentParserService {
     String email = (isPlaceholderBase || baseProfile.email == 'alumno@correo.es') ? '' : baseProfile.email;
     String phone = (isPlaceholderBase || baseProfile.phone.contains('000 000')) ? '' : baseProfile.phone;
     String location = (isPlaceholderBase || baseProfile.location == 'Las Palmas, Gran Canaria') ? '' : baseProfile.location;
+    String availability = baseProfile.availability;
+    String drivingLicense = baseProfile.drivingLicense;
     String summary = (isPlaceholderBase || baseProfile.summary.startsWith('Persona responsable y motivada')) ? '' : baseProfile.summary;
     List<CvExperience> experiences = isPlaceholderBase ? [] : List.from(baseProfile.experiences);
     List<CvEducation> educations = isPlaceholderBase ? [] : List.from(baseProfile.educations);
     List<CvSkillItem> skillItems = isPlaceholderBase ? [] : List.from(baseProfile.skillItems);
 
-    // 1. Regex search for email
+    // 1. Email Regex
     final emailRegex = RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}');
     final emailMatch = emailRegex.firstMatch(cleanText);
     if (emailMatch != null) {
       email = emailMatch.group(0)!.replaceAll(RegExp(r'[.,;:]+$'), '');
     }
 
-    // 2. Regex search for phone number (strictly rejecting PDF timestamps like 20260916...)
+    // 2. Phone Regex (strictly rejecting PDF metadata timestamps)
     final phoneRegex = RegExp(r'(?:\+?34[-.\s]?)?[6789]\d{2}[-.\s]?\d{2,3}[-.\s]?\d{2,3}[-.\s]?\d{2,3}|(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}');
     for (final m in phoneRegex.allMatches(cleanText)) {
       final cand = m.group(0)!.trim().replaceAll(RegExp(r'[.,;:]+$'), '');
       final digits = cand.replaceAll(RegExp(r'\D'), '');
-      // Strict rejection of PDF timestamps and metadata numbers (e.g. 20260916164141, 1999..., /CreationDate)
       if (digits.length > 14) continue;
       if (digits.startsWith('202') && digits.length >= 8 && !cand.contains('+')) continue;
       if (digits.startsWith('199') && digits.length >= 8 && !cand.contains('+')) continue;
@@ -537,295 +582,370 @@ class CvDocumentParserService {
       break;
     }
 
-    // 3. Location detection
-    final locationPatterns = [
-      'gran canaria', 'las palmas', 'tenerife', 'canarias', 'arucas', 'telde', 'gáldar', 'vecindario', 'maspalomas',
-      'madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao', 'zaragoza', 'málaga', 'malaga', 'alicante', 'murcia',
-      'valladolid', 'vigo', 'gijón', 'oviedo', 'españa', 'spain'
-    ];
-    for (final line in lines) {
-      final lower = line.toLowerCase();
-      // Check explicit label
-      final labelMatch = RegExp(r'^(?:ubicación|ubicacion|dirección|direccion|ciudad|localidad|residencia|domicilio|address|location)\s*[:\-]\s*(.+)$', caseSensitive: false).firstMatch(line);
-      if (labelMatch != null && labelMatch.group(1)!.trim().isNotEmpty) {
-        location = labelMatch.group(1)!.trim();
-        break;
-      }
-      if (locationPatterns.any((pat) => lower.contains(pat)) && line.length < 65 && !line.contains('@')) {
-        location = line;
-        break;
+    // 3. Name candidate from filename (e.g., CV CARLOS S.S. 2026 FINAL.pdf -> CARLOS S.S.)
+    String nameFromFilename = '';
+    if (fileName.isNotEmpty) {
+      String fnClean = fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$', caseSensitive: false), '');
+      fnClean = fnClean.replaceAll(RegExp(r'^(?:curriculum(?:\s*vitae)?|cv|hoja\s*de\s*vida|resume)\s*[-_ ]*', caseSensitive: false), '');
+      fnClean = fnClean.replaceAll(RegExp(r'[-_ ]*(?:curriculum(?:\s*vitae)?|cv|final|v\d+|\b20\d\d\b)\b.*$', caseSensitive: false), '');
+      fnClean = fnClean.replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+      if (fnClean.length >= 3 && fnClean.length <= 50) {
+        nameFromFilename = fnClean;
       }
     }
-
-    // 4. Name & Job title detection from header lines
-    // First, check explicit label matches
-    for (final line in lines) {
-      if (fullName.isEmpty) {
-        final nameMatch = RegExp(r'^(?:nombre(?:\s+completo|\s+y\s+apellidos)?|candidato|datos\s+personales)\s*[:\-]\s*(.+)$', caseSensitive: false).firstMatch(line);
-        if (nameMatch != null && nameMatch.group(1)!.trim().length >= 3) {
-          fullName = nameMatch.group(1)!.trim();
-        }
-      }
-      if (jobTitle.isEmpty) {
-        final jobMatch = RegExp(r'^(?:puesto|cargo|profesión|profesion|titular|perfil|especialidad|ocupación|ocupacion)\s*[:\-]\s*(.+)$', caseSensitive: false).firstMatch(line);
-        if (jobMatch != null && jobMatch.group(1)!.trim().length >= 3) {
-          jobTitle = jobMatch.group(1)!.trim();
-        }
-      }
-    }
-
-    // Candidate lines for header if not found via labels
-    final candidateLines = lines.where((line) {
-      final up = line.toUpperCase().trim();
-      return up != 'CURRICULUM' &&
-          up != 'CURRICULUM VITAE' &&
-          up != 'CURRÍCULUM VITAE' &&
-          up != 'CV' &&
-          up != 'HOJA DE VIDA' &&
-          up != 'RESUME' &&
-          up != 'DATOS PERSONALES' &&
-          up != 'CONTACTO' &&
-          up != 'PORTFOLIO' &&
-          !up.startsWith('PAGE ') &&
-          !up.startsWith('PÁGINA ') &&
-          !up.contains('CREATIONDATE') &&
-          !up.contains('PRODUCER') &&
-          !line.contains('http') &&
-          !line.contains('@') &&
-          !RegExp(r'^\d+$').hasMatch(line);
-    }).toList();
 
     final professionKeywords = [
       'desarrollador', 'developer', 'ingeniero', 'engineer', 'arquitecto', 'técnico', 'tecnico',
       'diseñador', 'designer', 'administrativo', 'operario', 'auxiliar', 'profesor', 'docente',
       'consultor', 'responsable', 'encargado', 'director', 'analista', 'comercial', 'enfermero',
       'médico', 'psicólogo', 'coordinador', 'especialista', 'camarero', 'cocinero', 'electricista',
-      'fontanero', 'mecánico', 'conductor', 'almacenero', 'soldador', 'jardinero', 'dependiente'
+      'fontanero', 'mecánico', 'conductor', 'almacenero', 'soldador', 'jardinero', 'dependiente',
+      'maestro', 'monitor'
     ];
 
-    for (int i = 0; i < candidateLines.length && i < 10; i++) {
-      final line = candidateLines[i].trim();
-      if (line.isEmpty || line.contains(':')) continue;
+    final educationDegreeKeywords = [
+      'grado', 'fp', 'formación profesional', 'formacion profesional', 'diplomatura', 'licenciatura',
+      'máster', 'master', 'bachillerato', 'eso', 'educación secundaria', 'curso', 'adaptación al grado',
+      'adaptacion al grado', 'técnico superior en', 'tecnico superior en', 'ciclo formativo', 'doctorado'
+    ];
 
-      if (fullName.isEmpty) {
-        // Name usually has 2-5 words, no digits, proper length
-        final words = line.split(RegExp(r'\s+'));
-        if (line.length >= 4 && line.length <= 48 && words.length >= 2 && words.length <= 5 && !RegExp(r'\d').hasMatch(line)) {
-          fullName = line;
-          continue;
-        }
-      } else if (jobTitle.isEmpty && line != fullName) {
-        final lower = line.toLowerCase();
-        if (professionKeywords.any((pk) => lower.contains(pk)) || (line.length >= 3 && line.length <= 55 && !RegExp(r'\d').hasMatch(line))) {
-          jobTitle = line;
-          break;
-        }
+    final educationInstKeywords = [
+      'universidad', 'instituto', 'i.e.s.', 'ies', 'colegio', 'facultad', 'academia', 'ilerna',
+      'ulpgc', 'ull', 'uned', 'uoc', 'ceip', 'c.e.i.p.'
+    ];
+
+    final sectionHeaderRegex = RegExp(
+      r'^(?:datos|s\s*obre\s*m[ií]|sobre\s*m[ií]|perfil(?:\s*profesional)?|resumen|competencias(?:\s*clave)?|habilidades|skills|aptitudes|experiencia(?:\s*laboral|\s*profesional)?|formaci[oó]n(?:\s*y\s*certificaciones|\s*acad[eé]mica)?|certificaciones|educaci[oó]n|contacto)$',
+      caseSensitive: false,
+    );
+
+    // 4. Structural Date-Anchored Block Detection (Independent of section header positions!)
+    const monthsPattern = r'(?:ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre|t)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+    final dateRegex = RegExp(
+      r'\b(?:(?:' + monthsPattern + r'[\s./,-]*)?(?:\d{1,2}[./-])?(?:19\d\d|20\d\d)\b(?:\s*[-–—/a]\s*(?:(?:' + monthsPattern + r'[\s./,-]*)?(?:\d{1,2}[./-])?(?:19\d\d|20\d\d)|actualidad|presente|present))?|(?:19\d\d|20\d\d)\s*[-–—]\s*(?:19\d\d|20\d\d)|actualidad|presente)\b',
+      caseSensitive: false,
+    );
+
+    final List<int> dateIndices = [];
+    for (int i = 0; i < rawLines.length; i++) {
+      final l = rawLines[i];
+      if (dateRegex.hasMatch(l) && l.length < 50 && !l.contains('@')) {
+        dateIndices.add(i);
       }
     }
 
-    // 5. Section parsing
-    String currentSection = '';
-    final summaryBuffer = StringBuffer();
-    final List<String> rawExpBlocks = [];
-    final List<String> rawEduBlocks = [];
-    final List<String> rawSkillTokens = [];
+    final List<CvExperience> discoveredExp = [];
+    final List<CvEducation> discoveredEdu = [];
+    final Set<int> consumedLineIndices = {};
 
-    final sectionHeaders = {
-      'summary': [
-        'perfil', 'resumen', 'sobre mí', 'sobre mi', 'summary', 'about me', 'acerca de',
-        'perfil profesional', 'resumen profesional', 'presentación', 'bio', 'extracto',
-        'objetivo profesional', 'objetivo', 'perfil laboral'
-      ],
-      'experience': [
-        'experiencia', 'experiencia laboral', 'experiencia profesional', 'historial laboral',
-        'historial profesional', 'trayectoria', 'trayectoria laboral', 'work experience', 'experience',
-        'empleo', 'cargos', 'puestos desempeñados', 'vida laboral', 'actividad profesional'
-      ],
-      'education': [
-        'educación', 'educacion', 'formación', 'formacion', 'formación académica', 'formacion academica',
-        'estudios', 'estudios realizados', 'education', 'certificaciones', 'titulación', 'titulaciones',
-        'titulacion', 'cursos y certificaciones', 'diplomas', 'cursos', 'formación complementaria',
-        'formacion complementaria', 'grados'
-      ],
-      'skills': [
-        'habilidades', 'competencias', 'competencias clave', 'competencias profesionales', 'skills',
-        'conocimientos', 'conocimientos técnicos', 'aptitudes', 'tecnologías', 'tecnologias',
-        'herramientas', 'destrezas', 'habilidades técnicas', 'habilidades blandas'
-      ],
-      'contact': ['contacto', 'datos personales', 'contact', 'datos de contacto', 'información de contacto'],
-    };
+    for (int k = 0; k < dateIndices.length; k++) {
+      final i = dateIndices[k];
+      final period = rawLines[i];
+      consumedLineIndices.add(i);
 
-    for (final line in lines) {
-      final cleanLine = line.replaceAll(RegExp(r'^[0-9.\-–—\s*•|]+'), '').trim();
-      final lower = cleanLine.toLowerCase().replaceAll(RegExp(r'[^\w\sáéíóúñ]'), '').trim();
+      String title = '';
+      String org = '';
 
-      String? matchedSection;
-      for (final entry in sectionHeaders.entries) {
-        if (entry.value.any((kw) => lower == kw || lower.startsWith('$kw ') || lower.endsWith(' $kw'))) {
-          matchedSection = entry.key;
-          break;
+      if (i >= 2 && !consumedLineIndices.contains(i - 2) && !consumedLineIndices.contains(i - 1)) {
+        title = rawLines[i - 2];
+        org = rawLines[i - 1];
+        consumedLineIndices.add(i - 2);
+        consumedLineIndices.add(i - 1);
+      } else if (i >= 1 && !consumedLineIndices.contains(i - 1)) {
+        title = rawLines[i - 1];
+        consumedLineIndices.add(i - 1);
+        if (i + 1 < rawLines.length && (k == dateIndices.length - 1 || i + 1 < dateIndices[k + 1] - 1) && rawLines[i + 1].length < 75) {
+          org = rawLines[i + 1];
+          consumedLineIndices.add(i + 1);
         }
       }
 
-      if (matchedSection != null) {
-        currentSection = matchedSection;
+      final nextLimit = (k + 1 < dateIndices.length) ? dateIndices[k + 1] - 2 : rawLines.length;
+      final descLines = <String>[];
+      int d = i + 1;
+      while (d < nextLimit && d < rawLines.length) {
+        if (consumedLineIndices.contains(d)) { d++; continue; }
+        final dl = rawLines[d];
+        if (sectionHeaderRegex.hasMatch(dl)) break;
+        if (dl.contains('@') || phoneRegex.hasMatch(dl)) break;
+        if (dl.length > 25) {
+          descLines.add(dl);
+          consumedLineIndices.add(d);
+        }
+        d++;
+      }
+
+      final lowerTitle = title.toLowerCase();
+      final lowerOrg = org.toLowerCase();
+
+      final isExplicitJob = professionKeywords.any((pk) => lowerTitle.startsWith(pk) || lowerTitle.contains(' $pk'));
+      final isExplicitEduDegree = educationDegreeKeywords.any((ek) => lowerTitle.contains(ek));
+      final isExplicitEduInst = educationInstKeywords.any((ik) => lowerOrg.contains(ik));
+
+      final isEdu = (!isExplicitJob && (isExplicitEduDegree || isExplicitEduInst)) || (isExplicitEduDegree && !isExplicitJob);
+
+      final cleanTitle = title.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+      final cleanOrg = org.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+
+      if (isEdu) {
+        discoveredEdu.add(CvEducation(
+          degree: cleanTitle.isNotEmpty ? cleanTitle : 'Titulación / Certificado',
+          institution: cleanOrg.isNotEmpty ? cleanOrg : 'Centro Formativo',
+          period: period,
+          details: descLines.join('\n'),
+        ));
+      } else {
+        discoveredExp.add(CvExperience(
+          jobTitle: cleanTitle.isNotEmpty ? cleanTitle : 'Puesto de Trabajo',
+          company: cleanOrg.isNotEmpty ? cleanOrg : 'Empresa / Entidad',
+          period: period,
+          description: descLines.join('\n'),
+        ));
+      }
+    }
+
+    if (discoveredExp.isNotEmpty) experiences = discoveredExp;
+    if (discoveredEdu.isNotEmpty) educations = discoveredEdu;
+
+    // 5. Contact Details & Location Extraction
+    final locationPatterns = [
+      'arrecife', 'lanzarote', 'puerto del rosario', 'fuerteventura', 'las palmas', 'gran canaria',
+      'tenerife', 'santa cruz', 'la palma', 'la gomera', 'el hierro', 'canarias', 'telde', 'arucas',
+      'gáldar', 'vecindario', 'maspalomas', 'madrid', 'barcelona', 'valencia', 'sevilla', 'bilbao',
+      'zaragoza', 'málaga', 'malaga', 'alicante', 'murcia', 'valladolid', 'vigo', 'gijón', 'oviedo',
+      'españa', 'spain'
+    ];
+
+    for (int i = 0; i < rawLines.length; i++) {
+      if (consumedLineIndices.contains(i)) continue;
+      final l = rawLines[i];
+      final lower = l.toLowerCase();
+
+      if (RegExp(r'disponib|incorporaci[oó]n|jornada', caseSensitive: false).hasMatch(lower) && l.length < 80) {
+        availability = l;
+        consumedLineIndices.add(i);
+        continue;
+      }
+      if (RegExp(r'permiso|carnet|veh[ií]culo', caseSensitive: false).hasMatch(lower) && l.length < 60) {
+        drivingLicense = l;
+        consumedLineIndices.add(i);
+        continue;
+      }
+      if (location.isEmpty && locationPatterns.any((p) => lower.contains(p)) && l.length < 60 && !l.contains('@')) {
+        location = l;
+        consumedLineIndices.add(i);
+        continue;
+      }
+    }
+
+    // 6. Summary Extraction
+    final summaryBuffer = StringBuffer();
+    for (int i = 0; i < rawLines.length; i++) {
+      if (consumedLineIndices.contains(i)) continue;
+      final l = rawLines[i];
+      if (sectionHeaderRegex.hasMatch(l)) {
+        consumedLineIndices.add(i);
         continue;
       }
 
-      switch (currentSection) {
-        case 'summary':
-          if (summaryBuffer.length < 800) {
-            summaryBuffer.writeln(line);
+      // Do NOT consume all-uppercase short titles into summary (e.g. TRABAJO EN EQUIPO)
+      if (l == l.toUpperCase() && l.length <= 40) continue;
+
+      // If line has multiple commas or bullets, check if it's a list of short skill tokens vs prose sentence
+      bool isSkillList = l.contains('•') || l.contains('|');
+      if (!isSkillList && l.contains(',')) {
+        final commaParts = l.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        if (commaParts.length >= 3) {
+          final allShortParts = commaParts.every((p) => p.split(RegExp(r'\s+')).length <= 3 && p.length <= 25);
+          if (allShortParts) {
+            isSkillList = true;
           }
-          break;
-        case 'experience':
-          rawExpBlocks.add(line);
-          break;
-        case 'education':
-          rawEduBlocks.add(line);
-          break;
-        case 'skills':
-          if (line.contains(',') || line.contains('•') || line.contains('-') || line.contains('|') || line.contains('/')) {
-            rawSkillTokens.addAll(line.split(RegExp(r'[,•|/\-]')).map((s) => s.trim()).where((s) => s.length >= 2));
-          } else if (line.length < 40) {
-            rawSkillTokens.add(line);
-          }
-          break;
-        case 'contact':
-          if (locationPatterns.any((pat) => line.toLowerCase().contains(pat))) {
-            location = line;
-          }
-          break;
+        }
+      }
+      if (isSkillList) continue;
+
+      final bool isProseLine = (l != l.toUpperCase()) &&
+          (l.length > 55 ||
+           RegExp(r'^(?:soy|me considero|profesional|graduado|técnico|ingeniero|busco|mi objetivo)\b', caseSensitive: false).hasMatch(l));
+
+      if (isProseLine ||
+          RegExp(r'profesional|comprometido|trayectoria|busco|metodología|aporto|responsable', caseSensitive: false).hasMatch(l)) {
+        summaryBuffer.writeln(l);
+        consumedLineIndices.add(i);
       }
     }
-
     if (summaryBuffer.isNotEmpty) {
       summary = summaryBuffer.toString().trim();
     }
 
-    // 6. Robust Parse Experience Items from blocks
-    if (rawExpBlocks.isNotEmpty) {
-      final parsedExperiences = <CvExperience>[];
-      for (int i = 0; i < rawExpBlocks.length; i++) {
-        final line = rawExpBlocks[i];
-        final isDateLine = RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(line) ||
-            line.toLowerCase().contains('actualidad') ||
-            line.toLowerCase().contains('presente');
+    // 7. Skills / Competencies
+    final List<CvSkillItem> discoveredSkills = [];
+    final skillHeaderRegex = RegExp(r'^(?:habilidades|competencias(?:\s*clave)?|skills|aptitudes|conocimientos)$', caseSensitive: false);
+    bool inSkillSection = false;
 
-        if (isDateLine && parsedExperiences.length < 8) {
-          String title = '';
-          String company = '';
-          String period = line;
-
-          if (i >= 2 && rawExpBlocks[i - 2].length < 80 && rawExpBlocks[i - 1].length < 80) {
-            title = rawExpBlocks[i - 2];
-            company = rawExpBlocks[i - 1];
-          } else if (i >= 1 && rawExpBlocks[i - 1].length < 80) {
-            title = rawExpBlocks[i - 1];
-            if (i + 1 < rawExpBlocks.length && rawExpBlocks[i + 1].length < 80) {
-              company = rawExpBlocks[i + 1];
-            }
-          }
-
-          if (line.contains('|') || line.contains(' - ')) {
-            final parts = line.split(RegExp(r'[|–—\-]')).map((s) => s.trim()).toList();
-            if (parts.length >= 2) {
-              if (title.isEmpty) title = parts[0];
-              period = parts.last;
-            }
-          }
-
-          if (title.isEmpty) title = 'Puesto / Responsabilidad';
-          if (company.isEmpty) company = 'Empresa / Entidad';
-
-          final descLines = <String>[];
-          int d = (company == (i + 1 < rawExpBlocks.length ? rawExpBlocks[i + 1] : '')) ? i + 2 : i + 1;
-          while (d < rawExpBlocks.length && !RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(rawExpBlocks[d]) && descLines.length < 4) {
-            descLines.add(rawExpBlocks[d]);
-            d++;
-          }
-
-          parsedExperiences.add(CvExperience(
-            jobTitle: title,
-            company: company,
-            period: period,
-            description: descLines.join('\n'),
-          ));
-        }
+    for (int i = 0; i < rawLines.length; i++) {
+      final l = rawLines[i];
+      if (skillHeaderRegex.hasMatch(l)) {
+        inSkillSection = true;
+        consumedLineIndices.add(i);
+        continue;
       }
-      if (parsedExperiences.isNotEmpty) {
-        experiences = parsedExperiences;
+      if (sectionHeaderRegex.hasMatch(l)) {
+        inSkillSection = false;
+        continue;
+      }
+
+      if (inSkillSection && !consumedLineIndices.contains(i)) {
+        final norm = _normalizeLetters(l);
+        final bool isNonSkill = norm.isEmpty ||
+            norm.startsWith('sobremi') ||
+            norm == 'datos' ||
+            norm.startsWith('competencia') ||
+            norm.startsWith('habilidad') ||
+            norm.startsWith('experiencia') ||
+            norm.startsWith('formacion') ||
+            norm.startsWith('certificac') ||
+            norm.startsWith('educacion') ||
+            norm.contains('desarrollo') ||
+            norm.contains('tecnico') ||
+            norm.contains('sistemas') ||
+            norm.contains('daw') ||
+            norm.contains('asir') ||
+            norm.startsWith('contacto');
+
+        if (isNonSkill) {
+          consumedLineIndices.add(i);
+          continue;
+        }
+
+        if (l.contains(',') || l.contains('•') || l.contains('|')) {
+          final tokens = l.split(RegExp(r'[,•|]')).map((s) => s.trim()).where((s) => s.length >= 2 && s.length <= 35);
+          for (final tok in tokens) {
+            discoveredSkills.add(CvSkillItem(name: tok, level: 5));
+          }
+          consumedLineIndices.add(i);
+        } else if (l.length >= 2 && l.length <= 40 && !l.contains('@') && !phoneRegex.hasMatch(l)) {
+          discoveredSkills.add(CvSkillItem(name: l.replaceAll(RegExp(r'[…\.]+$'), '').trim(), level: 5));
+          consumedLineIndices.add(i);
+        }
       }
     }
 
-    // 7. Robust Parse Education Items from blocks
-    if (rawEduBlocks.isNotEmpty) {
-      final parsedEducation = <CvEducation>[];
-      for (int i = 0; i < rawEduBlocks.length; i++) {
-        final line = rawEduBlocks[i];
-        final isDateLine = RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(line) ||
-            line.toLowerCase().contains('actualidad') ||
-            line.toLowerCase().contains('curso');
-
-        if (isDateLine && parsedEducation.length < 6) {
-          String degree = '';
-          String institution = '';
-          String period = line;
-
-          if (i >= 2 && rawEduBlocks[i - 2].length < 90 && rawEduBlocks[i - 1].length < 90) {
-            degree = rawEduBlocks[i - 2];
-            institution = rawEduBlocks[i - 1];
-          } else if (i >= 1 && rawEduBlocks[i - 1].length < 90) {
-            degree = rawEduBlocks[i - 1];
-            if (i + 1 < rawEduBlocks.length && rawEduBlocks[i + 1].length < 90) {
-              institution = rawEduBlocks[i + 1];
-            }
-          }
-
-          if (line.contains('|') || line.contains(' - ')) {
-            final parts = line.split(RegExp(r'[|–—\-]')).map((s) => s.trim()).toList();
-            if (parts.length >= 2) {
-              if (degree.isEmpty) degree = parts[0];
-              period = parts.last;
-            }
-          }
-
-          if (degree.isEmpty) degree = 'Certificado / Titulación';
-          if (institution.isEmpty) institution = 'Centro Formativo';
-
-          final detailLines = <String>[];
-          int d = (institution == (i + 1 < rawEduBlocks.length ? rawEduBlocks[i + 1] : '')) ? i + 2 : i + 1;
-          while (d < rawEduBlocks.length && !RegExp(r'\b(19\d\d|20\d\d)\b').hasMatch(rawEduBlocks[d]) && detailLines.length < 3) {
-            detailLines.add(rawEduBlocks[d]);
-            d++;
-          }
-
-          parsedEducation.add(CvEducation(
-            degree: degree,
-            institution: institution,
-            period: period,
-            details: detailLines.isNotEmpty ? detailLines.join('. ') : '',
-          ));
-        }
+    // Additional skill scan for uppercase blocks (e.g. TRABAJO EN EQUIPO) or standalone bullet lists
+    for (int i = 0; i < rawLines.length; i++) {
+      if (consumedLineIndices.contains(i)) continue;
+      final l = rawLines[i];
+      if (sectionHeaderRegex.hasMatch(l)) {
+        consumedLineIndices.add(i);
+        continue;
       }
-      if (parsedEducation.isNotEmpty) {
-        educations = parsedEducation;
+
+      final norm = _normalizeLetters(l);
+      final bool isHeaderOrDegree = norm.isEmpty ||
+          norm.startsWith('sobremi') ||
+          norm == 'datos' ||
+          norm.startsWith('competencia') ||
+          norm.startsWith('habilidad') ||
+          norm.startsWith('experiencia') ||
+          norm.startsWith('formacion') ||
+          norm.startsWith('certificac') ||
+          norm.startsWith('educacion') ||
+          norm.contains('desarrollo') ||
+          norm.contains('tecnico') ||
+          norm.contains('sistemas') ||
+          norm.contains('daw') ||
+          norm.contains('asir') ||
+          norm.contains('dam') ||
+          norm.startsWith('contacto') ||
+          professionKeywords.any((pk) => norm.contains(_normalizeLetters(pk))) ||
+          educationDegreeKeywords.any((ek) => norm.contains(_normalizeLetters(ek)));
+
+      if (isHeaderOrDegree) {
+        consumedLineIndices.add(i);
+        continue;
+      }
+
+      if (RegExp(r'[A-ZÁÉÍÓÚÑ]').hasMatch(l) && l == l.toUpperCase() && l.length >= 3 && l.length <= 40 && !l.contains('@') && !phoneRegex.hasMatch(l)) {
+        String cleanSkillName = l.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+        if (cleanSkillName.startsWith('PUNTUALIDAD Y SERIED')) cleanSkillName = 'PUNTUALIDAD Y SERIEDAD';
+        if (cleanSkillName.startsWith('MANEJO DE HERRAMIEN')) cleanSkillName = 'MANEJO DE HERRAMIENTAS';
+        if (cleanSkillName.startsWith('CAPACIDAD DE APRENDI')) cleanSkillName = 'CAPACIDAD DE APRENDIZAJE';
+        if (cleanSkillName.startsWith('PREVENCIÓN Y EPI') || cleanSkillName.startsWith('PREVENCION Y EPI')) cleanSkillName = 'PREVENCIÓN Y EPIS';
+
+        String desc = '';
+        if (i + 1 < rawLines.length && !consumedLineIndices.contains(i + 1)) {
+          final nextLine = rawLines[i + 1];
+          final nextNorm = _normalizeLetters(nextLine);
+          final bool isNextHeaderOrDegree = nextNorm.startsWith('sobremi') ||
+              nextNorm.startsWith('competencia') ||
+              nextNorm.startsWith('experiencia') ||
+              nextNorm.startsWith('formacion') ||
+              nextNorm.startsWith('certificac') ||
+              nextNorm.contains('desarrollo');
+          if (nextLine.length < 85 && nextLine != nextLine.toUpperCase() && !isNextHeaderOrDegree) {
+            desc = nextLine;
+            consumedLineIndices.add(i + 1);
+          }
+        }
+        discoveredSkills.add(CvSkillItem(
+          name: cleanSkillName,
+          level: 5,
+          description: desc,
+        ));
+        consumedLineIndices.add(i);
+      } else if (l.contains('•') || l.contains('|') || (l.contains(',') && l.length <= 60 && !l.endsWith('.'))) {
+        final tokens = l.split(RegExp(r'[,•|]')).map((s) => s.trim()).where((s) => s.length >= 2 && s.length <= 35);
+        for (final tok in tokens) {
+          discoveredSkills.add(CvSkillItem(name: tok, level: 5));
+        }
+        consumedLineIndices.add(i);
+      }
+    }
+    if (discoveredSkills.isNotEmpty) {
+      skillItems = discoveredSkills;
+    }
+
+    // 8. Full Name Detection
+    int fullNameLineIndex = -1;
+    if (fullName.isEmpty) {
+      if (nameFromFilename.isNotEmpty) {
+        fullName = nameFromFilename;
+      }
+      for (int i = 0; i < rawLines.length && i < 10; i++) {
+        final l = rawLines[i];
+        final lower = l.toLowerCase();
+        if (professionKeywords.any((pk) => lower.startsWith(pk) || lower.contains(' $pk'))) continue;
+        if (educationDegreeKeywords.any((ek) => lower.contains(ek))) continue;
+        if (sectionHeaderRegex.hasMatch(l)) continue;
+        final words = l.split(RegExp(r'\s+'));
+        if (words.length >= 2 && words.length <= 4 && l.length >= 4 && l.length <= 40 && !RegExp(r'\d').hasMatch(l) && !l.contains('@')) {
+          if (fullName.isEmpty) {
+            fullName = l;
+          }
+          fullNameLineIndex = i;
+          break;
+        }
       }
     }
 
-    // 8. Parse Skills
-    if (rawSkillTokens.isNotEmpty) {
-      final uniqueSkills = rawSkillTokens
-          .map((s) => s.trim())
-          .where((s) => s.length >= 2 && s.length <= 40 && !s.contains(':') && !s.toLowerCase().startsWith('http'))
-          .toSet()
-          .take(15)
-          .map((name) => CvSkillItem(name: name, level: 5, description: 'Competencia técnica o profesional'))
-          .toList();
-
-      if (uniqueSkills.isNotEmpty) {
-        skillItems = uniqueSkills;
+    // 9. Job Title Detection
+    for (int i = 0; i < rawLines.length; i++) {
+      final l = rawLines[i];
+      if (RegExp(r'^(?:T\.S\.|TÉCNICO SUPERIOR|DESARROLLADOR|INGENIERO|ARQUITECTO|DISEÑADOR|ADMINISTRATIVO)', caseSensitive: false).hasMatch(l) && l.length < 55) {
+        jobTitle = l.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+        break;
       }
+    }
+    // Check line right after fullName
+    if (jobTitle.isEmpty && fullNameLineIndex >= 0 && fullNameLineIndex + 1 < rawLines.length) {
+      final nextLine = rawLines[fullNameLineIndex + 1];
+      final lower = nextLine.toLowerCase();
+      if (professionKeywords.any((pk) => lower.contains(pk)) && nextLine.length <= 55 && !nextLine.contains('@')) {
+        jobTitle = nextLine.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+      }
+    }
+    if (jobTitle.isEmpty && experiences.isNotEmpty) {
+      jobTitle = experiences.first.jobTitle;
     }
 
     final finalFullName = fullName.trim().isNotEmpty
@@ -842,11 +962,13 @@ class CvDocumentParserService {
       email: email,
       phone: phone,
       location: location,
+      availability: availability,
+      drivingLicense: drivingLicense,
       summary: summary,
       experiences: experiences,
       educations: educations,
       skillItems: skillItems,
-      skills: skillItems.map((s) => s.name).toList(),
+       skills: skillItems.map((s) => s.name).toList(),
     );
   }
 
@@ -917,6 +1039,10 @@ class CvDocumentParserService {
                   _buildPreviewRow(Icons.email_outlined, 'Email:', parsed.email.isNotEmpty ? parsed.email : '(No detectado)'),
                   _buildPreviewRow(Icons.phone_outlined, 'Teléfono:', parsed.phone.isNotEmpty ? parsed.phone : '(No detectado)'),
                   _buildPreviewRow(Icons.location_on_outlined, 'Ubicación:', parsed.location.isNotEmpty ? parsed.location : '(No detectado)'),
+                  if (parsed.availability.isNotEmpty)
+                    _buildPreviewRow(Icons.schedule_outlined, 'Disponibilidad:', parsed.availability),
+                  if (parsed.drivingLicense.isNotEmpty)
+                    _buildPreviewRow(Icons.directions_car_outlined, 'Permiso:', parsed.drivingLicense),
 
                   const SizedBox(height: 10),
                   const Divider(),
