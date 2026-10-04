@@ -733,18 +733,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             icon: const Icon(Icons.refresh, size: 20),
             onPressed: _loadAllAdminData,
           ),
-          if (!isMobile) ...[
-            IconButton(
-              tooltip: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
-              icon: Icon(
-                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                size: 20,
-                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-              ),
-              onPressed: widget.onToggleCosmic,
+          IconButton(
+            tooltip: widget.isCosmicActive ? 'Pausar cosmos' : 'Activar cosmos',
+            icon: Icon(
+              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              size: 20,
+              color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
             ),
-            const SizedBox(width: 4),
-          ],
+            onPressed: widget.onToggleCosmic,
+          ),
+          const SizedBox(width: 4),
           IconButton(
             tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
             icon: Icon(
@@ -824,8 +822,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               final isNarrow = constraints.maxWidth < 680 || isMobile;
               return TabBar(
                 controller: _tabController,
-                isScrollable: isNarrow,
-                tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
+                isScrollable: false,
+                tabAlignment: TabAlignment.fill,
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
@@ -843,53 +841,77 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                 unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
                 tabs: [
-                  const Tab(
+                  Tab(
                     height: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.manage_accounts_rounded, size: 17),
-                        SizedBox(width: 8),
-                        Text('Usuarios y Roles'),
-                      ],
-                    ),
+                    child: isNarrow
+                        ? const Tooltip(
+                            message: 'Usuarios y Roles',
+                            child: Icon(Icons.manage_accounts_rounded, size: 21),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.manage_accounts_rounded, size: 17),
+                              SizedBox(width: 8),
+                              Text('Usuarios y Roles'),
+                            ],
+                          ),
                   ),
                   Tab(
                     height: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.forum_rounded, size: 17),
-                        const SizedBox(width: 8),
-                        Text('Chat (${_chatMessages.length})'),
-                      ],
-                    ),
+                    child: isNarrow
+                        ? Tooltip(
+                            message: 'Moderación de Chat',
+                            child: Badge(
+                              isLabelVisible: _chatMessages.isNotEmpty,
+                              label: Text('${_chatMessages.length}', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+                              child: const Icon(Icons.forum_rounded, size: 20),
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.forum_rounded, size: 17),
+                              const SizedBox(width: 8),
+                              Text('Chat (${_chatMessages.length})'),
+                            ],
+                          ),
                   ),
-                  const Tab(
+                  Tab(
                     height: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.dashboard_customize_rounded, size: 17),
-                        SizedBox(width: 8),
-                        Text('Módulos'),
-                      ],
-                    ),
+                    child: isNarrow
+                        ? const Tooltip(
+                            message: 'Módulos',
+                            child: Icon(Icons.dashboard_customize_rounded, size: 20),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.dashboard_customize_rounded, size: 17),
+                              SizedBox(width: 8),
+                              Text('Módulos'),
+                            ],
+                          ),
                   ),
-                  const Tab(
+                  Tab(
                     height: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.dns_rounded, size: 17),
-                        SizedBox(width: 8),
-                        Text('Servidor y BD'),
-                      ],
-                    ),
+                    child: isNarrow
+                        ? const Tooltip(
+                            message: 'Servidor y BD',
+                            child: Icon(Icons.dns_rounded, size: 20),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.dns_rounded, size: 17),
+                              SizedBox(width: 8),
+                              Text('Servidor y BD'),
+                            ],
+                          ),
                   ),
                 ],
               );
@@ -911,6 +933,55 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     final totalDocentes = _users.where((u) => u.role.toLowerCase() == 'docente').length;
     final totalRegular = _users.where((u) => u.role.toLowerCase() == 'usuario').length;
 
+    Widget buildUserCard(int idx, bool isCompact, [double? width]) {
+      switch (idx) {
+        case 0:
+          return _buildStatCard(
+            title: 'Total Usuarios',
+            value: '$totalUsers',
+            subtitle: '$totalRegular estándar',
+            icon: Icons.group_rounded,
+            color: AppTheme.emerald,
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+        case 1:
+          return _buildStatCard(
+            title: 'Administradores',
+            value: '$totalAdmins',
+            subtitle: 'Control total',
+            icon: Icons.shield_rounded,
+            color: const Color(0xFF06B6D4),
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+        case 2:
+          return _buildStatCard(
+            title: 'Docentes / Tutores',
+            value: '$totalDocentes',
+            subtitle: 'Gestión formativa',
+            icon: Icons.school_rounded,
+            color: Colors.cyanAccent,
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+        default:
+          return _buildStatCard(
+            title: 'Cuentas Suspendidas',
+            value: '$totalBanned',
+            subtitle: totalBanned == 0 ? 'Sin suspensiones' : 'Acceso bloqueado',
+            icon: Icons.block_rounded,
+            color: totalBanned > 0 ? Colors.redAccent : Colors.grey,
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Center(
@@ -919,44 +990,50 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Summary Stat Cards
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  _buildStatCard(
-                    title: 'Total Usuarios',
-                    value: '$totalUsers',
-                    subtitle: '$totalRegular estándar',
-                    icon: Icons.group_rounded,
-                    color: AppTheme.emerald,
-                    isDark: isDark,
-                  ),
-                  _buildStatCard(
-                    title: 'Administradores',
-                    value: '$totalAdmins',
-                    subtitle: 'Control total',
-                    icon: Icons.shield_rounded,
-                    color: const Color(0xFF06B6D4),
-                    isDark: isDark,
-                  ),
-                  _buildStatCard(
-                    title: 'Docentes / Tutores',
-                    value: '$totalDocentes',
-                    subtitle: 'Gestión formativa',
-                    icon: Icons.school_rounded,
-                    color: Colors.cyanAccent,
-                    isDark: isDark,
-                  ),
-                  _buildStatCard(
-                    title: 'Cuentas Suspendidas',
-                    value: '$totalBanned',
-                    subtitle: totalBanned == 0 ? 'Sin suspensiones' : 'Acceso bloqueado',
-                    icon: Icons.block_rounded,
-                    color: totalBanned > 0 ? Colors.redAccent : Colors.grey,
-                    isDark: isDark,
-                  ),
-                ],
+              _buildCategoryHeader(
+                icon: Icons.manage_accounts_rounded,
+                title: 'Usuarios y Roles',
+                subtitle: 'Gestión de cuentas, permisos formativos y auditoría de accesos',
+                color: const Color(0xFF06B6D4),
+                isDark: isDark,
+              ),
+
+              // Summary Stat Cards (2x2 on mobile, wrap on desktop)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 650;
+                  if (isMobile) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: buildUserCard(0, true)),
+                            const SizedBox(width: 10),
+                            Expanded(child: buildUserCard(1, true)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(child: buildUserCard(2, true)),
+                            const SizedBox(width: 10),
+                            Expanded(child: buildUserCard(3, true)),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      buildUserCard(0, false, 260),
+                      buildUserCard(1, false, 260),
+                      buildUserCard(2, false, 260),
+                      buildUserCard(3, false, 260),
+                    ],
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
@@ -1239,6 +1316,59 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     );
   }
 
+  Widget _buildCategoryHeader({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required bool isDark,
+    Widget? trailing,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A).withOpacity(0.75) : Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.35), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -1246,13 +1376,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     required IconData icon,
     required Color color,
     required bool isDark,
+    bool isCompact = false,
+    double? width,
   }) {
     return Container(
-      width: 260,
-      padding: const EdgeInsets.all(18),
+      width: width,
+      padding: EdgeInsets.all(isCompact ? 10 : 18),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0),
         ),
@@ -1260,24 +1392,49 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(isCompact ? 8 : 12),
             decoration: BoxDecoration(
               color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(isCompact ? 10 : 14),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: isCompact ? 19 : 24),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: isCompact ? 8 : 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 11, color: color)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: isCompact ? 10 : 11,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: isCompact ? 2 : 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isCompact ? 17 : 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: isCompact ? 1 : 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: isCompact ? 9 : 11,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -1304,6 +1461,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _buildCategoryHeader(
+                icon: Icons.dns_rounded,
+                title: 'Estado del Servidor y Base de Datos',
+                subtitle: 'Métricas operativas del backend, persistencia y estado de servicios',
+                color: const Color(0xFF06B6D4),
+                isDark: isDark,
+              ),
               // DB Info card
               Container(
                 padding: const EdgeInsets.all(20),
@@ -1525,6 +1689,55 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     final totalMessages = _chatMessages.length;
     final activeUsers = _chatMessages.map((m) => m['username']).toSet().length;
 
+    Widget buildChatCard(int idx, bool isCompact, [double? width]) {
+      switch (idx) {
+        case 0:
+          return _buildStatCard(
+            title: 'Mensajes de Hoy',
+            value: '$totalMessages',
+            subtitle: 'Historial activo',
+            icon: Icons.forum_rounded,
+            color: const Color(0xFF06B6D4),
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+        case 1:
+          return _buildStatCard(
+            title: 'Participantes Únicos',
+            value: '$activeUsers',
+            subtitle: 'Usuarios conversando',
+            icon: Icons.people_outline_rounded,
+            color: AppTheme.emerald,
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+        case 2:
+          return _buildStatCard(
+            title: 'Auto-Purga Diaria',
+            value: '00:00',
+            subtitle: 'Limpieza automática',
+            icon: Icons.auto_delete_rounded,
+            color: Colors.orangeAccent,
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+        default:
+          return _buildStatCard(
+            title: 'Canal en Tiempo Real',
+            value: 'Activo',
+            subtitle: 'SSE Conectado',
+            icon: Icons.bolt_rounded,
+            color: Colors.purpleAccent,
+            isDark: isDark,
+            isCompact: isCompact,
+            width: width,
+          );
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Center(
@@ -1533,36 +1746,76 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Summary cards
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  _buildStatCard(
-                    title: 'Mensajes de Hoy',
-                    value: '$totalMessages',
-                    subtitle: 'Historial activo',
-                    icon: Icons.forum_rounded,
-                    color: const Color(0xFF06B6D4),
-                    isDark: isDark,
+              _buildCategoryHeader(
+                icon: Icons.forum_rounded,
+                title: 'Moderación de Chat',
+                subtitle: 'Monitoreo de mensajes comunitarios en vivo, participantes y purga diaria',
+                color: const Color(0xFF06B6D4),
+                isDark: isDark,
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.emerald.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
                   ),
-                  _buildStatCard(
-                    title: 'Participantes Únicos',
-                    value: '$activeUsers',
-                    subtitle: 'Usuarios conversando',
-                    icon: Icons.people_outline_rounded,
-                    color: AppTheme.emerald,
-                    isDark: isDark,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.emerald,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'En Vivo',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                      ),
+                    ],
                   ),
-                  _buildStatCard(
-                    title: 'Auto-Purga Diaria',
-                    value: '00:00',
-                    subtitle: 'Limpieza automática',
-                    icon: Icons.auto_delete_rounded,
-                    color: Colors.orangeAccent,
-                    isDark: isDark,
-                  ),
-                ],
+                ),
+              ),
+
+              // Summary cards (2x2 on mobile, wrap on desktop)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 650;
+                  if (isMobile) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: buildChatCard(0, true)),
+                            const SizedBox(width: 10),
+                            Expanded(child: buildChatCard(1, true)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(child: buildChatCard(2, true)),
+                            const SizedBox(width: 10),
+                            Expanded(child: buildChatCard(3, true)),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      buildChatCard(0, false, 250),
+                      buildChatCard(1, false, 250),
+                      buildChatCard(2, false, 250),
+                      buildChatCard(3, false, 250),
+                    ],
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
@@ -1798,6 +2051,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _buildCategoryHeader(
+                icon: Icons.dashboard_customize_rounded,
+                title: 'Módulos de la Plataforma',
+                subtitle: 'Activación y orquestación de herramientas funcionales de Sanctuary',
+                color: const Color(0xFF06B6D4),
+                isDark: isDark,
+              ),
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(

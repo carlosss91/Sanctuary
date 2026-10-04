@@ -425,17 +425,16 @@ class _HubScreenState extends State<HubScreen> {
           ),
           const SizedBox(width: 6),
 
-          if (!isMobile)
-            // Cosmic Animation Toggle
-            IconButton(
-              tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
-              icon: Icon(
-                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
-                size: 20,
-              ),
-              onPressed: widget.onToggleCosmic,
+          // Cosmic Animation Toggle
+          IconButton(
+            tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
+            icon: Icon(
+              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
+              size: 20,
             ),
+            onPressed: widget.onToggleCosmic,
+          ),
 
           // Light / Dark Theme Toggle
           IconButton(

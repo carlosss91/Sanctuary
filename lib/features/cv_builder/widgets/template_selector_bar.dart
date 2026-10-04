@@ -72,276 +72,324 @@ class TemplateSelectorBar extends StatelessWidget {
     );
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard.withOpacity(0.9) : AppTheme.lightCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
       ),
-      child: Row(
-        children: [
-          // Title / Label for Templates
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.style_outlined, color: AppTheme.emerald, size: 18),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 780;
+
+          if (isNarrow) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildTitleLabel(isDark),
+                  const SizedBox(width: 12),
+                  const SizedBox(height: 24, child: VerticalDivider(width: 1)),
+                  const SizedBox(width: 12),
+                  _buildProfileSelector(context, activeProfile, isDark),
+                  const SizedBox(width: 12),
+                  const SizedBox(height: 24, child: VerticalDivider(width: 1)),
+                  const SizedBox(width: 12),
+                  ...templates.map((tpl) => _buildTemplateCard(tpl, isDark)),
+                  if (onImportCv != null) ...[
+                    const SizedBox(width: 10),
+                    _buildImportButton(),
+                  ],
+                ],
               ),
-              const SizedBox(width: 8),
-              Column(
+            );
+          }
+
+          return Row(
+            children: [
+              // Title / Label for Templates
+              _buildTitleLabel(isDark),
+              const SizedBox(width: 12),
+              const SizedBox(height: 24, child: VerticalDivider(width: 1)),
+              const SizedBox(width: 12),
+
+              // Profile Card placed right next to Plantillas de Currículum
+              _buildProfileSelector(context, activeProfile, isDark),
+              const SizedBox(width: 12),
+              const SizedBox(height: 24, child: VerticalDivider(width: 1)),
+              const SizedBox(width: 12),
+
+              // Template Cards (Horizontal Scrollable)
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: templates.map((tpl) => _buildTemplateCard(tpl, isDark)).toList(),
+                  ),
+                ),
+              ),
+
+              if (onImportCv != null) ...[
+                const SizedBox(width: 10),
+                _buildImportButton(),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTitleLabel(bool isDark) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppTheme.emerald.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.style_outlined, color: AppTheme.emerald, size: 18),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Plantillas de Currículum',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            Text(
+              'Diferentes disposiciones de datos',
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileSelector(BuildContext context, CvProfileModel activeProfile, bool isDark) {
+    return PopupMenuButton<String>(
+      tooltip: 'Cambiar Alumno / Ficha Activa',
+      offset: const Offset(0, 42),
+      color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+      ),
+      onSelected: (id) {
+        if (id == '__add__') {
+          onAddProfile();
+        } else {
+          onSelectProfile(id);
+        }
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Text(
+            'Aprendices Matriculados (${profiles.length}):',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+          ),
+        ),
+        const PopupMenuDivider(),
+        ...profiles.map((p) => PopupMenuItem<String>(
+              value: p.id,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: p.id == activeProfileId ? AppTheme.emerald : Colors.grey.withOpacity(0.3),
+                    child: Text(
+                      p.fullName.isNotEmpty ? p.fullName[0].toUpperCase() : 'A',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          p.fullName.isNotEmpty ? p.fullName : 'Sin nombre',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: p.id == activeProfileId ? FontWeight.bold : FontWeight.normal,
+                            color: p.id == activeProfileId ? AppTheme.emerald : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          p.jobTitle,
+                          style: const TextStyle(fontSize: 9, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (p.id == activeProfileId)
+                    const Icon(Icons.check, size: 14, color: AppTheme.emerald),
+                ],
+              ),
+            )),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: '__add__',
+          child: Row(
+            children: [
+              Icon(Icons.add, size: 14, color: AppTheme.emerald),
+              SizedBox(width: 8),
+              Text('Añadir Nuevo Aprendiz', style: TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 11,
+              backgroundColor: AppTheme.emerald,
+              child: Text(
+                activeProfile.fullName.isNotEmpty ? activeProfile.fullName[0].toUpperCase() : 'A',
+                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Plantillas de Currículum',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
                   Text(
-                    'Diferentes disposiciones de datos',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                    ),
+                    activeProfile.fullName.isNotEmpty ? activeProfile.fullName : 'Alumno',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Text(
+                    'Cambiar ficha ▾',
+                    style: TextStyle(fontSize: 9, color: AppTheme.emerald),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
-            ],
-          ),
-
-          const SizedBox(width: 16),
-          const VerticalDivider(width: 1, indent: 6, endIndent: 6),
-          const SizedBox(width: 16),
-
-          // Template Cards (Horizontal Scrollable)
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: templates.map((tpl) {
-                  final isSelected = activeTemplate == tpl.id;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: InkWell(
-                      onTap: () => onSelectTemplate(tpl.id),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 184,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.emerald.withOpacity(0.18)
-                              : (isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC)),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.emerald
-                                : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: AppTheme.emerald.withOpacity(0.15),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]
-                              : null,
-                        ),
-                        child: Row(
-                          children: [
-                            _buildMiniPreviewLayout(tpl.id, isSelected),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          tpl.name,
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                            color: isSelected
-                                                ? AppTheme.emerald
-                                                : (isDark ? Colors.white : Colors.black87),
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (isSelected)
-                                        const Icon(Icons.check_circle, size: 13, color: AppTheme.emerald),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    tpl.description,
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(width: 14),
-
-          // Profile / Learner Quick Selector
-          PopupMenuButton<String>(
-            tooltip: 'Cambiar Alumno / Ficha Activa',
-            offset: const Offset(0, 42),
-            color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+  Widget _buildTemplateCard(TemplateOption tpl, bool isDark) {
+    final isSelected = activeTemplate == tpl.id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: InkWell(
+        onTap: () => onSelectTemplate(tpl.id),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 184,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.emerald.withOpacity(0.18)
+                : (isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? AppTheme.emerald
+                  : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+              width: isSelected ? 1.5 : 1,
             ),
-            onSelected: (id) {
-              if (id == '__add__') {
-                onAddProfile();
-              } else {
-                onSelectProfile(id);
-              }
-            },
-            itemBuilder: (ctx) => [
-              PopupMenuItem<String>(
-                enabled: false,
-                child: Text(
-                  'Aprendices Matriculados (${profiles.length}):',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                ),
-              ),
-              const PopupMenuDivider(),
-              ...profiles.map((p) => PopupMenuItem<String>(
-                    value: p.id,
-                    child: Row(
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.emerald.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              _buildMiniPreviewLayout(tpl.id, isSelected),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
                       children: [
-                        CircleAvatar(
-                          radius: 12,
-                          backgroundColor: p.id == activeProfileId ? AppTheme.emerald : Colors.grey.withOpacity(0.3),
-                          child: Text(
-                            p.fullName.isNotEmpty ? p.fullName[0].toUpperCase() : 'A',
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                p.fullName.isNotEmpty ? p.fullName : 'Sin nombre',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: p.id == activeProfileId ? FontWeight.bold : FontWeight.normal,
-                                  color: p.id == activeProfileId ? AppTheme.emerald : null,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                p.jobTitle,
-                                style: const TextStyle(fontSize: 9, color: Colors.grey),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                          child: Text(
+                            tpl.name,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              color: isSelected
+                                  ? AppTheme.emerald
+                                  : (isDark ? Colors.white : Colors.black87),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (p.id == activeProfileId)
-                          const Icon(Icons.check, size: 14, color: AppTheme.emerald),
+                        if (isSelected)
+                          const Icon(Icons.check_circle, size: 13, color: AppTheme.emerald),
                       ],
                     ),
-                  )),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: '__add__',
-                child: Row(
-                  children: [
-                    Icon(Icons.add, size: 14, color: AppTheme.emerald),
-                    SizedBox(width: 8),
-                    Text('Añadir Nuevo Aprendiz', style: TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text(
+                      tpl.description,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
             ],
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 11,
-                    backgroundColor: AppTheme.emerald,
-                    child: Text(
-                      activeProfile.fullName.isNotEmpty ? activeProfile.fullName[0].toUpperCase() : 'A',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        activeProfile.fullName.isNotEmpty ? activeProfile.fullName : 'Alumno',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Text(
-                        'Cambiar ficha ▾',
-                        style: TextStyle(fontSize: 9, color: AppTheme.emerald),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
           ),
+        ),
+      ),
+    );
+  }
 
-          if (onImportCv != null) ...[
-            const SizedBox(width: 10),
-            ElevatedButton.icon(
-              onPressed: onImportCv,
-              icon: const Icon(Icons.file_upload_outlined, size: 15),
-              label: const Text('Importar PDF o Word', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                foregroundColor: Colors.white,
-                elevation: 1,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        ],
+  Widget _buildImportButton() {
+    return ElevatedButton.icon(
+      onPressed: onImportCv,
+      icon: const Icon(Icons.file_upload_outlined, size: 15),
+      label: const Text('Importar PDF o Word', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.emerald,
+        foregroundColor: Colors.white,
+        elevation: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

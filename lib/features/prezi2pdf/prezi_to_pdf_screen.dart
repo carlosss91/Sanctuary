@@ -1024,18 +1024,16 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
           ],
         ),
         actions: [
-          if (!isMobile) ...[
-            IconButton(
-              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-              icon: Icon(
-                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                size: 20,
-                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-              ),
-              onPressed: widget.onToggleCosmic,
+          IconButton(
+            tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+            icon: Icon(
+              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              size: 20,
+              color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
             ),
-            const SizedBox(width: 4),
-          ],
+            onPressed: widget.onToggleCosmic,
+          ),
+          const SizedBox(width: 4),
           IconButton(
             tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
             icon: Icon(

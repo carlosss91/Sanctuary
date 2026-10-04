@@ -683,22 +683,20 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         ),
         actions: [
           // Cosmic & theme buttons
-          if (!isMobile) ...[
-            _buildTopIconButton(
-              icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-              onTap: widget.onToggleCosmic,
-              backgroundColor: widget.isCosmicActive
-                  ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
-                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-              iconColor: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-              border: Border.all(
-                color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-                width: 1.2,
-              ),
+          _buildTopIconButton(
+            icon: widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+            tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+            onTap: widget.onToggleCosmic,
+            backgroundColor: widget.isCosmicActive
+                ? (isDark ? const Color(0xFF10B981).withOpacity(0.18) : const Color(0xFF10B981).withOpacity(0.12))
+                : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+            iconColor: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+            border: Border.all(
+              color: widget.isCosmicActive ? const Color(0xFF10B981).withOpacity(0.55) : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+              width: 1.2,
             ),
-            const SizedBox(width: 6),
-          ],
+          ),
+          const SizedBox(width: 6),
           _buildTopIconButton(
             icon: widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
             tooltip: widget.isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
@@ -765,7 +763,12 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                 final isWideScreen = constraints.maxWidth > 960;
 
                 return Padding(
-                  padding: EdgeInsets.all(isMobile ? 6 : 14),
+                  padding: EdgeInsets.only(
+                    left: isMobile ? 8 : 16,
+                    right: isMobile ? 8 : 16,
+                    top: isMobile ? 8 : 14,
+                    bottom: isMobile ? 76 : 82, // Sits cleanly above the bottom floating dock
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1286,7 +1289,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                       : const BouncingScrollPhysics(),
                   padding: EdgeInsets.only(
                     top: isMobile ? 12 : 20,
-                    bottom: 85, // Breathing space for bottom floating dock
+                    bottom: isMobile ? 18 : 24, // Sits slightly below the A4 page within the canvas card
                     left: isMobile ? 6 : 14,
                     right: isMobile ? 6 : 14,
                   ),

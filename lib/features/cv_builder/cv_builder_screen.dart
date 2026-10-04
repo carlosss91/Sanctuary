@@ -389,21 +389,17 @@ class _CvBuilderScreenState extends State<CvBuilderScreen> {
           ),
           const SizedBox(width: 8),
 
-          if (!isMobile) ...[
-
-
-            // Cosmic Animation Toggle
-            IconButton(
-              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-              icon: Icon(
-                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-                size: 20,
-                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-              ),
-              onPressed: widget.onToggleCosmic,
+          // Cosmic Animation Toggle
+          IconButton(
+            tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+            icon: Icon(
+              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+              size: 20,
+              color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
             ),
-            const SizedBox(width: 4),
-          ],
+            onPressed: widget.onToggleCosmic,
+          ),
+          const SizedBox(width: 4),
 
           // Theme Toggle
           IconButton(
