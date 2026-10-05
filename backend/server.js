@@ -135,9 +135,9 @@ async function getMailTransporter() {
         secure,
         auth: { user, pass },
         tls: { rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== 'false' },
-        connectionTimeout: 4000,
-        greetingTimeout: 3000,
-        socketTimeout: 5000,
+        connectionTimeout: 10000,
+        greetingTimeout: 8000,
+        socketTimeout: 15000,
       });
       mailTransporter._isCustom = true;
       mailTransporter._customUser = user;
@@ -162,9 +162,9 @@ async function getMailTransporter() {
         user: testAccount.user,
         pass: testAccount.pass,
       },
-      connectionTimeout: 3000,
-      greetingTimeout: 2000,
-      socketTimeout: 4000,
+      connectionTimeout: 4000,
+      greetingTimeout: 3000,
+      socketTimeout: 5000,
     });
     mailTransporter._isEthereal = true;
     mailTransporter._etherealUser = testAccount.user;
@@ -197,7 +197,7 @@ async function sendMailNotification({ to, subject, html, text }) {
     
     // Proteger el envío contra bloqueos o cuelgues de red en servidores cloud
     const sendPromise = transporter.sendMail({ from, to, subject, html, text });
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera SMTP excedido (4s)')), 4000));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera SMTP excedido (12s)')), 12000));
     
     const info = await Promise.race([sendPromise, timeoutPromise]);
     if (transporter._isEthereal && nodemailer.getTestMessageUrl) {
@@ -407,7 +407,15 @@ function getDefaultLocalDb() {
       { id: 1, title: 'Slide Downloader', url: 'app://prezi2pdf', description: 'Descargador universal de presentaciones y videos', category: 'Web Apps', icon_name: 'present_to_all' },
       { id: 2, title: 'CV Maker Studio', url: 'app://cvmaker', description: 'Generador y diseñador de currículums interactivos en formato A4', category: 'Educación', icon_name: 'badge' },
       { id: 3, title: 'PDF Signer', url: 'app://pdfsigner', description: 'Herramienta de firma digital y certificación de documentos', category: 'Web Apps', icon_name: 'draw' }
-    ]
+    ],
+    smtp_config: {
+      host: 'smtp-relay.brevo.com',
+      port: 587,
+      user: 'bcab54001@smtp-brevo.com',
+      pass: 'bskf1OiRHcPp5lE',
+      from: '"Sanctuary Platform" <chals.santana@gmail.com>',
+      secure: false,
+    }
   };
 }
 
