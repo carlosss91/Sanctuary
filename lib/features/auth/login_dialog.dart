@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/services/api_service.dart';
 import '../../data/models/user_model.dart';
@@ -29,12 +30,20 @@ class LoginDialog extends StatefulWidget {
 class _LoginDialogState extends State<LoginDialog> {
   bool _isRegister = false;
   bool _isForgotPassword = false;
+  bool _isActivationView = false;
   int _recoveryStep = 1; // 1: request token, 2: input token and new password
 
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _emailController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  // Activation view controllers & state
+  final _activationCodeController = TextEditingController();
+  String? _activationPreviewUrl;
+  String? _activationCodeHint;
+  String? _pendingUsername;
+  String? _pendingEmail;
 
   // Forgot password controllers
   final _recoveryEmailController = TextEditingController();
@@ -52,6 +61,7 @@ class _LoginDialogState extends State<LoginDialog> {
     _passwordController.dispose();
     _emailController.dispose();
     _confirmPasswordController.dispose();
+    _activationCodeController.dispose();
     _recoveryEmailController.dispose();
     _resetTokenController.dispose();
     _newPasswordController.dispose();
@@ -101,15 +111,30 @@ class _LoginDialogState extends State<LoginDialog> {
           role: 'usuario',
         );
         if (res['success'] == true) {
-          final user = res['user'] as UserModel?;
-          if (user != null) {
-            widget.onLoginSuccess(user);
-            if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
-          } else {
+          final requiresActivation = res['requires_activation'] == true;
+          if (requiresActivation) {
             setState(() {
-              _isRegister = false;
-              _successMessage = res['message'] ?? 'Registro completado. Revisa tu correo para activar la cuenta.';
+              _isActivationView = true;
+              _pendingUsername = username;
+              _pendingEmail = email;
+              _activationCodeHint = res['activation_token']?.toString() ?? res['activation_code']?.toString();
+              _activationPreviewUrl = res['preview_url']?.toString();
+              if (_activationCodeHint != null && _activationCodeHint!.isNotEmpty) {
+                _activationCodeController.text = _activationCodeHint!;
+              }
+              _successMessage = res['message'] ?? 'Hemos enviado un código a tu correo. Introdúcelo para activar tu cuenta.';
             });
+          } else {
+            final user = res['user'] as UserModel?;
+            if (user != null) {
+              widget.onLoginSuccess(user);
+              if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
+            } else {
+              setState(() {
+                _isRegister = false;
+                _successMessage = 'Registro completado. Ya puedes iniciar sesión.';
+              });
+            }
           }
         } else {
           setState(() => _errorMessage = res['message'] ?? 'Error al registrar usuario');
@@ -120,6 +145,13 @@ class _LoginDialogState extends State<LoginDialog> {
           final user = res['user'] as UserModel;
           widget.onLoginSuccess(user);
           if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
+        } else if (res['requires_activation'] == true) {
+          setState(() {
+            _isActivationView = true;
+            _pendingUsername = username;
+            _pendingEmail = res['email']?.toString() ?? '';
+            _errorMessage = res['message'] ?? 'Tu cuenta aún no está activada. Introduce tu código de activación.';
+          });
         } else {
           setState(() => _errorMessage = res['message'] ?? 'Credenciales incorrectas');
         }
@@ -128,6 +160,81 @@ class _LoginDialogState extends State<LoginDialog> {
       setState(() => _errorMessage = 'Error de conexión con el servidor: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _submitActivation() async {
+    final code = _activationCodeController.text.trim();
+    if (code.isEmpty) {
+      setState(() => _errorMessage = 'Introduce el código de activación de 6 dígitos');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    final res = await widget.apiService.activateAccount(
+      tokenOrCode: code,
+      username: _pendingUsername,
+    );
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (res['success'] == true) {
+        final user = res['user'] as UserModel?;
+        if (user != null) {
+          widget.onLoginSuccess(user);
+          if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
+        } else {
+          setState(() {
+            _isActivationView = false;
+            _isRegister = false;
+            _successMessage = '¡Cuenta activada con éxito! Ya puedes iniciar sesión.';
+          });
+        }
+      } else {
+        setState(() => _errorMessage = res['message'] ?? 'Código de activación incorrecto o expirado');
+      }
+    }
+  }
+
+  Future<void> _resendActivation() async {
+    final username = _pendingUsername ?? _usernameController.text.trim();
+    final email = _pendingEmail ?? _emailController.text.trim();
+
+    if (username.isEmpty && email.isEmpty) {
+      setState(() => _errorMessage = 'Introduce tu usuario o correo para reenviar el código');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    final res = await widget.apiService.resendActivationEmail(
+      username: username,
+      email: email.isNotEmpty ? email : null,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        if (res['success'] == true) {
+          _activationCodeHint = res['activation_token']?.toString();
+          _activationPreviewUrl = res['preview_url']?.toString();
+          if (_activationCodeHint != null && _activationCodeHint!.isNotEmpty) {
+            _activationCodeController.text = _activationCodeHint!;
+          }
+          _successMessage = res['message'] ?? 'Código reenviado a tu correo.';
+        } else {
+          _errorMessage = res['message'] ?? 'Error al reenviar el código';
+        }
+      });
     }
   }
 
@@ -299,9 +406,11 @@ class _LoginDialogState extends State<LoginDialog> {
 
                   // Subtitle
                   Text(
-                    _isForgotPassword
-                        ? 'Recuperación de Contraseña'
-                        : (_isRegister ? 'Crear Nueva Cuenta' : 'Iniciar Sesión'),
+                    _isActivationView
+                        ? 'Activación de Cuenta'
+                        : (_isForgotPassword
+                            ? 'Recuperación de Contraseña'
+                            : (_isRegister ? 'Crear Nueva Cuenta' : 'Iniciar Sesión')),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -362,9 +471,155 @@ class _LoginDialogState extends State<LoginDialog> {
                   const SizedBox(height: 18),
 
                   // ==========================================
+                  // ACTIVATION VIEW
+                  // ==========================================
+                  if (_isActivationView) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06B6D4).withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.25)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.mark_email_read_outlined, size: 20, color: Color(0xFF06B6D4)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Activación pendiente: ${_pendingUsername ?? ""}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF06B6D4)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _pendingEmail != null && _pendingEmail!.isNotEmpty
+                                ? 'Hemos enviado un código de 6 dígitos a $_pendingEmail. Introduce el código a continuación para activar tu cuenta y poder ingresar.'
+                                : 'Introduce el código de activación de 6 dígitos para activar tu cuenta y poder ingresar.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text('Código de Activación (6 dígitos)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _activationCodeController,
+                      keyboardType: TextInputType.text,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 6,
+                        fontFamily: 'monospace',
+                        color: AppTheme.emerald,
+                      ),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.pin_outlined, size: 20),
+                        hintText: '123456',
+                        hintStyle: TextStyle(
+                          fontSize: 18,
+                          letterSpacing: 4,
+                          color: Colors.grey.withOpacity(0.5),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onSubmitted: (_) => _submitActivation(),
+                    ),
+                    if (_activationCodeHint != null && _activationCodeHint!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      InkWell(
+                        onTap: () {
+                          _activationCodeController.text = _activationCodeHint!;
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.emerald.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.touch_app_outlined, size: 14, color: AppTheme.emerald),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Código recibido: $_activationCodeHint (Tocar para rellenar)',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (_activationPreviewUrl != null && _activationPreviewUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => launchUrlString(_activationPreviewUrl!, mode: LaunchMode.externalApplication),
+                        icon: const Icon(Icons.open_in_new, size: 14, color: Color(0xFF06B6D4)),
+                        label: const Text('Ver correo de prueba en el navegador', style: TextStyle(fontSize: 11.5, color: Color(0xFF06B6D4))),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _submitActivation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Verificar y Activar Cuenta'),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: _isLoading ? null : _resendActivation,
+                          child: const Text('Reenviar código', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF06B6D4))),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _isActivationView = false;
+                              _isRegister = false;
+                              _errorMessage = null;
+                              _successMessage = null;
+                            });
+                          },
+                          child: const Text('← Iniciar Sesión', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                        ),
+                      ],
+                    ),
+                  ]
+
+                  // ==========================================
                   // FORGOT PASSWORD VIEW
                   // ==========================================
-                  if (_isForgotPassword) ...[
+                  else if (_isForgotPassword) ...[
                     if (_recoveryStep == 1) ...[
                       const Text('Correo Electrónico de la Cuenta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),

@@ -57,9 +57,15 @@ class ApiService {
           await storage.setCurrentUser(user);
           return {'success': true, 'user': user, 'source': 'backend'};
         }
-      } else if (res.statusCode == 401 || res.statusCode == 400) {
+      } else if (res.statusCode == 401 || res.statusCode == 400 || res.statusCode == 403) {
         final data = jsonDecode(res.body);
-        return {'success': false, 'message': data['message'] ?? 'Credenciales inválidas'};
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Credenciales inválidas',
+          'requiresActivation': data['requires_activation'] == true,
+          'username': data['username'] ?? username,
+          'email': data['email'],
+        };
       } else {
         debugPrint('Backend API login status ${res.statusCode}, probando credenciales locales...');
       }
@@ -69,9 +75,20 @@ class ApiService {
 
     // Offline / Local Fallback
     if (storage.verifyLocalCredentials(username, password)) {
-      final user = UserModel(username: username, role: username == 'admin' ? 'admin' : 'usuario');
-      await storage.setCurrentUser(user);
-      return {'success': true, 'user': user, 'source': 'local'};
+      if (!storage.isUserVerified(username)) {
+        return {
+          'success': false,
+          'requiresActivation': true,
+          'username': username,
+          'message': 'Tu cuenta aún no está activada. Introduce el código de activación o revisa tu correo.',
+        };
+      }
+      final localUser = storage.getLocalUsers().firstWhere(
+        (u) => u.username.toLowerCase() == username.toLowerCase(),
+        orElse: () => UserModel(username: username, role: username == 'admin' ? 'admin' : 'usuario'),
+      );
+      await storage.setCurrentUser(localUser);
+      return {'success': true, 'user': localUser, 'source': 'local'};
     }
 
     return {'success': false, 'message': 'Usuario o contraseña incorrectos'};
@@ -100,13 +117,27 @@ class ApiService {
 
       final data = jsonDecode(res.body);
       if (res.statusCode == 201 || res.statusCode == 200) {
+        final requiresActivation = data['requires_activation'] == true ||
+            (data['user'] != null && data['user']['is_verified'] == false);
+
+        UserModel? user;
         if (data['user'] != null) {
-          final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+          user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+          // Store credentials locally for offline support, but DO NOT activate session if requires activation
           await storage.saveLocalUser(user, password);
-          await storage.setCurrentUser(user);
-          return {'success': true, 'user': user, 'message': data['message']};
+          if (!requiresActivation && user.isVerified) {
+            await storage.setCurrentUser(user);
+          }
         }
-        return {'success': true, 'message': data['message']};
+
+        return {
+          'success': true,
+          'requiresActivation': requiresActivation,
+          'user': user,
+          'message': data['message'] ?? (requiresActivation ? 'Usuario registrado. Por favor activa tu cuenta.' : 'Registro completado.'),
+          'activationToken': data['activation_token'] ?? data['activationCode'],
+          'previewUrl': data['preview_url'],
+        };
       } else {
         return {'success': false, 'message': data['message'] ?? 'Error al registrar'};
       }
@@ -115,10 +146,106 @@ class ApiService {
     }
 
     // Save locally fallback
-    final user = UserModel(username: username, email: email, role: role);
+    final hasEmail = email != null && email.trim().isNotEmpty;
+    final user = UserModel(username: username, email: email, role: role, isVerified: !hasEmail);
     await storage.saveLocalUser(user, password);
-    await storage.setCurrentUser(user);
-    return {'success': true, 'user': user, 'source': 'local'};
+
+    if (!hasEmail) {
+      await storage.setCurrentUser(user);
+      return {'success': true, 'requiresActivation': false, 'user': user, 'source': 'local'};
+    }
+
+    const localCode = '123456';
+    return {
+      'success': true,
+      'requiresActivation': true,
+      'user': user,
+      'activationToken': localCode,
+      'message': 'Usuario registrado localmente. Introduce el código 123456 para activar tu cuenta.',
+      'source': 'local',
+    };
+  }
+
+  // --- Auth: Activate Account ---
+  Future<Map<String, dynamic>> activateAccount({
+    required String tokenOrCode,
+    String? username,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/activate'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'code': tokenOrCode.trim(),
+          'token': tokenOrCode.trim(),
+          'username': username?.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 && data['success'] == true) {
+        if (data['user'] != null) {
+          final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+          final localUsers = storage.getLocalUsers();
+          final updated = localUsers.map((u) => u.username.toLowerCase() == user.username.toLowerCase() ? u.copyWith(isVerified: true) : u).toList();
+          await storage.saveAllLocalUsers(updated);
+        }
+        return {'success': true, 'message': data['message'] ?? '¡Cuenta activada con éxito!'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Código o token de activación inválido'};
+      }
+    } catch (e) {
+      debugPrint('Error en activateAccount backend: $e');
+    }
+
+    // Local fallback activation
+    if (tokenOrCode.trim() == '123456' || tokenOrCode.trim().length >= 6) {
+      if (username != null && username.isNotEmpty) {
+        final localUsers = storage.getLocalUsers();
+        final updated = localUsers.map((u) => u.username.toLowerCase() == username.toLowerCase() ? u.copyWith(isVerified: true) : u).toList();
+        await storage.saveAllLocalUsers(updated);
+      }
+      return {'success': true, 'message': '¡Cuenta activada correctamente!'};
+    }
+
+    return {'success': false, 'message': 'Código de activación incorrecto'};
+  }
+
+  // --- Auth: Resend Activation Email ---
+  Future<Map<String, dynamic>> resendActivationEmail({
+    required String username,
+    String? email,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/resend-activation'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username.trim(),
+          'email': email?.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Correo de activación reenviado',
+          'activationToken': data['activation_token'] ?? data['activationCode'],
+          'previewUrl': data['preview_url'],
+        };
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Error al reenviar correo de activación'};
+      }
+    } catch (e) {
+      debugPrint('Error en resendActivationEmail backend: $e');
+    }
+
+    return {
+      'success': true,
+      'message': 'Si tu cuenta existe, hemos enviado un nuevo correo de activación.',
+      'activationToken': '123456',
+    };
   }
 
   // --- CV Profiles ---

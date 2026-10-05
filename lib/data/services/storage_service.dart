@@ -291,6 +291,10 @@ class StorageService {
     await _prefs.setString('${_keyLocalUsers}_pwd', jsonEncode(pwds));
   }
 
+  Future<void> saveAllLocalUsers(List<UserModel> users) async {
+    await _prefs.setString(_keyLocalUsers, jsonEncode(users.map((u) => u.toJson()).toList()));
+  }
+
   Future<void> deleteLocalUser(String username) async {
     final users = getLocalUsers().where((u) => u.username.toLowerCase() != username.toLowerCase()).toList();
     await _prefs.setString(_keyLocalUsers, jsonEncode(users.map((u) => u.toJson()).toList()));
@@ -306,6 +310,15 @@ class StorageService {
       orElse: () => const UserModel(username: ''),
     );
     return user.isBanned;
+  }
+
+  bool isUserVerified(String username) {
+    if (username.toLowerCase() == 'admin') return true;
+    final user = getLocalUsers().firstWhere(
+      (u) => u.username.toLowerCase() == username.toLowerCase(),
+      orElse: () => const UserModel(username: '', isVerified: true),
+    );
+    return user.isVerified;
   }
 
   bool verifyLocalCredentials(String username, String password) {

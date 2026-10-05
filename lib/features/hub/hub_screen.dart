@@ -360,6 +360,10 @@ class _HubScreenState extends State<HubScreen> {
             activeItem: 'Inicio',
             isDark: isDark,
             isCollapsed: false,
+            githubUsername: _githubUsername,
+            userDisplayName: (_currentUser.fullName != null && _currentUser.fullName!.isNotEmpty)
+                ? _currentUser.fullName!
+                : _currentUser.username,
             onSelect: (itemKey) {
               Navigator.of(context).maybePop();
               if (itemKey == 'Orientación') {

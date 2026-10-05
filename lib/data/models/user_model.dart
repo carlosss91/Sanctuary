@@ -7,6 +7,7 @@ class UserModel {
   final String? avatarUrl;
   final String? bio;
   final bool isBanned;
+  final bool isVerified;
   final String? createdAt;
 
   const UserModel({
@@ -18,6 +19,7 @@ class UserModel {
     this.avatarUrl,
     this.bio,
     this.isBanned = false,
+    this.isVerified = true,
     this.createdAt,
   });
 
@@ -30,6 +32,7 @@ class UserModel {
     String? avatarUrl,
     String? bio,
     bool? isBanned,
+    bool? isVerified,
     String? createdAt,
   }) {
     return UserModel(
@@ -41,6 +44,7 @@ class UserModel {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       bio: bio ?? this.bio,
       isBanned: isBanned ?? this.isBanned,
+      isVerified: isVerified ?? this.isVerified,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -55,6 +59,9 @@ class UserModel {
       avatarUrl: json['avatar_url'] as String? ?? json['avatarUrl'] as String?,
       bio: json['bio'] as String?,
       isBanned: json['is_banned'] == true || json['isBanned'] == true,
+      isVerified: json['is_verified'] == null && json['isVerified'] == null
+          ? true
+          : (json['is_verified'] == true || json['isVerified'] == true || json['is_verified'] == 1 || json['is_verified'] == 'true'),
       createdAt: json['created_at']?.toString(),
     );
   }
@@ -69,6 +76,7 @@ class UserModel {
       'avatar_url': avatarUrl,
       'bio': bio,
       'is_banned': isBanned,
+      'is_verified': isVerified,
       'created_at': createdAt,
     };
   }

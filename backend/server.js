@@ -49,6 +49,7 @@ try {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 8088;
 const connectionString = process.env.DATABASE_URL || 'postgres://sanctuary_user:sanctuary_secret@localhost:5438/sanctuary_db';
 
@@ -171,7 +172,7 @@ async function sendMailNotification({ to, subject, html, text }) {
 }
 
 // Gorgeous HTML activation email template with Sanctuary Celestial branding
-function buildActivationEmailHtml({ username, fullName, activationLink }) {
+function buildActivationEmailHtml({ username, fullName, activationCode, activationLink }) {
   const displayName = fullName || username;
   return `<!DOCTYPE html>
 <html lang="es">
@@ -218,11 +219,18 @@ function buildActivationEmailHtml({ username, fullName, activationLink }) {
             <td style="padding:10px 36px 30px 36px;">
               <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:800;color:#F8FAFC;text-align:center;">¡Te damos la bienvenida a bordo!</h1>
               <p style="margin:0 0 20px 0;font-size:14.5px;line-height:1.6;color:#94A3B8;text-align:center;">
-                Hola <strong style="color:#F1F5F9;">${displayName}</strong>, tu cuenta en Sanctuary está prácticamente lista. Para garantizar la seguridad de tu identidad y activar todas tus herramientas digitales, por favor confirma tu dirección de correo electrónico.
+                Hola <strong style="color:#F1F5F9;">${displayName}</strong>, tu cuenta en Sanctuary está prácticamente lista. Para garantizar la seguridad de tu identidad y activar todas tus herramientas digitales, introduce este código en la aplicación o pulsa el botón inferior:
               </p>
 
+              ${activationCode ? `
+              <!-- 6-digit PIN Box -->
+              <div style="background-color:#0A101D;border:1px solid #10B981;border-radius:16px;padding:18px;margin:20px 0;text-align:center;box-shadow:0 0 20px rgba(16,185,129,0.15);">
+                <div style="font-size:11px;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Código de Activación</div>
+                <div style="font-size:32px;font-weight:900;letter-spacing:8px;color:#10B981;margin-top:6px;font-family:monospace;">${activationCode}</div>
+              </div>` : ''}
+
               <!-- CTA Button -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
                 <tr>
                   <td align="center">
                     <a href="${activationLink}" target="_blank" style="display:inline-block;background:linear-gradient(135deg, #10B981 0%, #059669 100%);color:#FFFFFF;font-size:15px;font-weight:700;letter-spacing:0.5px;text-decoration:none;padding:16px 36px;border-radius:14px;box-shadow:0 8px 24px rgba(16,185,129,0.35);border:1px solid rgba(255,255,255,0.2);">
@@ -472,6 +480,7 @@ safeQuery(`
   ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE,
   ADD COLUMN IF NOT EXISTS activation_token VARCHAR(120),
+  ADD COLUMN IF NOT EXISTS activation_code VARCHAR(20),
   ADD COLUMN IF NOT EXISTS reset_token VARCHAR(120),
   ADD COLUMN IF NOT EXISTS reset_expires BIGINT;
 
@@ -652,7 +661,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Esta cuenta ha sido suspendida por un administrador.' });
     }
     if (userRow.is_verified === false) {
-      return res.status(403).json({ success: false, message: 'Tu cuenta aún no ha sido activada. Por favor revisa tu correo electrónico.' });
+      return res.status(403).json({
+        success: false,
+        requires_activation: true,
+        message: 'Tu cuenta aún no ha sido activada. Por favor introduce tu código de activación o revisa tu correo electrónico.',
+        username: userRow.username,
+        email: userRow.email,
+      });
     }
 
     const { password: _, ...userNoPwd } = userRow;
@@ -680,7 +695,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Esta cuenta ha sido suspendida por un administrador.' });
     }
     if (user.is_verified === false) {
-      return res.status(403).json({ success: false, message: 'Tu cuenta aún no ha sido activada. Por favor revisa tu correo electrónico.' });
+      return res.status(403).json({
+        success: false,
+        requires_activation: true,
+        message: 'Tu cuenta aún no ha sido activada. Por favor introduce tu código de activación o revisa tu correo electrónico.',
+        username: user.username,
+        email: user.email,
+      });
     }
 
     const { password: _, ...userNoPwd } = user;
@@ -716,8 +737,9 @@ app.post('/api/auth/register', async (req, res) => {
   const hashedPwd = hashPassword(pClean);
   const assignedRole = 'usuario'; // New self-registrations are always standard 'usuario'
   const hasEmail = email && email.trim().length > 0;
-  const activationToken = hasEmail ? crypto.randomBytes(24).toString('hex') : null;
-  const isVerified = !hasEmail; // If no email provided in offline mode, verify immediately
+  const activationToken = crypto.randomBytes(24).toString('hex');
+  const activationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const isVerified = false; // Always require activation
 
   const existingRes = await safeQuery('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [uClean]);
   if (existingRes) {
@@ -725,31 +747,36 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(409).json({ success: false, message: 'El nombre de usuario ya está registrado' });
     }
     const result = await safeQuery(
-      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned, is_verified, activation_token) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, $8, $9) 
+      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned, is_verified, activation_token, activation_code) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, $8, $9, $10) 
        RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, is_verified, created_at`,
-      [uClean, hashedPwd, assignedRole, full_name || uClean, email || '', avatar_url || '', bio || '', isVerified, activationToken]
+      [uClean, hashedPwd, assignedRole, full_name || uClean, email || '', avatar_url || '', bio || '', isVerified, activationToken, activationCode]
     );
 
     if (result && result.rows.length > 0) {
+      let previewUrl = null;
       // Send activation email if email provided
-      if (hasEmail && activationToken) {
+      if (hasEmail) {
         const host = req.get('host') || `localhost:${port}`;
         const protocol = req.protocol || 'http';
         const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
-        sendMailNotification({
+        const mailInfo = await sendMailNotification({
           to: email.trim(),
           subject: 'Activa tu cuenta en Sanctuary 🪐',
-          text: `Hola ${full_name || uClean},\n\nGracias por registrarte en Sanctuary. Haz clic en el siguiente enlace para activar tu cuenta:\n${activationLink}\n\nSi no te has registrado tú, ignora este mensaje.`,
-          html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationLink }),
+          text: `Hola ${full_name || uClean},\n\nGracias por registrarte en Sanctuary. Tu código de activación es: ${activationCode}\nO activa directamente pulsando aquí:\n${activationLink}\n\nSi no te has registrado tú, ignora este mensaje.`,
+          html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationCode, activationLink }),
         });
+        previewUrl = mailInfo?.previewUrl || null;
       }
 
       return res.status(201).json({
         success: true,
+        requires_activation: true,
         message: hasEmail
-            ? 'Usuario registrado. Te hemos enviado un correo para activar tu cuenta.'
-            : 'Usuario registrado correctamente con rol estándar.',
+            ? 'Usuario registrado. Te hemos enviado un correo con tu código de activación.'
+            : 'Usuario registrado. Introduce tu código de activación.',
+        activation_token: activationCode,
+        preview_url: previewUrl,
         user: result.rows[0],
       });
     }
@@ -773,31 +800,185 @@ app.post('/api/auth/register', async (req, res) => {
     is_banned: false,
     is_verified: isVerified,
     activation_token: activationToken,
+    activation_code: activationCode,
     created_at: new Date().toISOString(),
   };
   ldb.users.push(newUser);
   saveLocalDb(ldb);
 
-  if (hasEmail && activationToken) {
+  let previewUrl = null;
+  if (hasEmail) {
     const host = req.get('host') || `localhost:${port}`;
     const protocol = req.protocol || 'http';
     const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
-    sendMailNotification({
+    const mailInfo = await sendMailNotification({
       to: email.trim(),
       subject: 'Activa tu cuenta en Sanctuary 🪐',
-      text: `Hola ${full_name || uClean},\n\nActiva tu cuenta aquí: ${activationLink}`,
-      html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationLink }),
+      text: `Hola ${full_name || uClean},\n\nTu código de activación es: ${activationCode}\nO activa directamente en: ${activationLink}`,
+      html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationCode, activationLink }),
     });
+    previewUrl = mailInfo?.previewUrl || null;
   }
 
   const { password: _, ...userNoPwd } = newUser;
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
+    requires_activation: true,
     message: hasEmail
-        ? 'Usuario registrado. Te hemos enviado un correo para activar tu cuenta.'
-        : 'Usuario registrado correctamente con rol estándar.',
+        ? 'Usuario registrado. Te hemos enviado un correo con tu código de activación.'
+        : 'Usuario registrado. Introduce tu código de activación.',
+    activation_token: activationCode,
+    preview_url: previewUrl,
     user: userNoPwd,
   });
+});
+
+// Authentication: Activate account via code or token
+app.post('/api/auth/activate', async (req, res) => {
+  try {
+    const { token, code, username } = req.body;
+    const lookup = (code || token || '').trim();
+    const uClean = (username || '').trim();
+
+    if (!lookup) {
+      return res.status(400).json({ success: false, message: 'Código o token de activación requerido' });
+    }
+
+    // 1. Try PostgreSQL
+    let pgQuery = `UPDATE users 
+                   SET is_verified = TRUE, activation_token = NULL, activation_code = NULL 
+                   WHERE (activation_token = $1 OR activation_code = $1)`;
+    let pgParams = [lookup];
+    if (uClean) {
+      pgQuery += ' AND LOWER(username) = LOWER($2)';
+      pgParams.push(uClean);
+    }
+    pgQuery += ' RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, is_verified, created_at';
+
+    const result = await safeQuery(pgQuery, pgParams);
+    if (result && result.rows.length > 0) {
+      return res.json({
+        success: true,
+        message: '¡Cuenta activada con éxito! Ya puedes acceder al Santuario.',
+        user: result.rows[0],
+      });
+    }
+
+    // 2. Local DB fallback
+    const ldb = getLocalDb();
+    const u = ldb.users.find(usr => {
+      const matchToken = usr.activation_token === lookup || usr.activation_code === lookup;
+      if (uClean) {
+        return matchToken && usr.username.toLowerCase() === uClean.toLowerCase();
+      }
+      return matchToken;
+    });
+
+    if (u) {
+      u.is_verified = true;
+      u.activation_token = null;
+      u.activation_code = null;
+      saveLocalDb(ldb);
+      const { password: _, ...userNoPwd } = u;
+      return res.json({
+        success: true,
+        message: '¡Cuenta activada con éxito! Ya puedes acceder al Santuario.',
+        user: { ...userNoPwd, is_banned: !!u.is_banned, is_verified: true },
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'Código o enlace de activación inválido o expirado. Por favor solicita un nuevo código.',
+    });
+  } catch (err) {
+    console.error('Error activating user:', err);
+    return res.status(500).json({ success: false, message: 'Error interno al activar la cuenta' });
+  }
+});
+
+// Authentication: Resend activation email / code
+app.post('/api/auth/resend-activation', async (req, res) => {
+  try {
+    const { username, email } = req.body;
+    const uClean = (username || '').trim();
+    const eClean = (email || '').trim();
+
+    if (!uClean && !eClean) {
+      return res.status(400).json({ success: false, message: 'Usuario o correo electrónico requerido' });
+    }
+
+    let user = null;
+    let isPg = false;
+
+    // 1. Try PostgreSQL
+    const checkRes = await safeQuery(
+      'SELECT id, username, role, full_name, email, is_verified FROM users WHERE LOWER(username) = LOWER($1) OR (email != \'\' AND LOWER(email) = LOWER($2))',
+      [uClean, eClean || uClean]
+    );
+
+    if (checkRes && checkRes.rows.length > 0) {
+      user = checkRes.rows[0];
+      isPg = true;
+    } else {
+      const ldb = getLocalDb();
+      user = ldb.users.find(u => 
+        (uClean && u.username.toLowerCase() === uClean.toLowerCase()) || 
+        (eClean && u.email && u.email.toLowerCase() === eClean.toLowerCase())
+      );
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No se encontró ningún usuario con esos datos' });
+    }
+
+    if (user.is_verified) {
+      return res.status(400).json({ success: false, message: 'Esta cuenta ya está activada. Puedes iniciar sesión directamente.' });
+    }
+
+    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const newToken = crypto.randomBytes(24).toString('hex');
+    const targetEmail = (user.email || eClean).trim();
+
+    if (isPg) {
+      await safeQuery(
+        'UPDATE users SET activation_code = $1, activation_token = $2 WHERE id = $3',
+        [newCode, newToken, user.id]
+      );
+    } else {
+      const ldb = getLocalDb();
+      const localU = ldb.users.find(u => u.id === user.id);
+      if (localU) {
+        localU.activation_code = newCode;
+        localU.activation_token = newToken;
+        saveLocalDb(ldb);
+      }
+    }
+
+    let previewUrl = null;
+    if (targetEmail) {
+      const host = req.get('host') || `localhost:${port}`;
+      const protocol = req.protocol || 'http';
+      const activationLink = `${protocol}://${host}/api/auth/verify?token=${newToken}`;
+      const mailInfo = await sendMailNotification({
+        to: targetEmail,
+        subject: 'Nuevo código de activación · Sanctuary 🪐',
+        text: `Hola ${user.full_name || user.username},\n\nTu código de activación de Sanctuary es: ${newCode}\nO activa directamente en: ${activationLink}`,
+        html: buildActivationEmailHtml({ username: user.username, fullName: user.full_name, activationCode: newCode, activationLink }),
+      });
+      previewUrl = mailInfo?.previewUrl || null;
+    }
+
+    return res.json({
+      success: true,
+      message: 'Código de activación reenviado correctamente.',
+      activation_token: newCode,
+      preview_url: previewUrl,
+    });
+  } catch (err) {
+    console.error('Error resending activation:', err);
+    return res.status(500).json({ success: false, message: 'Error interno al reenviar activación' });
+  }
 });
 
 function buildVerificationSuccessHtml(username) {
@@ -806,6 +987,7 @@ function buildVerificationSuccessHtml(username) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="3;url=https://carlosss91.github.io/Sanctuary/">
   <title>Cuenta Verificada · Sanctuary</title>
   <style>
     * { box-sizing: border-box; }
@@ -901,8 +1083,8 @@ function buildVerificationSuccessHtml(username) {
     <div class="icon-badge">🪐</div>
     <h1 class="title">¡Cuenta Activada con Éxito!</h1>
     <div class="username-chip">@${username}</div>
-    <p class="desc">Tu dirección de correo ha sido validada. Tu identidad digital en Sanctuary está verificada y ya puedes acceder a todas tus herramientas.</p>
-    <a href="/" class="btn">Entrar a Sanctuary</a>
+    <p class="desc">Tu cuenta ha sido validada y activada correctamente. Redirigiéndote a Sanctuary...</p>
+    <a href="https://carlosss91.github.io/Sanctuary/" class="btn">Entrar al Santuario</a>
     <div class="brand">Sanctuary · Digital Suite 2026</div>
   </div>
 </body>
@@ -911,14 +1093,14 @@ function buildVerificationSuccessHtml(username) {
 
 // Authentication: Account Activation Link
 app.get('/api/auth/verify', async (req, res) => {
-  const { token } = req.query;
+  const token = (req.query.token || req.query.code || '').trim();
   if (!token) {
     return res.status(400).send('<h1>Token de activación inválido o faltante</h1>');
   }
 
   // PostgreSQL
   const result = await safeQuery(
-    'UPDATE users SET is_verified = TRUE, activation_token = NULL WHERE activation_token = $1 RETURNING username',
+    'UPDATE users SET is_verified = TRUE, activation_token = NULL, activation_code = NULL WHERE activation_token = $1 OR activation_code = $1 RETURNING username',
     [token]
   );
   if (result && result.rows.length > 0) {
@@ -927,10 +1109,11 @@ app.get('/api/auth/verify', async (req, res) => {
 
   // Local DB fallback
   const ldb = getLocalDb();
-  const u = ldb.users.find(usr => usr.activation_token === token);
+  const u = ldb.users.find(usr => usr.activation_token === token || usr.activation_code === token);
   if (u) {
     u.is_verified = true;
     u.activation_token = null;
+    u.activation_code = null;
     saveLocalDb(ldb);
     return res.send(buildVerificationSuccessHtml(u.username));
   }

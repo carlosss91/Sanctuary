@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import 'sanctuary_planet_logo.dart';
@@ -16,12 +19,16 @@ class GitHubRepo {
     required this.url,
     this.stars = '★',
   });
-}class TrayectoriaSidebar extends StatefulWidget {
+}
+
+class TrayectoriaSidebar extends StatefulWidget {
   final String activeItem;
   final ValueChanged<String> onSelect;
   final bool isDark;
   final bool isCollapsed;
   final VoidCallback? onToggleCollapse;
+  final String? githubUsername;
+  final String? userDisplayName;
 
   const TrayectoriaSidebar({
     super.key,
@@ -30,6 +37,8 @@ class GitHubRepo {
     required this.isDark,
     this.isCollapsed = false,
     this.onToggleCollapse,
+    this.githubUsername,
+    this.userDisplayName,
   });
 
   @override
@@ -37,28 +46,111 @@ class GitHubRepo {
 }
 
 class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
-  final List<GitHubRepo> _gitHubRepos = const [
-    GitHubRepo(
-      name: 'Sanctuary',
-      desc: 'Portal Web Docker & CV Builder',
-      url: 'https://github.com/carlosss91/Sanctuary',
-    ),
-    GitHubRepo(
-      name: 'portaldocente20',
-      desc: 'Gestión docente y módulos FP',
-      url: 'https://github.com/carlosss91/portaldocente20',
-    ),
-    GitHubRepo(
-      name: 'odysseus',
-      desc: 'Sistema de automatización',
-      url: 'https://github.com/carlosss91/odysseus',
-    ),
-    GitHubRepo(
-      name: 'cv-builder-flutter',
-      desc: 'Herramienta interactiva A4',
-      url: 'https://github.com/carlosss91',
-    ),
-  ];
+  String _effectiveUsername = '';
+  String _effectiveDisplayName = '';
+  List<GitHubRepo> _gitHubRepos = [];
+  bool _isLoadingRepos = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveUserAndFetchRepos();
+  }
+
+  @override
+  void didUpdateWidget(covariant TrayectoriaSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.githubUsername != widget.githubUsername ||
+        oldWidget.userDisplayName != widget.userDisplayName) {
+      _resolveUserAndFetchRepos();
+    }
+  }
+
+  Future<void> _resolveUserAndFetchRepos() async {
+    String resolvedUser = (widget.githubUsername ?? '').trim();
+    String resolvedName = (widget.userDisplayName ?? '').trim();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (resolvedUser.isEmpty) {
+        final userJson = prefs.getString('current_user');
+        String? currentUsername;
+        if (userJson != null) {
+          try {
+            final map = jsonDecode(userJson);
+            currentUsername = map['username']?.toString();
+            if (resolvedName.isEmpty) {
+              resolvedName = map['full_name']?.toString() ?? currentUsername ?? '';
+            }
+          } catch (_) {}
+        }
+        if (currentUsername != null && currentUsername.isNotEmpty) {
+          resolvedUser = prefs.getString('sanctuary_github_${currentUsername.toLowerCase()}') ?? '';
+        }
+        if (resolvedUser.isEmpty) {
+          resolvedUser = prefs.getString('sanctuary_github_username') ?? '';
+        }
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _effectiveUsername = resolvedUser;
+        _effectiveDisplayName = resolvedName;
+      });
+      if (resolvedUser.isNotEmpty) {
+        _fetchRepos(resolvedUser);
+      } else {
+        setState(() {
+          _gitHubRepos = [];
+          _isLoadingRepos = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchRepos(String username) async {
+    if (username.trim().isEmpty) {
+      if (mounted) setState(() => _gitHubRepos = []);
+      return;
+    }
+
+    setState(() => _isLoadingRepos = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://api.github.com/users/${username.trim()}/repos?sort=updated&per_page=6'),
+        headers: {'Accept': 'application/vnd.github.v3+json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
+        final repos = list.map((item) {
+          final desc = item['description']?.toString() ?? 'Repositorio público en GitHub';
+          return GitHubRepo(
+            name: item['name']?.toString() ?? '',
+            desc: desc,
+            url: item['html_url']?.toString() ?? 'https://github.com/${username.trim()}',
+            stars: (item['stargazers_count'] != null) ? '${item['stargazers_count']} ★' : '★',
+          );
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            _gitHubRepos = repos;
+            _isLoadingRepos = false;
+          });
+          return;
+        }
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _isLoadingRepos = false;
+      });
+    }
+  }
 
   Future<void> _openExternal(String url) async {
     try {
@@ -270,7 +362,14 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                     children: [
                       const Icon(Icons.code, size: 14, color: AppTheme.emerald),
                       const SizedBox(width: 6),
-                      Expanded(child: _buildSectionHeader('REPOSITORIOS GITHUB', isDark)),
+                      Expanded(
+                        child: _buildSectionHeader(
+                          _effectiveUsername.isNotEmpty
+                              ? 'REPOSITORIOS GITHUB (@$_effectiveUsername)'
+                              : 'REPOSITORIOS GITHUB',
+                          isDark,
+                        ),
+                      ),
                     ],
                   )
                 else
@@ -280,7 +379,139 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                   ),
                 const SizedBox(height: 8),
 
-                ..._gitHubRepos.map((repo) => _buildRepoCard(repo, isDark)),
+                if (_isLoadingRepos)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald),
+                      ),
+                    ),
+                  )
+                else if (_effectiveUsername.isEmpty)
+                  if (!isCollapsed)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.45),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.65),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.account_circle_outlined, size: 14, color: AppTheme.emerald),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Sin usuario vinculado',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Configura tu perfil de GitHub en el widget de la pantalla de inicio para sincronizar tus repositorios.',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () => widget.onSelect('Inicio'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.emerald.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.link, size: 12, color: AppTheme.emerald),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Configurar perfil',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.emerald,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Tooltip(
+                        message: 'Configurar usuario de GitHub en Inicio',
+                        preferBelow: false,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => widget.onSelect('Inicio'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.45),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.65),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: const Icon(Icons.link_outlined, size: 16, color: AppTheme.emerald),
+                          ),
+                        ),
+                      ),
+                    )
+                else if (_gitHubRepos.isEmpty)
+                  if (!isCollapsed)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.45),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.65),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Text(
+                        'No se encontraron repositorios públicos para @$_effectiveUsername.',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink()
+                else
+                  ..._gitHubRepos.map((repo) => _buildRepoCard(repo, isDark)),
               ],
             ),
           ),
@@ -298,10 +529,18 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
             ),
             child: isCollapsed
                 ? Tooltip(
-                    message: 'Property of Carlos Santana Sánchez · GitHub: carlosss91',
+                    message: _effectiveUsername.isNotEmpty
+                        ? 'Usuario GitHub: @$_effectiveUsername'
+                        : 'Sanctuary Platform',
                     preferBelow: false,
                     child: InkWell(
-                      onTap: () => _openExternal('https://github.com/carlosss91'),
+                      onTap: () {
+                        if (_effectiveUsername.isNotEmpty) {
+                          _openExternal('https://github.com/$_effectiveUsername');
+                        } else {
+                          widget.onSelect('Inicio');
+                        }
+                      },
                       child: const Center(
                         child: Icon(Icons.code_rounded, size: 16, color: AppTheme.emerald),
                       ),
@@ -315,7 +554,9 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Property of Carlos Santana Sánchez',
+                          _effectiveDisplayName.isNotEmpty
+                              ? _effectiveDisplayName
+                              : 'Sanctuary Platform',
                           style: TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w600,
@@ -324,15 +565,23 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                         ),
                         const SizedBox(height: 2),
                         InkWell(
-                          onTap: () => _openExternal('https://github.com/carlosss91'),
-                          child: const Row(
+                          onTap: () {
+                            if (_effectiveUsername.isNotEmpty) {
+                              _openExternal('https://github.com/$_effectiveUsername');
+                            } else {
+                              widget.onSelect('Inicio');
+                            }
+                          },
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.code_rounded, size: 12, color: AppTheme.emerald),
-                              SizedBox(width: 4),
+                              const Icon(Icons.code_rounded, size: 12, color: AppTheme.emerald),
+                              const SizedBox(width: 4),
                               Text(
-                                'GitHub: carlosss91',
-                                style: TextStyle(
+                                _effectiveUsername.isNotEmpty
+                                    ? 'GitHub: @$_effectiveUsername'
+                                    : 'Conectar GitHub',
+                                style: const TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.emerald,
