@@ -102,25 +102,36 @@ function verifyPassword(enteredPassword, storedPassword, username) {
   return enteredPassword === storedPassword;
 }
 
-// --- Email System (SMTP Real con soporte Ethereal / vista segura) ---
+// --- Email System (SMTP Real con soporte Ethereal / configuración dinámica) ---
 let mailTransporter = null;
 async function getMailTransporter() {
   if (mailTransporter) return mailTransporter;
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    mailTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== 'false',
-      },
-    });
-    console.log(`📧 [SMTP] Servidor SMTP configurado activamente: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || '587'}`);
-    return mailTransporter;
+
+  const ldb = getLocalDb();
+  const dbSmtp = ldb.smtp_config;
+
+  const host = process.env.SMTP_HOST || dbSmtp?.host;
+  const port = parseInt(process.env.SMTP_PORT || dbSmtp?.port || '587', 10);
+  const user = process.env.SMTP_USER || dbSmtp?.user;
+  const pass = process.env.SMTP_PASS || dbSmtp?.pass;
+  const secure = process.env.SMTP_SECURE === 'true' || port === 465 || dbSmtp?.secure === true;
+
+  if (host && user && pass) {
+    try {
+      mailTransporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== 'false' },
+      });
+      mailTransporter._isCustom = true;
+      mailTransporter._customUser = user;
+      console.log(`📧 [SMTP] Servidor SMTP configurado activamente: ${host}:${port} (${user})`);
+      return mailTransporter;
+    } catch (err) {
+      console.warn('⚠️ Error al crear transportador SMTP personalizado:', err.message);
+    }
   }
 
   // Si no se suministraron credenciales SMTP, crear automáticamente cuenta de prueba Ethereal
@@ -157,7 +168,9 @@ async function getMailTransporter() {
 async function sendMailNotification({ to, subject, html, text }) {
   try {
     const transporter = await getMailTransporter();
-    const from = process.env.SMTP_FROM || (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>');
+    const ldb = getLocalDb();
+    const dbSmtp = ldb.smtp_config;
+    const from = process.env.SMTP_FROM || dbSmtp?.from || (transporter._customUser ? `"Sanctuary Platform" <${transporter._customUser}>` : (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'));
     const info = await transporter.sendMail({ from, to, subject, html, text });
     if (transporter._isEthereal && nodemailer.getTestMessageUrl) {
       const previewUrl = nodemailer.getTestMessageUrl(info);
@@ -363,10 +376,9 @@ function getDefaultLocalDb() {
       }
     ],
     repo_links: [
-      { id: 1, title: 'Sanctuary Repository', url: 'https://github.com/carlosss91/Sanctuary', description: 'Repositorio principal del santuario con CV Builder y Docker', category: 'Repositorios', icon_name: 'folder_git' },
-      { id: 2, title: 'Portal Docente & Orientación', url: 'https://github.com/carlosss91', description: 'Herramienta de gestión de alumnos y orientación laboral', category: 'Educación', icon_name: 'school' },
-      { id: 3, title: 'Slide Downloader', url: 'app://prezi2pdf', description: 'Descargador universal de presentaciones y videos', category: 'Web Apps', icon_name: 'present_to_all' },
-      { id: 4, title: 'Web Apps & Proyectos', url: 'https://github.com/carlosss91', description: 'Directorio de aplicaciones interactivas y utilidades', category: 'Web Apps', icon_name: 'apps' }
+      { id: 1, title: 'Slide Downloader', url: 'app://prezi2pdf', description: 'Descargador universal de presentaciones y videos', category: 'Web Apps', icon_name: 'present_to_all' },
+      { id: 2, title: 'CV Maker Studio', url: 'app://cvmaker', description: 'Generador y diseñador de currículums interactivos en formato A4', category: 'Educación', icon_name: 'badge' },
+      { id: 3, title: 'PDF Signer', url: 'app://pdfsigner', description: 'Herramienta de firma digital y certificación de documentos', category: 'Web Apps', icon_name: 'draw' }
     ]
   };
 }
@@ -379,6 +391,14 @@ function getLocalDb() {
         if (!parsed.users.some(u => u.username.toLowerCase() === 'admin')) {
           parsed.users.push(getDefaultLocalDb().users[0]);
           saveLocalDb(parsed);
+        }
+        // Sanitize repo_links to remove any legacy carlosss91 personal repos
+        if (Array.isArray(parsed.repo_links)) {
+          const cleaned = parsed.repo_links.filter(l => !l.url?.toLowerCase().includes('carlosss91') && !l.title?.toLowerCase().includes('carlosss91'));
+          if (cleaned.length !== parsed.repo_links.length) {
+            parsed.repo_links = cleaned.length > 0 ? cleaned : getDefaultLocalDb().repo_links;
+            saveLocalDb(parsed);
+          }
         }
         return parsed;
       }
@@ -772,11 +792,16 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(201).json({
         success: true,
         requires_activation: true,
+        requiresActivation: true,
         message: hasEmail
             ? 'Usuario registrado. Te hemos enviado un correo con tu código de activación.'
             : 'Usuario registrado. Introduce tu código de activación.',
         activation_token: activationCode,
+        activationToken: activationCode,
+        activation_code: activationCode,
+        activationCode: activationCode,
         preview_url: previewUrl,
+        previewUrl: previewUrl,
         user: result.rows[0],
       });
     }
@@ -824,11 +849,16 @@ app.post('/api/auth/register', async (req, res) => {
   return res.status(201).json({
     success: true,
     requires_activation: true,
+    requiresActivation: true,
     message: hasEmail
         ? 'Usuario registrado. Te hemos enviado un correo con tu código de activación.'
         : 'Usuario registrado. Introduce tu código de activación.',
     activation_token: activationCode,
+    activationToken: activationCode,
+    activation_code: activationCode,
+    activationCode: activationCode,
     preview_url: previewUrl,
+    previewUrl: previewUrl,
     user: userNoPwd,
   });
 });
@@ -973,7 +1003,11 @@ app.post('/api/auth/resend-activation', async (req, res) => {
       success: true,
       message: 'Código de activación reenviado correctamente.',
       activation_token: newCode,
+      activationToken: newCode,
+      activation_code: newCode,
+      activationCode: newCode,
       preview_url: previewUrl,
+      previewUrl: previewUrl,
     });
   } catch (err) {
     console.error('Error resending activation:', err);
@@ -1259,25 +1293,71 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
 // Email: Admin Get Email Diagnostics Status
 app.get('/api/admin/email/status', async (req, res) => {
-  const isCustomSmtp = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  const ldb = getLocalDb();
+  const dbSmtp = ldb.smtp_config;
+  const isCustomSmtp = !!((process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) || (dbSmtp && dbSmtp.host && dbSmtp.user && dbSmtp.pass));
   const transporter = await getMailTransporter();
   const isEthereal = !!transporter._isEthereal;
   const isReal = isCustomSmtp || isEthereal;
 
+  const currentHost = process.env.SMTP_HOST || dbSmtp?.host || (isEthereal ? 'smtp.ethereal.email (Servidor de Prueba)' : 'Modo Consola');
+  const currentPort = process.env.SMTP_PORT || dbSmtp?.port || '587';
+  const currentUser = process.env.SMTP_USER || dbSmtp?.user || null;
+  const currentFrom = process.env.SMTP_FROM || dbSmtp?.from || (transporter._customUser ? `"Sanctuary Platform" <${transporter._customUser}>` : (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'));
+
   return res.json({
     success: true,
     isConfigured: isReal,
+    isCustomSmtp,
     mode: isCustomSmtp ? 'smtp' : (isEthereal ? 'ethereal' : 'simulated'),
-    host: process.env.SMTP_HOST || (isEthereal ? 'smtp.ethereal.email (Servidor de Prueba)' : 'Modo Consola'),
-    port: process.env.SMTP_PORT || '587',
-    from: process.env.SMTP_FROM || (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'),
+    host: currentHost,
+    port: currentPort,
+    user: currentUser,
+    from: currentFrom,
     etherealUser: transporter._etherealUser || null,
     message: isCustomSmtp
-      ? `Servidor SMTP configurado y activo en ${process.env.SMTP_HOST}`
+      ? `Servidor SMTP configurado y activo en ${currentHost}`
       : (isEthereal
           ? 'Servidor de prueba SMTP Ethereal activo: Los correos se generan con visor web real y previsualización online.'
           : 'Modo simulado activo: Las credenciales SMTP no están definidas.'),
   });
+});
+
+// Email: Admin Save SMTP Configuration
+app.post('/api/admin/email/config', async (req, res) => {
+  try {
+    const { host, port, user, pass, from, secure } = req.body;
+    if (!host || !user || !pass) {
+      return res.status(400).json({ success: false, message: 'Host, usuario y contraseña SMTP son requeridos' });
+    }
+
+    const ldb = getLocalDb();
+    ldb.smtp_config = {
+      host: host.trim(),
+      port: parseInt(port || '587', 10),
+      user: user.trim(),
+      pass: pass.trim(),
+      from: from ? from.trim() : `"Sanctuary Platform" <${user.trim()}>`,
+      secure: secure === true || port == 465,
+      updated_at: new Date().toISOString(),
+    };
+    saveLocalDb(ldb);
+
+    // Reset transporter so next call re-initializes with new credentials
+    mailTransporter = null;
+    await getMailTransporter();
+
+    res.json({
+      success: true,
+      message: 'Configuración SMTP guardada y activada con éxito',
+      host: ldb.smtp_config.host,
+      port: ldb.smtp_config.port,
+      user: ldb.smtp_config.user,
+      from: ldb.smtp_config.from,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error guardando configuración SMTP: ' + err.message });
+  }
 });
 
 // Email: Admin Send Test Email
@@ -2180,12 +2260,13 @@ app.post('/api/cv/extract-pdf', async (req, res) => {
 
 // Repository Links: List
 app.get('/api/links', async (req, res) => {
-  const result = await safeQuery('SELECT * FROM repo_links ORDER BY id ASC');
+  const result = await safeQuery("SELECT * FROM repo_links WHERE LOWER(url) NOT LIKE '%carlosss91%' ORDER BY id ASC");
   if (result) {
     return res.json({ success: true, links: result.rows });
   }
   const ldb = getLocalDb();
-  res.json({ success: true, links: ldb.repo_links || [] });
+  const links = (ldb.repo_links || []).filter(l => !l.url?.toLowerCase().includes('carlosss91') && !l.title?.toLowerCase().includes('carlosss91'));
+  res.json({ success: true, links });
 });
 
 // Repository Links: Add

@@ -111,14 +111,17 @@ class _LoginDialogState extends State<LoginDialog> {
           role: 'usuario',
         );
         if (res['success'] == true) {
-          final requiresActivation = res['requires_activation'] == true;
+          final requiresActivation = res['requires_activation'] == true || res['requiresActivation'] == true;
           if (requiresActivation) {
             setState(() {
               _isActivationView = true;
               _pendingUsername = username;
               _pendingEmail = email;
-              _activationCodeHint = res['activation_token']?.toString() ?? res['activation_code']?.toString();
-              _activationPreviewUrl = res['preview_url']?.toString();
+              _activationCodeHint = res['activation_token']?.toString() ??
+                  res['activationToken']?.toString() ??
+                  res['activation_code']?.toString() ??
+                  res['activationCode']?.toString();
+              _activationPreviewUrl = res['preview_url']?.toString() ?? res['previewUrl']?.toString();
               if (_activationCodeHint != null && _activationCodeHint!.isNotEmpty) {
                 _activationCodeController.text = _activationCodeHint!;
               }
@@ -145,11 +148,18 @@ class _LoginDialogState extends State<LoginDialog> {
           final user = res['user'] as UserModel;
           widget.onLoginSuccess(user);
           if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
-        } else if (res['requires_activation'] == true) {
+        } else if (res['requires_activation'] == true || res['requiresActivation'] == true) {
           setState(() {
             _isActivationView = true;
             _pendingUsername = username;
             _pendingEmail = res['email']?.toString() ?? '';
+            _activationCodeHint = res['activation_token']?.toString() ??
+                res['activationToken']?.toString() ??
+                res['activation_code']?.toString() ??
+                res['activationCode']?.toString();
+            if (_activationCodeHint != null && _activationCodeHint!.isNotEmpty) {
+              _activationCodeController.text = _activationCodeHint!;
+            }
             _errorMessage = res['message'] ?? 'Tu cuenta aún no está activada. Introduce tu código de activación.';
           });
         } else {
@@ -225,8 +235,11 @@ class _LoginDialogState extends State<LoginDialog> {
       setState(() {
         _isLoading = false;
         if (res['success'] == true) {
-          _activationCodeHint = res['activation_token']?.toString();
-          _activationPreviewUrl = res['preview_url']?.toString();
+          _activationCodeHint = res['activation_token']?.toString() ??
+              res['activationToken']?.toString() ??
+              res['activation_code']?.toString() ??
+              res['activationCode']?.toString();
+          _activationPreviewUrl = res['preview_url']?.toString() ?? res['previewUrl']?.toString();
           if (_activationCodeHint != null && _activationCodeHint!.isNotEmpty) {
             _activationCodeController.text = _activationCodeHint!;
           }

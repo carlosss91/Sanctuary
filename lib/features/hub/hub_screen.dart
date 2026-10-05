@@ -95,7 +95,7 @@ class _HubScreenState extends State<HubScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final links = await widget.apiService.getLinks();
+    final links = await widget.apiService.getLinks(_currentUser.username);
     if (mounted) {
       setState(() {
         _links = links;
@@ -206,12 +206,107 @@ class _HubScreenState extends State<HubScreen> {
         return;
       }
     }
+    if (url == 'app://cvmaker' || url.contains('cvmaker')) {
+      widget.onOpenCvBuilder();
+      return;
+    }
+    if (url == 'app://pdfsigner' || url.contains('pdfsigner')) {
+      if (widget.onOpenPdfSigner != null) {
+        widget.onOpenPdfSigner!();
+        return;
+      }
+    }
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (_) {}
+  }
+
+  Future<void> _deleteLink(RepoLinkModel link) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar Enlace'),
+        content: Text('¿Deseas eliminar el enlace directo "${link.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && link.id != null) {
+      final success = await widget.apiService.deleteLink(link.id!, _currentUser.username);
+      if (success) {
+        _loadData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Enlace "${link.title}" eliminado'),
+              backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showDocsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.menu_book_rounded, color: AppTheme.emerald),
+            SizedBox(width: 8),
+            Text('Documentación de Sanctuary'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Bienvenido al Santuario.',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• CV Maker Studio: Diseña currículums profesionales adaptados a estándares laborales A4 con exportación en PDF de alta calidad.\n\n'
+                '• PDF Signer: Firma y certifica documentos digitalmente con sellos gráficos, firmas manuscritas y verificación criptográfica.\n\n'
+                '• Slide Downloader: Descarga diapositivas y presentaciones desde Prezi, Google Slides, Speaker Deck y más.\n\n'
+                '• Widget de GitHub: Conecta tu usuario de GitHub desde la barra lateral o el widget del Hub para explorar tus propios repositorios públicos en tiempo real.\n\n'
+                '• Enlaces Directos: Puedes guardar tus enlaces frecuentes y organizarlos por categorías personalizadas.',
+                style: TextStyle(fontSize: 12.5, height: 1.45),
+              ),
+              const SizedBox(height: 12),
+              if (_githubUsername.isNotEmpty)
+                Text(
+                  'Usuario de GitHub vinculado: @$_githubUsername',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Color _getLanguageColor(String lang) {
@@ -590,29 +685,7 @@ class _HubScreenState extends State<HubScreen> {
                   children: [
                     Icon(Icons.manage_accounts_outlined, size: 18, color: AppTheme.emerald),
                     SizedBox(width: 12),
-                    Text('Editar Perfil y Foto', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-              // Option: Tema
-              PopupMenuItem<String>(
-                value: 'toggle_theme',
-                child: Row(
-                  children: [
-                    Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 18),
-                    const SizedBox(width: 12),
-                    Text(isDark ? 'Tema Claro' : 'Tema Oscuro', style: const TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
-              // Option: Animación Cósmica
-              PopupMenuItem<String>(
-                value: 'toggle_cosmic',
-                child: Row(
-                  children: [
-                    Icon(widget.isCosmicActive ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 18),
-                    const SizedBox(width: 12),
-                    Text(widget.isCosmicActive ? 'Pausar Cosmos' : 'Activar Cosmos', style: const TextStyle(fontSize: 13)),
+                    Text('Editar Perfil', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -769,41 +842,83 @@ class _HubScreenState extends State<HubScreen> {
                       // ================================================================
                       // 1. IPHONE STYLE APPS & TOOLS GRID (iOS SQUIRCLES)
                       // ================================================================
-                      Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: AppTheme.emerald,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'HERRAMIENTAS & APLICACIONES',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                          ),
-                          const Spacer(),
-                          // Selector de columnas (Auto, 2, 3, 4 columnas)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: const EdgeInsets.all(2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                      if (isMobile)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                _buildColChip('Auto', null, isDark),
-                                _buildColChip('2 col', 2, isDark),
-                                _buildColChip('3 col', 3, isDark),
-                                _buildColChip('4 col', 4, isDark),
+                                Container(
+                                  width: 4,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emerald,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'HERRAMIENTAS & APLICACIONES',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                                ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: 10),
+                            // Selector de columnas (Auto, 2, 3, 4 columnas) alineado a la izquierda en móvil
+                            Container(
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildColChip('Auto', null, isDark),
+                                  _buildColChip('2 col', 2, isDark),
+                                  _buildColChip('3 col', 3, isDark),
+                                  _buildColChip('4 col', 4, isDark),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: AppTheme.emerald,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'HERRAMIENTAS & APLICACIONES',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                            ),
+                            const Spacer(),
+                            // Selector de columnas (Auto, 2, 3, 4 columnas)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildColChip('Auto', null, isDark),
+                                  _buildColChip('2 col', 2, isDark),
+                                  _buildColChip('3 col', 3, isDark),
+                                  _buildColChip('4 col', 4, isDark),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(height: 16),
 
                       // Perfectly aligned responsive GridView
@@ -886,7 +1001,13 @@ class _HubScreenState extends State<HubScreen> {
                                 icon: Icons.menu_book_rounded,
                                 gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
                                 badge: 'Docs',
-                                onTap: () => _openUrl('https://github.com/carlosss91/Sanctuary'),
+                                onTap: () {
+                                  if (_githubUsername.isNotEmpty) {
+                                    _openUrl('https://github.com/$_githubUsername');
+                                  } else {
+                                    _showDocsDialog();
+                                  }
+                                },
                               ),
                             ],
                           );
@@ -1034,6 +1155,11 @@ class _HubScreenState extends State<HubScreen> {
                                           icon: const Icon(Icons.launch, size: 16, color: AppTheme.emerald),
                                           onPressed: () => _openUrl(link.url),
                                           tooltip: 'Abrir enlace',
+                                        ),
+                                        IconButton(
+                                          icon: Icon(Icons.delete_outline, size: 16, color: Colors.redAccent.withOpacity(0.85)),
+                                          onPressed: () => _deleteLink(link),
+                                          tooltip: 'Eliminar enlace',
                                         ),
                                       ],
                                     ),

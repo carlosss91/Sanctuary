@@ -201,22 +201,6 @@ class StorageService {
       final defaultLinks = [
         const RepoLinkModel(
           id: 1,
-          title: 'Sanctuary Repository',
-          url: 'https://github.com/carlosss91/Sanctuary',
-          description: 'Repositorio principal del santuario con CV Builder y Docker',
-          category: 'Repositorios',
-          iconName: 'folder_git',
-        ),
-        const RepoLinkModel(
-          id: 2,
-          title: 'Portal Docente & Orientación',
-          url: 'https://github.com/carlosss91',
-          description: 'Herramienta de gestión de alumnos y orientación laboral',
-          category: 'Educación',
-          iconName: 'school',
-        ),
-        const RepoLinkModel(
-          id: 3,
           title: 'Slide Downloader',
           url: 'app://prezi2pdf',
           description: 'Descargador universal de diapositivas (Prezi, Google Slides, SlideShare, Speaker Deck y PDF)',
@@ -224,12 +208,20 @@ class StorageService {
           iconName: 'present_to_all',
         ),
         const RepoLinkModel(
-          id: 4,
-          title: 'Web Apps & Proyectos',
-          url: 'https://github.com/carlosss91',
-          description: 'Directorio de aplicaciones interactivas y utilidades',
+          id: 2,
+          title: 'CV Maker Studio',
+          url: 'app://cvmaker',
+          description: 'Generador y diseñador de currículums interactivos en formato A4',
+          category: 'Educación',
+          iconName: 'badge',
+        ),
+        const RepoLinkModel(
+          id: 3,
+          title: 'PDF Signer',
+          url: 'app://pdfsigner',
+          description: 'Herramienta de firma digital y certificación de documentos',
           category: 'Web Apps',
-          iconName: 'apps',
+          iconName: 'draw',
         ),
       ];
       await saveRepoLinks(defaultLinks);
@@ -282,13 +274,24 @@ class StorageService {
   }
 
   Future<void> saveLocalUser(UserModel user, String password) async {
-    final users = getLocalUsers().where((u) => u.username != user.username).toList();
+    final cleanUser = user.username.trim();
+    final users = getLocalUsers().where((u) => u.username.toLowerCase() != cleanUser.toLowerCase()).toList();
     users.add(user);
     await _prefs.setString(_keyLocalUsers, jsonEncode(users.map((u) => u.toJson()).toList()));
 
     final pwds = _getLocalPasswords();
-    pwds[user.username] = password;
+    pwds[cleanUser.toLowerCase()] = password;
     await _prefs.setString('${_keyLocalUsers}_pwd', jsonEncode(pwds));
+  }
+
+  Future<void> updateLocalUser(UserModel user) async {
+    final cleanUser = user.username.trim().toLowerCase();
+    final users = getLocalUsers().map((u) => u.username.toLowerCase() == cleanUser ? user : u).toList();
+    await _prefs.setString(_keyLocalUsers, jsonEncode(users.map((u) => u.toJson()).toList()));
+    final cur = getCurrentUser();
+    if (cur != null && cur.username.toLowerCase() == cleanUser) {
+      await setCurrentUser(user);
+    }
   }
 
   Future<void> saveAllLocalUsers(List<UserModel> users) async {
@@ -296,11 +299,12 @@ class StorageService {
   }
 
   Future<void> deleteLocalUser(String username) async {
-    final users = getLocalUsers().where((u) => u.username.toLowerCase() != username.toLowerCase()).toList();
+    final cleanUser = username.trim().toLowerCase();
+    final users = getLocalUsers().where((u) => u.username.toLowerCase() != cleanUser).toList();
     await _prefs.setString(_keyLocalUsers, jsonEncode(users.map((u) => u.toJson()).toList()));
 
     final pwds = _getLocalPasswords();
-    pwds.remove(username);
+    pwds.remove(cleanUser);
     await _prefs.setString('${_keyLocalUsers}_pwd', jsonEncode(pwds));
   }
 
@@ -323,11 +327,18 @@ class StorageService {
 
   bool verifyLocalCredentials(String username, String password) {
     if (isUserBanned(username)) return false;
-    final pwds = _getLocalPasswords();
-    if (username.toLowerCase() == 'admin') {
-      return password == 'Sanctuary#2026*' || password == 'admin' || pwds[username] == password;
+    final cleanUser = username.trim().toLowerCase();
+    final cleanPwd = password.trim();
+    if (cleanUser == 'admin') {
+      return cleanPwd == 'Sanctuary#2026*' || cleanPwd == 'admin';
     }
-    return pwds[username] == password;
+    final pwds = _getLocalPasswords();
+    for (final entry in pwds.entries) {
+      if (entry.key.toLowerCase() == cleanUser) {
+        return entry.value == cleanPwd;
+      }
+    }
+    return false;
   }
 
   // --- CV Profiles ---
@@ -353,19 +364,34 @@ class StorageService {
   }
 
   // --- Repo Links ---
-  List<RepoLinkModel> getRepoLinks() {
-    final str = _prefs.getString(_keyRepoLinks);
+  List<RepoLinkModel> getRepoLinks([String? username]) {
+    String? str;
+    if (username != null && username.trim().isNotEmpty) {
+      str = _prefs.getString('${_keyRepoLinks}_${username.trim().toLowerCase()}');
+    }
+    str ??= _prefs.getString(_keyRepoLinks);
     if (str == null) return [];
     try {
       final list = jsonDecode(str) as List;
-      return list.map((e) => RepoLinkModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      final parsed = list.map((e) => RepoLinkModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      // Filter out any legacy hardcoded carlosss91 repos
+      final cleaned = parsed.where((l) => !l.url.toLowerCase().contains('carlosss91') && !l.title.toLowerCase().contains('carlosss91')).toList();
+      if (cleaned.length != parsed.length) {
+        saveRepoLinks(cleaned, username);
+      }
+      return cleaned;
     } catch (_) {
       return [];
     }
   }
 
-  Future<void> saveRepoLinks(List<RepoLinkModel> links) async {
-    await _prefs.setString(_keyRepoLinks, jsonEncode(links.map((l) => l.toJson()).toList()));
+  Future<void> saveRepoLinks(List<RepoLinkModel> links, [String? username]) async {
+    final cleaned = links.where((l) => !l.url.toLowerCase().contains('carlosss91') && !l.title.toLowerCase().contains('carlosss91')).toList();
+    final jsonStr = jsonEncode(cleaned.map((l) => l.toJson()).toList());
+    if (username != null && username.trim().isNotEmpty) {
+      await _prefs.setString('${_keyRepoLinks}_${username.trim().toLowerCase()}', jsonStr);
+    }
+    await _prefs.setString(_keyRepoLinks, jsonStr);
   }
 
   // --- Preferences ---
@@ -456,11 +482,25 @@ class StorageService {
 
   Future<void> addChatMessage(Map<String, dynamic> msg) async {
     final list = getChatMessages();
-    list.add(msg);
-    if (list.length > 200) {
-      list.removeRange(0, list.length - 200);
+    final newId = msg['id']?.toString() ?? '';
+    final newUser = (msg['username'] ?? '').toString().toLowerCase().trim();
+    final newText = (msg['text'] ?? msg['message'] ?? '').toString().trim();
+
+    // Prevent adding if already present in the list
+    final isDuplicate = list.any((m) {
+      if (newId.isNotEmpty && m['id']?.toString() == newId) return true;
+      final mUser = (m['username'] ?? '').toString().toLowerCase().trim();
+      final mText = (m['text'] ?? m['message'] ?? '').toString().trim();
+      return mUser == newUser && mText == newText;
+    });
+
+    if (!isDuplicate) {
+      list.add(msg);
+      if (list.length > 200) {
+        list.removeRange(0, list.length - 200);
+      }
+      await saveChatMessages(list);
     }
-    await saveChatMessages(list);
   }
 
   Future<void> deleteChatMessage(dynamic id) async {

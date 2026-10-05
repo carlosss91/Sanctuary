@@ -187,7 +187,9 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
     final text = _textController.text.trim();
     if (text.isEmpty || _isSending) return;
 
-    setState(() => _isSending = true);
+    setState(() {
+      _isSending = true;
+    });
     _textController.clear();
 
     final res = await widget.apiService.sendChatMessage(
@@ -198,7 +200,6 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
     );
 
     if (mounted) {
-      setState(() => _isSending = false);
       if (res['success'] == true) {
         await _fetchMessages(silent: true);
         _scrollToBottom();
@@ -211,6 +212,7 @@ class _SanctuaryChatWidgetState extends State<SanctuaryChatWidget> {
           ),
         );
       }
+      setState(() => _isSending = false);
     }
   }
 

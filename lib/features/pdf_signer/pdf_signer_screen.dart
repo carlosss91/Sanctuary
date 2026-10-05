@@ -1135,27 +1135,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             children: [
               Icon(Icons.manage_accounts_outlined, size: 17, color: AppTheme.emerald),
               SizedBox(width: 10),
-              Text('Editar Perfil y Foto', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'toggle_theme',
-          child: Row(
-            children: [
-              Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 17),
-              const SizedBox(width: 10),
-              Text(isDark ? 'Tema Claro' : 'Tema Oscuro', style: const TextStyle(fontSize: 12.5)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'toggle_cosmic',
-          child: Row(
-            children: [
-              Icon(widget.isCosmicActive ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 17),
-              const SizedBox(width: 10),
-              Text(widget.isCosmicActive ? 'Pausar Cosmos' : 'Activar Cosmos', style: const TextStyle(fontSize: 12.5)),
+              Text('Editar Perfil', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

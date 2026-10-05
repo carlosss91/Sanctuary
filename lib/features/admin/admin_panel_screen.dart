@@ -50,6 +50,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
 
   // Email test & diagnostics state
   final TextEditingController _testEmailCtrl = TextEditingController();
+  final TextEditingController _smtpHostCtrl = TextEditingController();
+  final TextEditingController _smtpPortCtrl = TextEditingController(text: '587');
+  final TextEditingController _smtpUserCtrl = TextEditingController();
+  final TextEditingController _smtpPassCtrl = TextEditingController();
+  final TextEditingController _smtpFromCtrl = TextEditingController();
+  bool _isSmtpConfigOpen = false;
+  bool _isSavingSmtp = false;
   bool _isTestingEmail = false;
   String? _emailTestResult;
   Map<String, dynamic>? _emailStatus;
@@ -77,6 +84,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   void dispose() {
     _tabController.dispose();
     _testEmailCtrl.dispose();
+    _smtpHostCtrl.dispose();
+    _smtpPortCtrl.dispose();
+    _smtpUserCtrl.dispose();
+    _smtpPassCtrl.dispose();
+    _smtpFromCtrl.dispose();
     super.dispose();
   }
 
@@ -95,6 +107,19 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         _emailStatus = emailStatus;
         _storageData = storageData;
         _isLoading = false;
+
+        if (emailStatus['host'] != null && !emailStatus['host'].toString().contains('Prueba') && !emailStatus['host'].toString().contains('Consola')) {
+          _smtpHostCtrl.text = emailStatus['host'].toString();
+        }
+        if (emailStatus['port'] != null) {
+          _smtpPortCtrl.text = emailStatus['port'].toString();
+        }
+        if (emailStatus['user'] != null) {
+          _smtpUserCtrl.text = emailStatus['user'].toString();
+        }
+        if (emailStatus['from'] != null) {
+          _smtpFromCtrl.text = emailStatus['from'].toString();
+        }
       });
     }
   }
@@ -1753,6 +1778,155 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                         child: Text(
                           _emailTestResult!,
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF06B6D4)),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+                    // Expandable SMTP Configuration Form
+                    InkWell(
+                      onTap: () => setState(() => _isSmtpConfigOpen = !_isSmtpConfigOpen),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Icon(_isSmtpConfigOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 18, color: const Color(0xFF06B6D4)),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Configurar Servidor SMTP (Gmail, Outlook, Brevo, SendGrid...)',
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    if (_isSmtpConfigOpen) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: _smtpHostCtrl,
+                              decoration: InputDecoration(
+                                labelText: 'Servidor SMTP (Host)',
+                                hintText: 'smtp.gmail.com',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 1,
+                            child: TextField(
+                              controller: _smtpPortCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: 'Puerto',
+                                hintText: '587',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _smtpUserCtrl,
+                              decoration: InputDecoration(
+                                labelText: 'Usuario / Correo SMTP',
+                                hintText: 'tu_cuenta@gmail.com',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _smtpPassCtrl,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: 'Contraseña de Aplicación',
+                                hintText: '••••••••••••••••',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _smtpFromCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Nombre y correo remitente (From)',
+                          hintText: '"Sanctuary" <tu_cuenta@gmail.com>',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          onPressed: _isSavingSmtp
+                              ? null
+                              : () async {
+                                  final host = _smtpHostCtrl.text.trim();
+                                  final port = int.tryParse(_smtpPortCtrl.text.trim()) ?? 587;
+                                  final user = _smtpUserCtrl.text.trim();
+                                  final pass = _smtpPassCtrl.text.trim();
+                                  final from = _smtpFromCtrl.text.trim();
+
+                                  if (host.isEmpty || user.isEmpty || pass.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Host, usuario y contraseña son requeridos'), backgroundColor: Colors.orange),
+                                    );
+                                    return;
+                                  }
+
+                                  setState(() => _isSavingSmtp = true);
+                                  final res = await widget.apiService.saveSmtpConfig(
+                                    host: host,
+                                    port: port,
+                                    user: user,
+                                    pass: pass,
+                                    from: from.isNotEmpty ? from : null,
+                                    secure: port == 465,
+                                  );
+
+                                  if (mounted) {
+                                    setState(() => _isSavingSmtp = false);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(res['message'] ?? 'Configuración guardada'),
+                                        backgroundColor: res['success'] == true ? AppTheme.emerald : Colors.redAccent,
+                                      ),
+                                    );
+                                    if (res['success'] == true) {
+                                      final updatedStatus = await widget.apiService.getEmailStatus();
+                                      setState(() => _emailStatus = updatedStatus);
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: _isSavingSmtp
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.save_rounded, size: 16),
+                          label: const Text('Guardar Configuración SMTP'),
                         ),
                       ),
                     ],

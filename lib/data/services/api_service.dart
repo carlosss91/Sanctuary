@@ -133,10 +133,15 @@ class ApiService {
         return {
           'success': true,
           'requiresActivation': requiresActivation,
+          'requires_activation': requiresActivation,
           'user': user,
           'message': data['message'] ?? (requiresActivation ? 'Usuario registrado. Por favor activa tu cuenta.' : 'Registro completado.'),
           'activationToken': data['activation_token'] ?? data['activationCode'],
+          'activation_token': data['activation_token'] ?? data['activationCode'],
+          'activationCode': data['activationCode'] ?? data['activation_code'] ?? data['activation_token'],
+          'activation_code': data['activation_code'] ?? data['activationCode'] ?? data['activation_token'],
           'previewUrl': data['preview_url'],
+          'preview_url': data['preview_url'],
         };
       } else {
         return {'success': false, 'message': data['message'] ?? 'Error al registrar'};
@@ -159,8 +164,12 @@ class ApiService {
     return {
       'success': true,
       'requiresActivation': true,
+      'requires_activation': true,
       'user': user,
       'activationToken': localCode,
+      'activation_token': localCode,
+      'activationCode': localCode,
+      'activation_code': localCode,
       'message': 'Usuario registrado localmente. Introduce el código 123456 para activar tu cuenta.',
       'source': 'local',
     };
@@ -184,13 +193,21 @@ class ApiService {
 
       final data = jsonDecode(res.body);
       if (res.statusCode == 200 && data['success'] == true) {
+        UserModel? user;
         if (data['user'] != null) {
-          final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-          final localUsers = storage.getLocalUsers();
-          final updated = localUsers.map((u) => u.username.toLowerCase() == user.username.toLowerCase() ? u.copyWith(isVerified: true) : u).toList();
-          await storage.saveAllLocalUsers(updated);
+          user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+          await storage.updateLocalUser(user);
+          await storage.setCurrentUser(user);
+        } else if (username != null && username.isNotEmpty) {
+          final existing = storage.getLocalUsers().firstWhere(
+            (u) => u.username.toLowerCase() == username.toLowerCase(),
+            orElse: () => UserModel(username: username, isVerified: true),
+          );
+          user = existing.copyWith(isVerified: true);
+          await storage.updateLocalUser(user);
+          await storage.setCurrentUser(user);
         }
-        return {'success': true, 'message': data['message'] ?? '¡Cuenta activada con éxito!'};
+        return {'success': true, 'message': data['message'] ?? '¡Cuenta activada con éxito!', 'user': user};
       } else {
         return {'success': false, 'message': data['message'] ?? 'Código o token de activación inválido'};
       }
@@ -200,12 +217,17 @@ class ApiService {
 
     // Local fallback activation
     if (tokenOrCode.trim() == '123456' || tokenOrCode.trim().length >= 6) {
+      UserModel? user;
       if (username != null && username.isNotEmpty) {
-        final localUsers = storage.getLocalUsers();
-        final updated = localUsers.map((u) => u.username.toLowerCase() == username.toLowerCase() ? u.copyWith(isVerified: true) : u).toList();
-        await storage.saveAllLocalUsers(updated);
+        final existing = storage.getLocalUsers().firstWhere(
+          (u) => u.username.toLowerCase() == username.toLowerCase(),
+          orElse: () => UserModel(username: username, isVerified: true),
+        );
+        user = existing.copyWith(isVerified: true);
+        await storage.updateLocalUser(user);
+        await storage.setCurrentUser(user);
       }
-      return {'success': true, 'message': '¡Cuenta activada correctamente!'};
+      return {'success': true, 'message': '¡Cuenta activada correctamente!', 'user': user};
     }
 
     return {'success': false, 'message': 'Código de activación incorrecto'};
@@ -232,7 +254,11 @@ class ApiService {
           'success': true,
           'message': data['message'] ?? 'Correo de activación reenviado',
           'activationToken': data['activation_token'] ?? data['activationCode'],
+          'activation_token': data['activation_token'] ?? data['activationCode'],
+          'activationCode': data['activationCode'] ?? data['activation_code'] ?? data['activation_token'],
+          'activation_code': data['activation_code'] ?? data['activationCode'] ?? data['activation_token'],
           'previewUrl': data['preview_url'],
+          'preview_url': data['preview_url'],
         };
       } else {
         return {'success': false, 'message': data['message'] ?? 'Error al reenviar correo de activación'};
@@ -335,7 +361,7 @@ class ApiService {
   }
 
   // --- Repo Links ---
-  Future<List<RepoLinkModel>> getLinks() async {
+  Future<List<RepoLinkModel>> getLinks([String? username]) async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/links')).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
@@ -343,20 +369,24 @@ class ApiService {
         if (data['success'] == true && data['links'] is List) {
           final list = (data['links'] as List)
               .map((e) => RepoLinkModel.fromJson(Map<String, dynamic>.from(e as Map)))
+              .where((l) => !l.url.toLowerCase().contains('carlosss91') && !l.title.toLowerCase().contains('carlosss91'))
               .toList();
           if (list.isNotEmpty) {
-            await storage.saveRepoLinks(list);
+            await storage.saveRepoLinks(list, username);
             return list;
           }
         }
       }
     } catch (_) {}
-    return storage.getRepoLinks();
+    return storage.getRepoLinks(username);
   }
 
-  Future<bool> addLink(RepoLinkModel link) async {
-    final currentList = storage.getRepoLinks()..add(link);
-    await storage.saveRepoLinks(currentList);
+  Future<bool> addLink(RepoLinkModel link, [String? username]) async {
+    if (link.url.toLowerCase().contains('carlosss91') || link.title.toLowerCase().contains('carlosss91')) {
+      return false;
+    }
+    final currentList = storage.getRepoLinks(username)..add(link);
+    await storage.saveRepoLinks(currentList, username);
 
     try {
       final res = await http.post(
@@ -370,9 +400,9 @@ class ApiService {
     }
   }
 
-  Future<bool> deleteLink(int id) async {
-    final currentList = storage.getRepoLinks().where((l) => l.id != id).toList();
-    await storage.saveRepoLinks(currentList);
+  Future<bool> deleteLink(int id, [String? username]) async {
+    final currentList = storage.getRepoLinks(username).where((l) => l.id != id).toList();
+    await storage.saveRepoLinks(currentList, username);
 
     try {
       final res = await http.delete(Uri.parse('$baseUrl/links/$id')).timeout(const Duration(seconds: 3));
@@ -746,23 +776,39 @@ class ApiService {
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
 
-          // Merge server messages with local messages without losing local unsynced today's messages
-          final Map<String, Map<String, dynamic>> mergedMap = {};
+          // Authoritative server messages take priority.
+          // Drop any local optimistic message whose (username + text) matches a server message from today.
+          final List<Map<String, dynamic>> pendingLocals = [];
+          for (final loc in localMsgs) {
+            final locId = loc['id']?.toString() ?? '';
+            // If already in server list by ID, skip
+            if (serverList.any((s) => s['id']?.toString() == locId)) continue;
 
-          // Add local messages
-          for (final msg in localMsgs) {
-            final key = (msg['id'] ?? msg['timestamp'] ?? msg['created_at'])?.toString() ?? '';
-            if (key.isNotEmpty) mergedMap[key] = msg;
+            final locUser = (loc['username'] ?? '').toString().toLowerCase().trim();
+            final locText = (loc['text'] ?? loc['message'] ?? '').toString().trim();
+            final matchedInServer = serverList.any((s) {
+              final sUser = (s['username'] ?? '').toString().toLowerCase().trim();
+              final sText = (s['text'] ?? s['message'] ?? '').toString().trim();
+              return locUser == sUser && locText == sText;
+            });
+            if (!matchedInServer) {
+              pendingLocals.add(loc);
+            }
           }
 
-          // Add/Update with server messages
-          for (final msg in serverList) {
-            final key = (msg['id'] ?? msg['timestamp'] ?? msg['created_at'])?.toString() ?? '';
-            if (key.isNotEmpty) mergedMap[key] = msg;
+          final combined = [...serverList, ...pendingLocals];
+
+          // Secondary deduplication to guarantee no two items share same id or same content
+          final Map<String, Map<String, dynamic>> dedupedMap = {};
+          for (final msg in combined) {
+            final id = msg['id']?.toString() ?? '';
+            final user = (msg['username'] ?? '').toString().toLowerCase().trim();
+            final text = (msg['text'] ?? msg['message'] ?? '').toString().trim();
+            final key = id.isNotEmpty ? 'id_$id' : 'msg_${user}_$text';
+            dedupedMap[key] = msg;
           }
 
-          // Filter strictly for today's messages (renew daily at 00:00)
-          final mergedList = mergedMap.values.where((m) {
+          final mergedList = dedupedMap.values.where((m) {
             final ts = m['timestamp'] ?? m['created_at'] ?? m['id'];
             return storage.isMessageFromToday(ts);
           }).toList();
@@ -790,8 +836,9 @@ class ApiService {
     String? avatarUrl,
   }) async {
     final nowIso = DateTime.now().toIso8601String();
+    final localId = 'local_${DateTime.now().millisecondsSinceEpoch}';
     final localMsg = {
-      'id': DateTime.now().millisecondsSinceEpoch,
+      'id': localId,
       'username': username,
       'role': role,
       'message': message,
@@ -817,12 +864,17 @@ class ApiService {
           'role': role,
           'avatarUrl': avatarUrl,
         }),
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 201 || res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        if (data['success'] == true && (data['chat_message'] != null || data['message'] != null)) {
-          return {'success': true, 'message': data['chat_message'] ?? data['message']};
+        final serverMsg = data['chat_message'] ?? data['message'];
+        if (data['success'] == true && serverMsg != null) {
+          final serverMap = Map<String, dynamic>.from(serverMsg as Map);
+          // Replace optimistic local message with official server message
+          await storage.deleteChatMessage(localId);
+          await storage.addChatMessage(serverMap);
+          return {'success': true, 'message': serverMap};
         }
       }
     } catch (e) {
@@ -916,6 +968,34 @@ class ApiService {
       'mode': 'simulated',
       'message': 'Modo simulado activo: Las credenciales SMTP no están definidas.',
     };
+  }
+
+  // --- Save Custom SMTP Configuration ---
+  Future<Map<String, dynamic>> saveSmtpConfig({
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    String? from,
+    bool secure = false,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/email/config'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'host': host.trim(),
+          'port': port,
+          'user': user.trim(),
+          'pass': pass.trim(),
+          'from': from?.trim(),
+          'secure': secure,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Error al guardar configuración SMTP: $e'};
+    }
   }
 
   // --- Storage & Quota Analytics ---

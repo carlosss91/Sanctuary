@@ -575,7 +575,7 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
                   children: [
                     Icon(Icons.manage_accounts_outlined, size: 16, color: AppTheme.emerald),
                     SizedBox(width: 10),
-                    Text('Editar Perfil y Foto', style: TextStyle(fontSize: 12)),
+                    Text('Editar Perfil', style: TextStyle(fontSize: 12)),
                   ],
                 ),
               ),
@@ -617,20 +617,6 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
                     Icon(Icons.hub_outlined, size: 16),
                     SizedBox(width: 10),
                     Text('Ir al Santuario (Hub)', style: TextStyle(fontSize: 12)),
-                  ],
-                ),
-              ),
-
-              PopupMenuItem<String>(
-                value: 'cosmic',
-                child: Row(
-                  children: [
-                    Icon(widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined, size: 16),
-                    SizedBox(width: 10),
-                    Text(
-                      widget.isCosmicActive ? 'Pausar Estrellas' : 'Activar Estrellas',
-                      style: const TextStyle(fontSize: 12),
-                    ),
                   ],
                 ),
               ),
