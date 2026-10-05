@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
@@ -76,19 +77,26 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
-      width: isCollapsed ? 64 : 245,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D121D) : const Color(0xFFFFFFFF),
-        border: Border(
-          right: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      width: isCollapsed ? 64 : 250,
+      color: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.horizontal(right: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0A0F1D).withOpacity(0.52) : Colors.white.withOpacity(0.65),
+              borderRadius: const BorderRadius.horizontal(right: Radius.circular(28)),
+              border: Border(
+                right: BorderSide(
+                  color: isDark ? Colors.white.withOpacity(0.14) : Colors.white.withOpacity(0.75),
+                  width: 1.2,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
           // 1. Header: Fixed Hamburger Button on the Left, Logo & Title to the Right
           if (!isCollapsed)
             Padding(
@@ -165,7 +173,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
               ),
             ),
 
-          const Divider(height: 1),
+          Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06)),
 
           // 2. Navigation Items & Repos
           Expanded(
@@ -253,7 +261,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                 ),
 
                 const SizedBox(height: 18),
-                const Divider(height: 1),
+                Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06)),
                 const SizedBox(height: 14),
 
                 // SECTION: REPOSITORIOS GITHUB
@@ -283,7 +291,7 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
                   width: 1,
                 ),
               ),
@@ -339,7 +347,10 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+),
+);
   }
 
   Widget _buildSectionHeader(String title, bool isDark) {
@@ -373,15 +384,31 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
           message: title,
           preferBelow: false,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             onTap: () => widget.onSelect(itemKey),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: isActive ? AppTheme.emerald.withOpacity(0.15) : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                border: isActive ? Border.all(color: AppTheme.emerald.withOpacity(0.35)) : null,
+                color: isActive
+                    ? (isDark ? AppTheme.emerald.withOpacity(0.22) : AppTheme.emerald.withOpacity(0.16))
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: isActive
+                    ? Border.all(
+                        color: isDark ? AppTheme.emerald.withOpacity(0.65) : AppTheme.emerald.withOpacity(0.55),
+                        width: 1.0,
+                      )
+                    : Border.all(color: Colors.transparent, width: 1.0),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.emerald.withOpacity(isDark ? 0.25 : 0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
               ),
               child: Icon(
                 icon,
@@ -395,14 +422,30 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
     }
 
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(14),
       onTap: () => widget.onSelect(itemKey),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? AppTheme.emerald.withOpacity(0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isActive ? Border.all(color: AppTheme.emerald.withOpacity(0.35)) : null,
+          color: isActive
+              ? (isDark ? AppTheme.emerald.withOpacity(0.22) : AppTheme.emerald.withOpacity(0.16))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: isActive
+              ? Border.all(
+                  color: isDark ? AppTheme.emerald.withOpacity(0.65) : AppTheme.emerald.withOpacity(0.55),
+                  width: 1.0,
+                )
+              : Border.all(color: Colors.transparent, width: 1.0),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: AppTheme.emerald.withOpacity(isDark ? 0.25 : 0.15),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
         ),
         child: Row(
           children: [
@@ -450,15 +493,18 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
           message: '${repo.name}: ${repo.desc}',
           preferBelow: false,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             onTap: () => _openExternal(repo.url),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161F30).withOpacity(0.7) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                color: isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.45),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.65),
+                  width: 1.0,
+                ),
               ),
               child: const Icon(Icons.folder_open_outlined, size: 16, color: AppTheme.emerald),
             ),
@@ -470,14 +516,17 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _openExternal(repo.url),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161F30).withOpacity(0.7) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+            color: isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.45),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.65),
+              width: 1.0,
+            ),
           ),
           child: Row(
             children: [

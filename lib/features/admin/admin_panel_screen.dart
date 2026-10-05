@@ -48,10 +48,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   String _searchQuery = '';
   String _roleFilter = 'todos'; // todos, admin, docente, usuario, baneados
 
-  // Email test state
+  // Email test & diagnostics state
   final TextEditingController _testEmailCtrl = TextEditingController();
   bool _isTestingEmail = false;
   String? _emailTestResult;
+  Map<String, dynamic>? _emailStatus;
+  Map<String, dynamic>? _storageData;
+  bool _isLoadingStorage = false;
 
   // Active module flags
   final Map<String, bool> _activeModules = {
@@ -66,7 +69,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadAllAdminData();
   }
 
@@ -82,11 +85,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     final users = await widget.apiService.getAdminUsers();
     final stats = await widget.apiService.getAdminStats();
     final chat = await widget.apiService.getChatMessages();
+    final emailStatus = await widget.apiService.getEmailStatus();
+    final storageData = await widget.apiService.getStorageAnalytics();
     if (mounted) {
       setState(() {
         _users = users;
         _stats = stats;
         _chatMessages = chat;
+        _emailStatus = emailStatus;
+        _storageData = storageData;
         _isLoading = false;
       });
     }
@@ -96,11 +103,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   Future<void> _showCreateUserDialog() async {
     final usernameCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
     final fullNameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     String selectedRole = 'usuario';
     String? dialogError;
     bool isSaving = false;
+    bool obscurePassword = true;
+    bool obscureConfirmPassword = true;
 
     await showDialog(
       context: context,
@@ -172,10 +182,37 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       const SizedBox(height: 6),
                       TextField(
                         controller: passwordCtrl,
-                        obscureText: true,
+                        obscureText: obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Mínimo 4 caracteres',
                           prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 18,
+                            ),
+                            onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Repetir Contraseña *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: confirmPasswordCtrl,
+                        obscureText: obscureConfirmPassword,
+                        decoration: InputDecoration(
+                          hintText: 'Repita la contraseña para confirmar',
+                          prefixIcon: const Icon(Icons.lock_reset_outlined, size: 18),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 18,
+                            ),
+                            onPressed: () => setDialogState(() => obscureConfirmPassword = !obscureConfirmPassword),
+                          ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
@@ -239,8 +276,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       : () async {
                           final u = usernameCtrl.text.trim();
                           final p = passwordCtrl.text.trim();
-                          if (u.isEmpty || p.isEmpty) {
-                            setDialogState(() => dialogError = 'Usuario y contraseña requeridos');
+                          final cp = confirmPasswordCtrl.text.trim();
+                          if (u.isEmpty || p.isEmpty || cp.isEmpty) {
+                            setDialogState(() => dialogError = 'Todos los campos obligatorios (*) deben completarse');
+                            return;
+                          }
+                          if (p.length < 4) {
+                            setDialogState(() => dialogError = 'La contraseña debe tener al menos 4 caracteres');
+                            return;
+                          }
+                          if (p != cp) {
+                            setDialogState(() => dialogError = 'Las contraseñas no coinciden. Por favor verifíquelas.');
                             return;
                           }
                           setDialogState(() {
@@ -251,6 +297,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           final res = await widget.apiService.createAdminUser(
                             username: u,
                             password: p,
+                            confirmPassword: cp,
                             role: selectedRole,
                             fullName: fullNameCtrl.text.trim().isNotEmpty ? fullNameCtrl.text.trim() : null,
                             email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
@@ -655,7 +702,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
       drawer: Drawer(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.horizontal(right: Radius.circular(28))),
         child: SafeArea(
           child: TrayectoriaSidebar(
             isDark: isDark,
@@ -754,6 +805,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     children: [
                       _buildUsersTab(isDark),
                       _buildChatModerationTab(isDark),
+                      _buildStorageTab(isDark),
                       _buildModulesTab(isDark),
                       _buildSystemStatusTab(isDark),
                     ],
@@ -852,6 +904,23 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               const Icon(Icons.forum_rounded, size: 17),
                               const SizedBox(width: 8),
                               Text('Chat (${_chatMessages.length})'),
+                            ],
+                          ),
+                  ),
+                  Tab(
+                    height: 40,
+                    child: isNarrow
+                        ? const Tooltip(
+                            message: 'Almacenamiento y Cuotas',
+                            child: Icon(Icons.pie_chart_outline_rounded, size: 20),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.pie_chart_outline_rounded, size: 17),
+                              SizedBox(width: 8),
+                              Text('Almacenamiento'),
                             ],
                           ),
                   ),
@@ -1566,19 +1635,58 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.mail_lock_rounded, color: Color(0xFF06B6D4), size: 22),
-                        SizedBox(width: 10),
-                        Text(
-                          'Diagnóstico de Servicio de Correo Electrónico (SMTP)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        const Icon(Icons.mail_lock_rounded, color: Color(0xFF06B6D4), size: 22),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Diagnóstico de Servicio de Correo Electrónico (SMTP)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (_emailStatus?['isConfigured'] == true)
+                                ? AppTheme.emerald.withOpacity(0.18)
+                                : Colors.amber.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: (_emailStatus?['isConfigured'] == true)
+                                  ? AppTheme.emerald.withOpacity(0.4)
+                                  : Colors.amber.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                (_emailStatus?['isConfigured'] == true) ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                size: 14,
+                                color: (_emailStatus?['isConfigured'] == true) ? AppTheme.emerald : Colors.amber,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                (_emailStatus?['isConfigured'] == true)
+                                    ? 'SMTP Activo (${_emailStatus?['host'] ?? ''})'
+                                    : 'Modo Simulado (Logs)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: (_emailStatus?['isConfigured'] == true) ? AppTheme.emerald : Colors.amber,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
-                      'Prueba el envío de correos reales para activación de cuentas y restablecimiento de contraseña.',
+                      _emailStatus?['isConfigured'] == true
+                          ? 'El servidor de correo real está configurado. Las activaciones de cuenta y recuperaciones de contraseña se envían a bandejas de entrada reales.'
+                          : 'Actualmente el backend opera en modo simulado: los correos de verificación y enlaces de activación se generan y se imprimen en los registros de la consola del servidor. Para enviar a buzones de correo reales, configura las variables SMTP en el servidor.',
                       style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 14),
@@ -2317,6 +2425,474 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         children: [
           Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
           Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // TAB 3: STORAGE ANALYTICS & USER QUOTAS
+  // ============================================================================
+  Widget _buildStorageTab(bool isDark) {
+    final summary = (_storageData?['summary'] as Map<String, dynamic>?) ?? {};
+    final usersStorage = (_storageData?['users'] as List<dynamic>?) ?? [];
+    final systemPercent = (summary['systemPercent'] as num?)?.toDouble() ?? 0.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1040),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Storage Header Card (iOS Glass)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF06B6D4).withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF06B6D4).withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.pie_chart_outline_rounded, color: Color(0xFF06B6D4), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Almacenamiento Total y Cuotas de Usuario',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Capacidad del sistema, ocupación física en disco y desglose por cuenta',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _isLoadingStorage
+                              ? null
+                              : () async {
+                                  setState(() => _isLoadingStorage = true);
+                                  final st = await widget.apiService.getStorageAnalytics();
+                                  if (mounted) {
+                                    setState(() {
+                                      _storageData = st;
+                                      _isLoadingStorage = false;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('✔ Analíticas de almacenamiento actualizadas'),
+                                        backgroundColor: AppTheme.emerald,
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: _isLoadingStorage
+                              ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.refresh, size: 14),
+                          label: const Text('Actualizar'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF06B6D4),
+                            side: const BorderSide(color: Color(0xFF06B6D4)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Overall System Storage Progress Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Consumo Global de la Plataforma:',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${summary['formattedTotal'] ?? '0 B'} / ${summary['formattedSystemQuota'] ?? '5 GB'}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (systemPercent > 90
+                                    ? Colors.red
+                                    : (systemPercent > 70 ? Colors.amber : AppTheme.emerald))
+                                .withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$systemPercent% Utilizado',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: systemPercent > 90
+                                  ? Colors.redAccent
+                                  : (systemPercent > 70 ? Colors.amber : AppTheme.emerald),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: (systemPercent / 100).clamp(0.0, 1.0),
+                        minHeight: 9,
+                        backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                        color: systemPercent > 90
+                            ? Colors.redAccent
+                            : (systemPercent > 70 ? Colors.amber : const Color(0xFF06B6D4)),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // 4 Sub-metrics cards
+                    LayoutBuilder(
+                      builder: (context, c) {
+                        final isNarrow = c.maxWidth < 620;
+                        return GridView.count(
+                          crossAxisCount: isNarrow ? 2 : 4,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          shrinkWrap: true,
+                          childAspectRatio: isNarrow ? 2.2 : 2.5,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildStorageMiniCard(
+                              title: 'Archivos & Fotos',
+                              value: summary['formattedUploads'] ?? '0 B',
+                              subtitle: '${summary['uploadsCount'] ?? 0} archivos',
+                              icon: Icons.folder_shared_outlined,
+                              color: const Color(0xFF06B6D4),
+                              isDark: isDark,
+                            ),
+                            _buildStorageMiniCard(
+                              title: 'Base de Datos',
+                              value: summary['formattedDb'] ?? '0 B',
+                              subtitle: 'PostgreSQL / Local',
+                              icon: Icons.dns_outlined,
+                              color: const Color(0xFFA78BFA),
+                              isDark: isDark,
+                            ),
+                            _buildStorageMiniCard(
+                              title: 'Fichas de Alumnos',
+                              value: '${summary['cvProfilesCount'] ?? 0}',
+                              subtitle: 'Currículums creados',
+                              icon: Icons.badge_outlined,
+                              color: AppTheme.emerald,
+                              isDark: isDark,
+                            ),
+                            _buildStorageMiniCard(
+                              title: 'Mensajes de Chat',
+                              value: '${summary['chatMessagesCount'] ?? 0}',
+                              subtitle: 'Purgado diario',
+                              icon: Icons.forum_outlined,
+                              color: const Color(0xFFF59E0B),
+                              isDark: isDark,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 22),
+
+              // 2. Per-User Quota Section
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF06B6D4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'CUOTA Y USO POR USUARIO',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Admin: 1 GB · Docente: 250 MB · Usuario: 50 MB',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (usersStorage.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Text('No hay datos de cuotas de usuario disponibles', style: TextStyle(color: Colors.grey)),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: usersStorage.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (ctx, idx) {
+                    final u = usersStorage[idx] as Map<String, dynamic>;
+                    final username = u['username'] as String? ?? 'usuario';
+                    final fullName = u['fullName'] as String? ?? username;
+                    final role = (u['role'] as String? ?? 'usuario').toLowerCase();
+                    final percent = (u['percent'] as num?)?.toDouble() ?? 0.0;
+                    final formattedUsed = u['formattedUsed'] as String? ?? '0 B';
+                    final formattedQuota = u['formattedQuota'] as String? ?? '50 MB';
+                    final profileCount = u['profileCount'] as int? ?? 0;
+
+                    Color roleColor;
+                    if (role == 'admin') {
+                      roleColor = const Color(0xFF06B6D4);
+                    } else if (role == 'docente') {
+                      roleColor = const Color(0xFFA78BFA);
+                    } else {
+                      roleColor = AppTheme.emerald;
+                    }
+
+                    Color statusColor;
+                    String statusText;
+                    if (percent >= 90) {
+                      statusColor = Colors.redAccent;
+                      statusText = 'Cuota Casi Llena';
+                    } else if (percent >= 70) {
+                      statusColor = Colors.amber;
+                      statusText = 'Atención';
+                    } else {
+                      statusColor = AppTheme.emerald;
+                      statusText = 'Óptimo';
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A).withOpacity(0.9) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: roleColor.withOpacity(0.2),
+                                child: Text(
+                                  username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: roleColor),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          fullName,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '@$username',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: roleColor.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            role.toUpperCase(),
+                                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: roleColor),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '$profileCount CV(s) guardados',
+                                          style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '$formattedUsed de $formattedQuota',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          statusText,
+                                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: statusColor),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$percent% de cuota asignada',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (percent / 100).clamp(0.0, 1.0),
+                              minHeight: 5,
+                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStorageMiniCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF131C2E) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

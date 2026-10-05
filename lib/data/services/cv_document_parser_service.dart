@@ -1005,142 +1005,151 @@ class CvDocumentParserService {
             ],
           ),
           content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.attach_file, size: 16, color: AppTheme.emerald),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            fileName,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+            width: 520,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.72,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.attach_file, size: 16, color: AppTheme.emerald),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              fileName,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    _buildPreviewRow(Icons.person_outline, 'Nombre:', parsed.fullName.isNotEmpty ? parsed.fullName : '(No detectado)'),
+                    _buildPreviewRow(Icons.work_outline, 'Titular:', parsed.jobTitle.isNotEmpty ? parsed.jobTitle : '(No detectado)'),
+                    _buildPreviewRow(Icons.email_outlined, 'Email:', parsed.email.isNotEmpty ? parsed.email : '(No detectado)'),
+                    _buildPreviewRow(Icons.phone_outlined, 'Teléfono:', parsed.phone.isNotEmpty ? parsed.phone : '(No detectado)'),
+                    _buildPreviewRow(Icons.location_on_outlined, 'Ubicación:', parsed.location.isNotEmpty ? parsed.location : '(No detectado)'),
+                    if (parsed.availability.isNotEmpty)
+                      _buildPreviewRow(Icons.schedule_outlined, 'Disponibilidad:', parsed.availability),
+                    if (parsed.drivingLicense.isNotEmpty)
+                      _buildPreviewRow(Icons.directions_car_outlined, 'Permiso:', parsed.drivingLicense),
+
+                    const SizedBox(height: 10),
+                    const Divider(),
+                    const SizedBox(height: 10),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatChip('${parsed.experiences.length}', 'Experiencias', Icons.business_center_outlined),
+                        _buildStatChip('${parsed.educations.length}', 'Titulaciones', Icons.school_outlined),
+                        _buildStatChip('${parsed.skillItems.length}', 'Competencias', Icons.stars_outlined),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
 
-                  _buildPreviewRow(Icons.person_outline, 'Nombre:', parsed.fullName.isNotEmpty ? parsed.fullName : '(No detectado)'),
-                  _buildPreviewRow(Icons.work_outline, 'Titular:', parsed.jobTitle.isNotEmpty ? parsed.jobTitle : '(No detectado)'),
-                  _buildPreviewRow(Icons.email_outlined, 'Email:', parsed.email.isNotEmpty ? parsed.email : '(No detectado)'),
-                  _buildPreviewRow(Icons.phone_outlined, 'Teléfono:', parsed.phone.isNotEmpty ? parsed.phone : '(No detectado)'),
-                  _buildPreviewRow(Icons.location_on_outlined, 'Ubicación:', parsed.location.isNotEmpty ? parsed.location : '(No detectado)'),
-                  if (parsed.availability.isNotEmpty)
-                    _buildPreviewRow(Icons.schedule_outlined, 'Disponibilidad:', parsed.availability),
-                  if (parsed.drivingLicense.isNotEmpty)
-                    _buildPreviewRow(Icons.directions_car_outlined, 'Permiso:', parsed.drivingLicense),
-
-                  const SizedBox(height: 10),
-                  const Divider(),
-                  const SizedBox(height: 10),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatChip('${parsed.experiences.length}', 'Experiencias', Icons.business_center_outlined),
-                      _buildStatChip('${parsed.educations.length}', 'Titulaciones', Icons.school_outlined),
-                      _buildStatChip('${parsed.skillItems.length}', 'Competencias', Icons.stars_outlined),
-                    ],
-                  ),
-
-                  if (parsed.experiences.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text('Experiencias Detectadas (${parsed.experiences.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    ...parsed.experiences.take(3).map((exp) => Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '${exp.jobTitle} · ${exp.company} (${exp.period})',
-                              style: const TextStyle(fontSize: 11),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                    if (parsed.experiences.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text('Experiencias Detectadas (${parsed.experiences.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      ...parsed.experiences.map((exp) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
                             ),
-                          ),
-                        ],
-                      ),
-                    )),
-                  ],
-
-                  if (parsed.educations.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text('Titulaciones Detectadas (${parsed.educations.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    ...parsed.educations.take(3).map((edu) => Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '${edu.degree} · ${edu.institution} (${edu.period})',
-                              style: const TextStyle(fontSize: 11),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${exp.jobTitle} · ${exp.company} (${exp.period})',
+                                style: const TextStyle(fontSize: 11),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    )),
-                  ],
-
-                  if (parsed.skillItems.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text('Competencias Detectadas (${parsed.skillItems.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 5),
-                    Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children: parsed.skillItems.take(10).map((sk) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                          ],
                         ),
-                        child: Text(sk.name, style: const TextStyle(fontSize: 10.5, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
-                      )).toList(),
-                    ),
-                  ],
+                      )),
+                    ],
 
-                  if (parsed.summary.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Resumen Profesional Detectado:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(6),
+                    if (parsed.educations.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text('Titulaciones Detectadas (${parsed.educations.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      ...parsed.educations.map((edu) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${edu.degree} · ${edu.institution} (${edu.period})',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
+
+                    if (parsed.skillItems.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text('Competencias Detectadas (${parsed.skillItems.length}):', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 5),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: parsed.skillItems.map((sk) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.emerald.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                          ),
+                          child: Text(sk.name, style: const TextStyle(fontSize: 10.5, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                        )).toList(),
                       ),
-                      child: Text(
-                        parsed.summary,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ],
+
+                    if (parsed.summary.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Text('Resumen Profesional Detectado:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          parsed.summary,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

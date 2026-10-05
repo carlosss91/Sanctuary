@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
@@ -347,7 +348,13 @@ class _HubScreenState extends State<HubScreen> {
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
       drawer: Drawer(
-        backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+        ),
         child: SafeArea(
           child: TrayectoriaSidebar(
             activeItem: 'Inicio',
@@ -370,23 +377,45 @@ class _HubScreenState extends State<HubScreen> {
       ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        centerTitle: true,
+        centerTitle: !isMobile,
+        titleSpacing: isMobile ? 2 : NavigationToolbar.kMiddleSpacing,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0A0F1D).withOpacity(0.55) : Colors.white.withOpacity(0.65),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? Colors.white.withOpacity(0.10) : Colors.black.withOpacity(0.06),
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.menu_rounded),
           tooltip: 'Menú principal',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SanctuaryPlanetLogo(size: 26, showGlow: true),
-            const SizedBox(width: 9),
-            const Text(
+            SanctuaryPlanetLogo(size: isMobile ? 22 : 26, showGlow: true),
+            SizedBox(width: isMobile ? 6 : 9),
+            Text(
               'SANCTUARY',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
-                fontSize: 15,
-                letterSpacing: 2.0,
+                fontSize: isMobile ? 12.5 : 15,
+                letterSpacing: isMobile ? 1.0 : 2.0,
               ),
             ),
           ],
@@ -399,7 +428,7 @@ class _HubScreenState extends State<HubScreen> {
               onTap: () => _showInstallDialog(context, isDark),
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10, vertical: isMobile ? 5 : 6),
                 decoration: BoxDecoration(
                   color: AppTheme.emerald.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -408,7 +437,7 @@ class _HubScreenState extends State<HubScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.install_desktop_rounded, size: 15, color: AppTheme.emerald),
+                    const Icon(Icons.install_desktop_rounded, size: 14, color: AppTheme.emerald),
                     if (!isMobile) ...[
                       const SizedBox(width: 6),
                       const Text(
@@ -425,15 +454,17 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: isMobile ? 2 : 6),
 
           // Cosmic Animation Toggle
           IconButton(
             tooltip: widget.isCosmicActive ? 'Pausar animación espacial' : 'Activar animación espacial',
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(minWidth: isMobile ? 32 : 38, minHeight: isMobile ? 32 : 38),
             icon: Icon(
               widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
               color: widget.isCosmicActive ? AppTheme.emerald : Colors.grey,
-              size: 20,
+              size: isMobile ? 18 : 20,
             ),
             onPressed: widget.onToggleCosmic,
           ),
@@ -441,11 +472,13 @@ class _HubScreenState extends State<HubScreen> {
           // Light / Dark Theme Toggle
           IconButton(
             tooltip: isDark ? 'Cambiar a Tema Claro' : 'Cambiar a Tema Oscuro',
-            icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(minWidth: isMobile ? 32 : 38, minHeight: isMobile ? 32 : 38),
+            icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, size: isMobile ? 18 : 20),
             onPressed: widget.onToggleTheme,
           ),
 
-          const SizedBox(width: 4),
+          SizedBox(width: isMobile ? 2 : 4),
 
           // ====================================================================
           // USER PROFILE DROPDOWN (Session Logout consolidated strictly inside)
@@ -596,7 +629,7 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ],
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 5 : 10, vertical: 5),
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 4 : 10, vertical: 4),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(22),
@@ -606,7 +639,7 @@ class _HubScreenState extends State<HubScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CircleAvatar(
-                    radius: 13,
+                    radius: isMobile ? 12 : 13,
                     backgroundColor: AppTheme.emerald,
                     backgroundImage: _currentUser.avatarUrl != null && _currentUser.avatarUrl!.isNotEmpty
                         ? NetworkImage(_currentUser.avatarUrl!)
@@ -614,7 +647,7 @@ class _HubScreenState extends State<HubScreen> {
                     child: (_currentUser.avatarUrl == null || _currentUser.avatarUrl!.isEmpty)
                         ? Text(
                             _currentUser.username.isNotEmpty ? _currentUser.username[0].toUpperCase() : 'U',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: Colors.white, fontSize: isMobile ? 9 : 10, fontWeight: FontWeight.bold),
                           )
                         : null,
                   ),
@@ -631,80 +664,103 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ),
           ),
-          SizedBox(width: isMobile ? 8 : 16),
+          SizedBox(width: isMobile ? 6 : 16),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.emerald))
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // --- HERO SECTION ---
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0C1322).withOpacity(0.85) : Colors.white.withOpacity(0.92),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.emerald.withOpacity(0.08),
-                              blurRadius: 28,
-                              offset: const Offset(0, 8),
-                            )
-                          ],
-                        ),
-                        child: Row(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 14 : 24,
+                      vertical: 20,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: const Text(
-                                      'SANCTUARY PLATFORM · DIGITAL SUITE',
-                                      style: TextStyle(
-                                        color: AppTheme.emerald,
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
+                            // --- HERO SECTION (COMPACT & SLEEK iOS27 GLASS) ---
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isMobile ? 16 : 22,
+                                    vertical: isMobile ? 12 : 16,
                                   ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Bienvenido, ${_currentUser.fullName ?? _currentUser.username}',
-                                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 24,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0C1322).withOpacity(0.75) : Colors.white.withOpacity(0.85),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isDark ? const Color(0xFF1E293B).withOpacity(0.9) : const Color(0xFFE2E8F0),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.emerald.withOpacity(0.06),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 4),
+                                      )
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 4,
+                                        height: isMobile ? 32 : 36,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [AppTheme.emerald, Color(0xFF06B6D4)],
+                                          ),
+                                          borderRadius: BorderRadius.circular(4),
                                         ),
+                                      ),
+                                      SizedBox(width: isMobile ? 12 : 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Bienvenido, ${_currentUser.fullName ?? _currentUser.username}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: isMobile ? 16 : 19,
+                                                letterSpacing: -0.3,
+                                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              'Tu centro unificado de herramientas, repositorios y productividad estilo iOS.',
+                                              style: TextStyle(
+                                                fontSize: isMobile ? 11.5 : 13,
+                                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                                height: 1.25,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Tu centro unificado con herramientas y repositorio interactivo estilo iOS.',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
 
-                      const SizedBox(height: 28),
+                            const SizedBox(height: 24),
 
                       // ================================================================
                       // 1. IPHONE STYLE APPS & TOOLS GRID (iOS SQUIRCLES)
@@ -995,13 +1051,17 @@ class _HubScreenState extends State<HubScreen> {
                             );
                           },
                         ),
-                      const SizedBox(height: 36),
-                      SanctuaryFooter(isDark: isDark),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            SanctuaryFooter(isDark: isDark),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1131,24 +1191,21 @@ class _HubScreenState extends State<HubScreen> {
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 620;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0C1322).withOpacity(0.9) : Colors.white.withOpacity(0.94),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(
-              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(26),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A).withOpacity(0.55) : Colors.white.withOpacity(0.68),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.70),
+                  width: 1.0,
+                ),
               ),
-            ],
-          ),
-          padding: EdgeInsets.all(isNarrow ? 16 : 22),
-          child: Column(
+              padding: EdgeInsets.all(isNarrow ? 16 : 22),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Widget Header: GitHub branding & connection status
@@ -1381,10 +1438,10 @@ class _HubScreenState extends State<HubScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF131C2E) : const Color(0xFFF8FAFC),
+                          color: isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.50),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.60),
                           ),
                         ),
                         child: Column(
@@ -1451,7 +1508,9 @@ class _HubScreenState extends State<HubScreen> {
             ),
         ],
       ),
-    );
+    ),
+  ),
+);
       },
     );
   }

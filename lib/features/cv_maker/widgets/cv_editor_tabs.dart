@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
@@ -154,61 +155,70 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard.withOpacity(0.9) : AppTheme.lightCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Tab Bar (occupies full width of the editor panel)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder)),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 680;
-                return TabBar(
-                  controller: _tabController,
-                  isScrollable: isNarrow,
-                  tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
-                  indicatorColor: Colors.transparent,
-                  dividerColor: Colors.transparent,
-                  labelPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 2),
-                  tabs: [
-                    _buildTabPill(Icons.person_outline, '1. Identidad', 0, isDark, isExpanded: !isNarrow),
-                    _buildTabPill(Icons.phone_outlined, '2. Contacto', 1, isDark, isExpanded: !isNarrow),
-                    _buildTabPill(Icons.article_outlined, '3. Sobre Mí', 2, isDark, isExpanded: !isNarrow),
-                    _buildTabPill(Icons.star_outline, '4. Competencias', 3, isDark, isExpanded: !isNarrow),
-                    _buildTabPill(Icons.work_outline, '5. Experiencia', 4, isDark, isExpanded: !isNarrow),
-                    _buildTabPill(Icons.school_outlined, '6. Formación', 5, isDark, isExpanded: !isNarrow),
-                    _buildTabPill(Icons.palette_outlined, '7. Diseño', 6, isDark, isExpanded: !isNarrow),
-                  ],
-                );
-              },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withOpacity(0.55) : Colors.white.withOpacity(0.68),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.70),
+              width: 1.0,
             ),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Tab Bar (occupies full width of the editor panel)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06))),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 680;
+                    return TabBar(
+                      controller: _tabController,
+                      isScrollable: isNarrow,
+                      tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
+                      indicatorColor: Colors.transparent,
+                      dividerColor: Colors.transparent,
+                      labelPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 2),
+                      tabs: [
+                        _buildTabPill(Icons.person_outline, '1. Identidad', 0, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.phone_outlined, '2. Contacto', 1, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.article_outlined, '3. Sobre Mí', 2, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.star_outline, '4. Competencias', 3, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.work_outline, '5. Experiencia', 4, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.school_outlined, '6. Formación', 5, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.palette_outlined, '7. Diseño', 6, isDark, isExpanded: !isNarrow),
+                      ],
+                    );
+                  },
+                ),
+              ),
 
-          // Tab Views
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildIdentidadTab(isDark),
-                _buildContactoTab(isDark),
-                _buildSobreMiTab(isDark),
-                _buildCompetenciasTab(isDark),
-                _buildExperienciaTab(isDark),
-                _buildFormacionTab(isDark),
-                _buildDisenoYColorTab(isDark),
-              ],
-            ),
+              // Tab Views
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildIdentidadTab(isDark),
+                    _buildContactoTab(isDark),
+                    _buildSobreMiTab(isDark),
+                    _buildCompetenciasTab(isDark),
+                    _buildExperienciaTab(isDark),
+                    _buildFormacionTab(isDark),
+                    _buildDisenoYColorTab(isDark),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -216,7 +226,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   // --- TAB 1: IDENTIDAD ---
   Widget _buildIdentidadTab(bool isDark) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -265,7 +275,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   // --- TAB 2: CONTACTO ---
   Widget _buildContactoTab(bool isDark) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -329,7 +339,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   // --- TAB 3: SOBRE MÍ ---
   Widget _buildSobreMiTab(bool isDark) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -690,7 +700,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     final items = _getActiveSkillItems();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1057,7 +1067,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   // --- TAB 5: EXPERIENCIA ---
   Widget _buildExperienciaTab(bool isDark) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1182,7 +1192,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   // --- TAB 6: FORMACIÓN ---
   Widget _buildFormacionTab(bool isDark) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1306,7 +1316,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   // --- TAB 7: DISEÑO Y COLOR ---
   Widget _buildDisenoYColorTab(bool isDark) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 84),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1796,19 +1806,19 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
         padding: EdgeInsets.symmetric(horizontal: isExpanded ? 4 : 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? const Color(0xFF132A26) : const Color(0xFFE6F4EA))
-              : (isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9)),
+              ? AppTheme.emerald.withOpacity(0.20)
+              : (isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.40)),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? AppTheme.emerald
-                : (isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFCBD5E1)),
+                ? AppTheme.emerald.withOpacity(0.8)
+                : (isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.55)),
             width: isSelected ? 1.5 : 1,
           ),
           boxShadow: [
             if (isSelected)
               BoxShadow(
-                color: AppTheme.emerald.withOpacity(0.25),
+                color: AppTheme.emerald.withOpacity(0.20),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
@@ -21,21 +22,24 @@ class SanctuaryFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 640;
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 10),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0A0F1D).withOpacity(0.9) : const Color(0xFFF8FAFC).withOpacity(0.95),
-        border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
-        ),
-      ),
-      child: Center(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 32, vertical: isMobile ? 16 : 20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF090E1A).withOpacity(0.80) : Colors.white.withOpacity(0.85),
+            border: Border(
+              top: BorderSide(
+                color: isDark ? const Color(0xFF1E293B).withOpacity(0.8) : const Color(0xFFE2E8F0),
+                width: 1.2,
+              ),
+            ),
+          ),
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 1200),
           child: isMobile
               ? Column(
                   mainAxisSize: MainAxisSize.min,
@@ -130,6 +134,8 @@ class SanctuaryFooter extends StatelessWidget {
                     ),
                   ],
                 ),
+            ),
+          ),
         ),
       ),
     );

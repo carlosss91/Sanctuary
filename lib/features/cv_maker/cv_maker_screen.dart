@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
@@ -267,6 +268,79 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
     );
   }
 
+  Future<void> _confirmAndDeleteProfile(String profileId) async {
+    if (_profiles.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede eliminar la única ficha activa. Crea otra primero.'),
+          backgroundColor: Colors.amber,
+        ),
+      );
+      return;
+    }
+
+    final targetProfile = _profiles.firstWhere(
+      (p) => p.id == profileId,
+      orElse: () => _profiles.first,
+    );
+    final targetName = targetProfile.fullName.isNotEmpty ? targetProfile.fullName : 'este alumno';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
+              SizedBox(width: 8),
+              Text('Eliminar Ficha de Currículum', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            '¿Estás seguro de que deseas eliminar permanentemente la ficha de "$targetName"? Esta acción no se puede deshacer.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Eliminar Ficha'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await widget.apiService.deleteProfile(profileId);
+      final remaining = _profiles.where((p) => p.id != profileId).toList();
+      final nextActive = remaining.isNotEmpty ? remaining.first.id : 'temp';
+      setState(() => _activeId = nextActive);
+      await widget.apiService.storage.setActiveCvId(nextActive);
+      _loadProfiles();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✔ Ficha de "$targetName" eliminada correctamente.'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
@@ -288,7 +362,11 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
       drawer: Drawer(
-        backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.horizontal(right: Radius.circular(28))),
         child: SafeArea(
           child: TrayectoriaSidebar(
             activeItem: 'Orientación',
@@ -313,23 +391,43 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
       ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        centerTitle: true,
+        centerTitle: !isMobile,
+        titleSpacing: isMobile ? 0 : NavigationToolbar.kMiddleSpacing,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0A0F1D).withOpacity(0.55) : Colors.white.withOpacity(0.65),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? Colors.white.withOpacity(0.10) : Colors.black.withOpacity(0.06),
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           tooltip: 'Volver a Sanctuary Hub',
           onPressed: widget.onBackToHub,
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SanctuaryPlanetLogo(size: 26, showGlow: true),
-            const SizedBox(width: 9),
-            const Text(
+            SanctuaryPlanetLogo(size: isMobile ? 20 : 26, showGlow: true),
+            SizedBox(width: isMobile ? 6 : 9),
+            Text(
               'SANCTUARY',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
-                fontSize: 15,
-                letterSpacing: 2.0,
+                fontSize: isMobile ? 12.5 : 15,
+                letterSpacing: isMobile ? 1.0 : 2.0,
               ),
             ),
           ],
@@ -341,8 +439,9 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 10, vertical: 4),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
+                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.10) : Colors.black.withOpacity(0.06)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -369,31 +468,33 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isMobile ? 4 : 8),
 
-          // Cosmic Animation Toggle
-          IconButton(
-            tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
-            icon: Icon(
-              widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-              size: 20,
-              color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+          if (!isMobile) ...[
+            // Cosmic Animation Toggle
+            IconButton(
+              tooltip: widget.isCosmicActive ? 'Pausar animación cósmica' : 'Activar animación cósmica',
+              icon: Icon(
+                widget.isCosmicActive ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                size: 20,
+                color: widget.isCosmicActive ? AppTheme.emerald : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+              ),
+              onPressed: widget.onToggleCosmic,
             ),
-            onPressed: widget.onToggleCosmic,
-          ),
-          const SizedBox(width: 4),
+            const SizedBox(width: 4),
 
-          // Theme Toggle
-          IconButton(
-            tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              size: 20,
-              color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+            // Theme Toggle
+            IconButton(
+              tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+              icon: Icon(
+                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                size: 20,
+                color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF475569),
+              ),
+              onPressed: widget.onToggleTheme,
             ),
-            onPressed: widget.onToggleTheme,
-          ),
-          const SizedBox(width: 4),
+            const SizedBox(width: 4),
+          ],
 
           // User Profile Dropdown Button
           PopupMenuButton<String>(
@@ -590,106 +691,264 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
           const SizedBox(width: 14),
         ],
       ),
-      body: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isLargeScreen = constraints.maxWidth > 920;
+      body: Stack(
+        children: [
+          // 1. CARDS / MAIN CONTENT (Full height down to bottom with small padding)
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isLargeScreen = constraints.maxWidth > 920;
 
-                      return Padding(
-                        padding: EdgeInsets.all(isMobile ? 8 : 14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // 1. TOP CURRICULUM TEMPLATE SELECTOR BAR
-                            TemplateSelectorBar(
-                              activeTemplate: activeProfile.template,
-                              onSelectTemplate: (tpl) {
-                                _onProfileEdited(activeProfile.copyWith(template: tpl));
-                              },
-                              profiles: _profiles,
-                              activeProfileId: _activeId,
-                              onSelectProfile: (id) async {
-                                setState(() => _activeId = id);
-                                await widget.apiService.storage.setActiveCvId(id);
-                              },
-                              onAddProfile: _addNewLearner,
-                              onImportCv: () => _handleImportCvDocument(activeProfile),
-                            ),
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isMobile ? 8 : 14,
+                    isMobile ? 8 : 14,
+                    isMobile ? 8 : 14,
+                    isMobile ? 10 : 14, // Cards extend to bottom edge with small padding
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 1. TOP CURRICULUM TEMPLATE SELECTOR BAR
+                      TemplateSelectorBar(
+                        activeTemplate: activeProfile.template,
+                        onSelectTemplate: (tpl) {
+                          _onProfileEdited(activeProfile.copyWith(template: tpl));
+                        },
+                        profiles: _profiles,
+                        activeProfileId: _activeId,
+                        onSelectProfile: (id) async {
+                          setState(() => _activeId = id);
+                          await widget.apiService.storage.setActiveCvId(id);
+                        },
+                        onAddProfile: _addNewLearner,
+                        onDeleteProfile: _confirmAndDeleteProfile,
+                        onImportCv: () => _handleImportCvDocument(activeProfile),
+                      ),
 
-                            const SizedBox(height: 10),
+                      const SizedBox(height: 10),
 
-                            // Mobile tab switcher if screen is small
-                            if (!isLargeScreen)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: ChoiceChip(
-                                        label: const Center(child: Text('Editor del CV')),
-                                        selected: _mobileTabIndex == 0,
-                                        selectedColor: AppTheme.emerald.withOpacity(0.2),
-                                        onSelected: (_) => setState(() => _mobileTabIndex = 0),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: ChoiceChip(
-                                        label: const Center(child: Text('Previsualización A4')),
-                                        selected: _mobileTabIndex == 1,
-                                        selectedColor: AppTheme.emerald.withOpacity(0.2),
-                                        onSelected: (_) => setState(() => _mobileTabIndex = 1),
-                                      ),
-                                    ),
-                                  ],
+                      // Mobile tab switcher if screen is small
+                      if (!isLargeScreen)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Center(child: Text('Editor del CV')),
+                                  selected: _mobileTabIndex == 0,
+                                  selectedColor: AppTheme.emerald.withOpacity(0.2),
+                                  onSelected: (_) => setState(() => _mobileTabIndex = 0),
                                 ),
                               ),
-
-                            // 2. MAIN SPLIT VIEW (Editor on Left, A4 Live Sheet on Right)
-                            Expanded(
-                              child: isLargeScreen
-                                  ? Row(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        // Left Panel: Form Editor Tabs (7 steps)
-                                        Expanded(
-                                          flex: 11,
-                                          child: CvEditorTabs(
-                                            profile: activeProfile,
-                                            onProfileChanged: _onProfileEdited,
-                                            apiService: widget.apiService,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        // Right Panel: Live A4 Preview
-                                        Expanded(
-                                          flex: 10,
-                                          child: A4SheetPreview(
-                                            profile: activeProfile,
-                                            onExportPdf: _exportPdf,
-                                            onExportWord: _exportWord,
-                                            onToggleLanguage: _toggleLanguage,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : (_mobileTabIndex == 0
-                                      ? CvEditorTabs(
-                                          profile: activeProfile,
-                                          onProfileChanged: _onProfileEdited,
-                                          apiService: widget.apiService,
-                                        )
-                                      : A4SheetPreview(
-                                          profile: activeProfile,
-                                          onExportPdf: _exportPdf,
-                                          onExportWord: _exportWord,
-                                          onToggleLanguage: _toggleLanguage,
-                                        )),
-                            ),
-                          ],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Center(child: Text('Previsualización A4')),
+                                  selected: _mobileTabIndex == 1,
+                                  selectedColor: AppTheme.emerald.withOpacity(0.2),
+                                  onSelected: (_) => setState(() => _mobileTabIndex = 1),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                    },
+
+                      // 2. MAIN SPLIT VIEW (Editor on Left, A4 Live Sheet on Right)
+                      Expanded(
+                        child: isLargeScreen
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Left Panel: Form Editor Tabs (7 steps)
+                                  Expanded(
+                                    flex: 11,
+                                    child: CvEditorTabs(
+                                      profile: activeProfile,
+                                      onProfileChanged: _onProfileEdited,
+                                      apiService: widget.apiService,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Right Panel: Live A4 Preview
+                                  Expanded(
+                                    flex: 10,
+                                    child: A4SheetPreview(
+                                      profile: activeProfile,
+                                      onExportPdf: _exportPdf,
+                                      onExportWord: _exportWord,
+                                      onToggleLanguage: _toggleLanguage,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : (_mobileTabIndex == 0
+                                ? CvEditorTabs(
+                                    profile: activeProfile,
+                                    onProfileChanged: _onProfileEdited,
+                                    apiService: widget.apiService,
+                                  )
+                                : A4SheetPreview(
+                                    profile: activeProfile,
+                                    onExportPdf: _exportPdf,
+                                    onExportWord: _exportWord,
+                                    onToggleLanguage: _toggleLanguage,
+                                  )),
+                      ),
+                    ],
                   ),
+                );
+              },
+            ),
+          ),
+
+          // 2. Floating Action Dock directly at the bottom on BOTH mobile & desktop
+          Positioned(
+            bottom: isMobile ? 12 : 18,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildCvMakerFloatingDock(isDark, isMobile, activeProfile),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Floating Action Dock for CV Maker (iOS27 glassmorphic style on mobile & desktop)
+  Widget _buildCvMakerFloatingDock(bool isDark, bool isMobile, CvProfileModel profile) {
+    final isEn = profile.isEnglishVersion;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(32),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF131D31).withOpacity(0.50)
+                : Colors.white.withOpacity(0.60),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.18) : Colors.white.withOpacity(0.80),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.20 : 0.06),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Alternar Editor / Previsualización A4 (Solo en móvil)
+              if (isMobile) ...[
+                _buildDockButton(
+                  icon: _mobileTabIndex == 0 ? Icons.visibility_outlined : Icons.edit_note_outlined,
+                  label: null,
+                  tooltip: _mobileTabIndex == 0 ? 'Ver Previsualización A4' : 'Volver al Editor',
+                  onTap: () => setState(() => _mobileTabIndex = _mobileTabIndex == 0 ? 1 : 0),
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  bgColor: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                ),
+                const SizedBox(width: 8),
+              ],
+
+              // 2. Idioma ES / EN
+              _buildDockButton(
+                icon: Icons.language_rounded,
+                label: isMobile ? (isEn ? 'EN' : 'ES') : (isEn ? 'Idioma: EN' : 'Idioma: ES'),
+                tooltip: 'Cambiar idioma del currículum (Español / Inglés)',
+                onTap: _toggleLanguage,
+                color: AppTheme.emerald,
+                bgColor: AppTheme.emerald.withOpacity(0.20),
+                borderColor: AppTheme.emerald.withOpacity(0.40),
+              ),
+              const SizedBox(width: 8),
+
+              // 3. Exportar PDF (Rojo/Coral translúcido)
+              _buildDockButton(
+                icon: Icons.picture_as_pdf_rounded,
+                label: isMobile ? 'PDF' : 'Exportar PDF',
+                tooltip: 'Exportar currículum a documento PDF oficial',
+                onTap: _exportPdf,
+                color: Colors.white,
+                bgColor: const Color(0xFFEF4444).withOpacity(0.85),
+                borderColor: Colors.white.withOpacity(0.30),
+                isPrimary: true,
+              ),
+              const SizedBox(width: 8),
+
+              // 4. Descargar Word DOCX (Azul translúcido)
+              _buildDockButton(
+                icon: Icons.description_rounded,
+                label: isMobile ? 'Word' : 'Descargar Word',
+                tooltip: 'Descargar currículum en formato Word DOCX',
+                onTap: _exportWord,
+                color: Colors.white,
+                bgColor: const Color(0xFF2563EB).withOpacity(0.85),
+                borderColor: Colors.white.withOpacity(0.30),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDockButton({
+    required IconData icon,
+    String? label,
+    required String tooltip,
+    required VoidCallback onTap,
+    required Color color,
+    required Color bgColor,
+    Color? borderColor,
+    bool isPrimary = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: label != null ? 12 : 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: borderColor ?? (isPrimary ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.12)),
+                width: 1.0,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: color),
+                if (label != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

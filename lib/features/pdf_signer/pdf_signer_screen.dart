@@ -789,7 +789,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                       left: 8,
                       right: 8,
                       top: 8,
-                      bottom: 86, // Sits cleanly above the bottom floating dock
+                      bottom: 12, // Tarjetas hasta el borde inferior con pequeño padding
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -809,7 +809,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                     left: 16,
                     right: 16,
                     top: 14,
-                    bottom: 82, // Sits cleanly above the bottom floating dock
+                    bottom: 14, // Tarjetas hasta el borde inferior con pequeño padding
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -848,26 +848,32 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   }
 
   Widget _buildSignerFloatingDock(bool isDark, bool isMobile) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A).withOpacity(0.92) : Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.45 : 0.15),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(32),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF131D31).withOpacity(0.50)
+                : Colors.white.withOpacity(0.60),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.18) : Colors.white.withOpacity(0.80),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.20 : 0.06),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // 1. Adjuntar PDF
           _buildDockButton(
             icon: Icons.upload_file_rounded,
@@ -928,7 +934,9 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildDockButton({

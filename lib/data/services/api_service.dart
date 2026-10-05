@@ -418,6 +418,7 @@ class ApiService {
   Future<Map<String, dynamic>> createAdminUser({
     required String username,
     required String password,
+    String? confirmPassword,
     required String role,
     String? fullName,
     String? email,
@@ -429,6 +430,7 @@ class ApiService {
         body: jsonEncode({
           'username': username,
           'password': password,
+          'confirmPassword': confirmPassword ?? password,
           'role': role,
           'full_name': fullName,
           'email': email,
@@ -763,7 +765,7 @@ class ApiService {
       final res = await http.post(
         Uri.parse('$baseUrl/admin/email/test'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'targetEmail': targetEmail}),
+        body: jsonEncode({'to': targetEmail, 'targetEmail': targetEmail}),
       ).timeout(const Duration(seconds: 15));
 
       return jsonDecode(res.body) as Map<String, dynamic>;
@@ -771,6 +773,35 @@ class ApiService {
       debugPrint('Error testing SMTP: $e');
       return {'success': false, 'message': 'Error al contactar con el servicio SMTP: $e'};
     }
+  }
+
+  // --- Check SMTP Configuration Status ---
+  Future<Map<String, dynamic>> getEmailStatus() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/admin/email/status')).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {
+      'success': true,
+      'isConfigured': false,
+      'mode': 'simulated',
+      'message': 'Modo simulado activo: Las credenciales SMTP no están definidas.',
+    };
+  }
+
+  // --- Storage & Quota Analytics ---
+  Future<Map<String, dynamic>> getStorageAnalytics() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/admin/storage')).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('Error getting storage analytics: $e');
+    }
+    return {'success': false, 'message': 'No se pudo obtener analíticas de almacenamiento'};
   }
 }
 

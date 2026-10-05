@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/cv_profile_model.dart';
@@ -23,6 +24,7 @@ class TemplateSelectorBar extends StatelessWidget {
   final String activeProfileId;
   final ValueChanged<String> onSelectProfile;
   final VoidCallback onAddProfile;
+  final ValueChanged<String>? onDeleteProfile;
   final VoidCallback? onImportCv;
 
   const TemplateSelectorBar({
@@ -33,6 +35,7 @@ class TemplateSelectorBar extends StatelessWidget {
     required this.activeProfileId,
     required this.onSelectProfile,
     required this.onAddProfile,
+    this.onDeleteProfile,
     this.onImportCv,
   });
 
@@ -71,14 +74,21 @@ class TemplateSelectorBar extends StatelessWidget {
       orElse: () => profiles.isNotEmpty ? profiles.first : const CvProfileModel(id: 'temp'),
     );
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard.withOpacity(0.9) : AppTheme.lightCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-      ),
-      child: LayoutBuilder(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withOpacity(0.55) : Colors.white.withOpacity(0.68),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.70),
+              width: 1.0,
+            ),
+          ),
+          child: LayoutBuilder(
         builder: (context, constraints) {
           final isNarrow = constraints.maxWidth < 780;
 
@@ -118,6 +128,8 @@ class TemplateSelectorBar extends StatelessWidget {
             );
           }
 
+          final canFitTemplates = constraints.maxWidth > 1180;
+
           return Row(
             children: [
               // Title / Label for Templates
@@ -126,20 +138,26 @@ class TemplateSelectorBar extends StatelessWidget {
               const SizedBox(height: 24, child: VerticalDivider(width: 1)),
               const SizedBox(width: 12),
 
-              // Profile Card placed right next to Plantillas de Currículum
+              // Profile Card placed right next to Plantillas de Currículum + Papelera
               _buildProfileSelector(context, activeProfile, isDark),
               const SizedBox(width: 12),
               const SizedBox(height: 24, child: VerticalDivider(width: 1)),
               const SizedBox(width: 12),
 
-              // Template Cards (Horizontal Scrollable)
+              // Template Cards: Flexible distribution if enough room, or scrollable
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: templates.map((tpl) => _buildTemplateCard(tpl, isDark)).toList(),
-                  ),
-                ),
+                child: canFitTemplates
+                    ? Row(
+                        children: templates
+                            .map((tpl) => Expanded(child: _buildTemplateCard(tpl, isDark, isFlexible: true)))
+                            .toList(),
+                      )
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: templates.map((tpl) => _buildTemplateCard(tpl, isDark)).toList(),
+                        ),
+                      ),
               ),
 
               if (onImportCv != null) ...[
@@ -150,7 +168,9 @@ class TemplateSelectorBar extends StatelessWidget {
           );
         },
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildTitleLabel(bool isDark, {bool isCompact = false}) {
@@ -201,19 +221,19 @@ class TemplateSelectorBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSelected
                 ? AppTheme.emerald.withOpacity(0.22)
-                : (isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9)),
+                : (isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.50)),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected
                   ? AppTheme.emerald
-                  : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-              width: isSelected ? 1.8 : 1.0,
+                  : (isDark ? Colors.white.withOpacity(0.10) : Colors.white.withOpacity(0.60)),
+              width: isSelected ? 1.5 : 1.0,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppTheme.emerald.withOpacity(0.25),
-                      blurRadius: 6,
+                      color: AppTheme.emerald.withOpacity(0.20),
+                      blurRadius: 8,
                       offset: const Offset(0, 2),
                     )
                   ]
@@ -265,7 +285,7 @@ class TemplateSelectorBar extends StatelessWidget {
   }
 
   Widget _buildProfileSelector(BuildContext context, CvProfileModel activeProfile, bool isDark, {bool isCompact = false}) {
-    return PopupMenuButton<String>(
+    final popup = PopupMenuButton<String>(
       tooltip: 'Cambiar Alumno / Ficha Activa',
       offset: const Offset(0, 42),
       color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
@@ -328,6 +348,20 @@ class TemplateSelectorBar extends StatelessWidget {
                   ),
                   if (p.id == activeProfileId)
                     const Icon(Icons.check, size: 14, color: AppTheme.emerald),
+                  if (onDeleteProfile != null && profiles.length > 1) ...[
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        onDeleteProfile!(p.id);
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.delete_outline_rounded, size: 15, color: Colors.redAccent),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             )),
@@ -344,12 +378,14 @@ class TemplateSelectorBar extends StatelessWidget {
         ),
       ],
       child: Container(
-        constraints: BoxConstraints(maxWidth: isCompact ? double.infinity : 160),
-        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 5 : 7),
+        constraints: BoxConstraints(maxWidth: isCompact ? double.infinity : 220),
+        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12, vertical: isCompact ? 5 : 7),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.50),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.10) : Colors.white.withOpacity(0.60),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -370,7 +406,7 @@ class TemplateSelectorBar extends StatelessWidget {
                 children: [
                   Text(
                     activeProfile.fullName.isNotEmpty ? activeProfile.fullName : 'Alumno',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -387,27 +423,55 @@ class TemplateSelectorBar extends StatelessWidget {
         ),
       ),
     );
+
+    if (isCompact) return popup;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        popup,
+        if (onDeleteProfile != null && profiles.length > 1) ...[
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Eliminar esta ficha de currículum',
+            child: InkWell(
+              onTap: () => onDeleteProfile!(activeProfile.id),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
-  Widget _buildTemplateCard(TemplateOption tpl, bool isDark) {
+  Widget _buildTemplateCard(TemplateOption tpl, bool isDark, {bool isFlexible = false}) {
     final isSelected = activeTemplate == tpl.id;
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: InkWell(
         onTap: () => onSelectTemplate(tpl.id),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          width: 184,
+          width: isFlexible ? null : 184,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
                 ? AppTheme.emerald.withOpacity(0.18)
-                : (isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC)),
-            borderRadius: BorderRadius.circular(12),
+                : (isDark ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.40)),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.emerald
-                  : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                  ? AppTheme.emerald.withOpacity(0.8)
+                  : (isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.55)),
               width: isSelected ? 1.5 : 1,
             ),
             boxShadow: isSelected
@@ -475,11 +539,14 @@ class TemplateSelectorBar extends StatelessWidget {
       icon: const Icon(Icons.file_upload_outlined, size: 15),
       label: const Text('Importar PDF o Word', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.emerald,
+        backgroundColor: AppTheme.emerald.withOpacity(0.90),
         foregroundColor: Colors.white,
-        elevation: 1,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.white.withOpacity(0.25), width: 1),
+        ),
       ),
     );
   }

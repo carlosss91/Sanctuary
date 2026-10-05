@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
@@ -203,20 +204,27 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     final accentColor = _parseAccent(widget.profile.accentColor);
     final isEn = widget.profile.isEnglishVersion;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard.withOpacity(0.9) : AppTheme.lightCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
-      ),
-      child: Column(
-        children: [
-          // Top Toolbar with quick export, lang and zoom
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder)),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withOpacity(0.55) : Colors.white.withOpacity(0.68),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.70),
+              width: 1.0,
             ),
+          ),
+          child: Column(
+            children: [
+              // Top Toolbar with quick export, lang and zoom
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06))),
+                ),
             child: Row(
               children: [
                 Container(
@@ -312,7 +320,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                 final effectiveScale = _customScale ?? autoScale;
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 84),
                   child: Center(
                     child: SizedBox(
                       width: 595 * effectiveScale,
@@ -347,108 +355,11 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
               },
             ),
           ),
-
-          // ================================================================
-          // BOTTOM TOOLBAR: REVERSIBLE LANGUAGE TOGGLE & CV DOWNLOAD
-          // ================================================================
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-              border: Border(
-                top: BorderSide(
-                  color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
-                  width: 1,
-                ),
-              ),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                // Reversible Language Toggle Button (ES ⇄ EN)
-                if (widget.onToggleLanguage != null)
-                  InkWell(
-                    onTap: widget.onToggleLanguage,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.emerald.withOpacity(0.6), width: 1.2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.emerald.withOpacity(0.12),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.translate, size: 15, color: AppTheme.emerald),
-                          const SizedBox(width: 8),
-                          Text(
-                            isEn ? 'English (EN)' : 'Español (ES)',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.emerald.withOpacity(0.18),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              isEn ? '⇄ ES' : '⇄ EN',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                const Spacer(),
-
-                // Export to PDF
-                if (widget.onExportPdf != null)
-                  ElevatedButton.icon(
-                    onPressed: widget.onExportPdf,
-                    icon: const Icon(Icons.picture_as_pdf, size: 15),
-                    label: const Text('Exportar PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                      elevation: 2,
-                    ),
-                  ),
-
-                // Download Word DOCX
-                if (widget.onExportWord != null) ...[
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: widget.onExportWord,
-                    icon: const Icon(Icons.description, size: 15),
-                    label: const Text('Descargar Word', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                      elevation: 2,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   String _getTemplateName(String tpl) {

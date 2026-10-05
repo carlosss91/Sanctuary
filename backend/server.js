@@ -7,6 +7,32 @@ const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
+// Load environment variables from .env if present
+const envCandidates = [path.join(__dirname, '.env'), path.join(__dirname, '..', '.env')];
+for (const envFile of envCandidates) {
+  if (fs.existsSync(envFile)) {
+    try {
+      const content = fs.readFileSync(envFile, 'utf8');
+      content.split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx > 0) {
+            const k = trimmed.substring(0, eqIdx).trim();
+            let v = trimmed.substring(eqIdx + 1).trim();
+            if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+              v = v.substring(1, v.length - 1);
+            }
+            if (!process.env[k]) {
+              process.env[k] = v;
+            }
+          }
+        }
+      });
+    } catch (_) {}
+  }
+}
+
 let PDFParseClass = null;
 try {
   const pdfParsePkg = require('pdf-parse');
@@ -75,9 +101,9 @@ function verifyPassword(enteredPassword, storedPassword, username) {
   return enteredPassword === storedPassword;
 }
 
-// --- Email System (SMTP Real con fallback a vista segura) ---
+// --- Email System (SMTP Real con soporte Ethereal / vista segura) ---
 let mailTransporter = null;
-function getMailTransporter() {
+async function getMailTransporter() {
   if (mailTransporter) return mailTransporter;
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     mailTransporter = nodemailer.createTransport({
@@ -88,9 +114,32 @@ function getMailTransporter() {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      tls: {
+        rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== 'false',
+      },
     });
-    console.log(`📧 Transportador SMTP configurado en host: ${process.env.SMTP_HOST}`);
-  } else {
+    console.log(`📧 [SMTP] Servidor SMTP configurado activamente: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || '587'}`);
+    return mailTransporter;
+  }
+
+  // Si no se suministraron credenciales SMTP, crear automáticamente cuenta de prueba Ethereal
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    mailTransporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+    mailTransporter._isEthereal = true;
+    mailTransporter._etherealUser = testAccount.user;
+    console.log(`📧 [Auto-SMTP] Servidor de correo de prueba Ethereal generado: ${testAccount.user}`);
+    return mailTransporter;
+  } catch (e) {
+    console.warn('⚠️ No se pudo generar transportador Ethereal, activando modo consola:', e.message);
     mailTransporter = {
       sendMail: async (options) => {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -100,19 +149,120 @@ function getMailTransporter() {
         return { messageId: 'simulated_' + Date.now(), accepted: [options.to] };
       }
     };
+    return mailTransporter;
   }
-  return mailTransporter;
 }
 
 async function sendMailNotification({ to, subject, html, text }) {
   try {
-    const transporter = getMailTransporter();
-    const from = process.env.SMTP_FROM || '"Sanctuary Platform" <no-reply@sanctuary.app>';
-    return await transporter.sendMail({ from, to, subject, html, text });
+    const transporter = await getMailTransporter();
+    const from = process.env.SMTP_FROM || (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>');
+    const info = await transporter.sendMail({ from, to, subject, html, text });
+    if (transporter._isEthereal && nodemailer.getTestMessageUrl) {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log(`📧 [Vista previa del correo en navegador]: ${previewUrl}`);
+      info.previewUrl = previewUrl;
+    }
+    return info;
   } catch (err) {
     console.error('Error enviando correo:', err.message);
     return null;
   }
+}
+
+// Gorgeous HTML activation email template with Sanctuary Celestial branding
+function buildActivationEmailHtml({ username, fullName, activationLink }) {
+  const displayName = fullName || username;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activa tu cuenta en Sanctuary</title>
+</head>
+<body style="margin:0;padding:0;background-color:#080C14;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#F8FAFC;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#080C14;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:linear-gradient(145deg, #0F172A 0%, #131E33 100%);border-radius:24px;border:1px solid #1E293B;box-shadow:0 20px 45px rgba(0,0,0,0.5);overflow:hidden;">
+          
+          <!-- Top Emerald Glow Bar -->
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg, #10B981 0%, #06B6D4 50%, #3B82F6 100%);"></td>
+          </tr>
+
+          <!-- Header with Logo -->
+          <tr>
+            <td align="center" style="padding:40px 30px 20px 30px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <div style="width:64px;height:64px;border-radius:20px;background:radial-gradient(circle at 35% 35%, #10B981, #064E3B);box-shadow:0 0 25px rgba(16,185,129,0.45);display:inline-block;line-height:64px;text-align:center;font-size:32px;">
+                      🪐
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:14px;">
+                    <span style="font-size:22px;font-weight:900;letter-spacing:3px;color:#FFFFFF;text-transform:uppercase;">SANCTUARY</span>
+                    <div style="font-size:11px;font-weight:700;letter-spacing:1.8px;color:#10B981;margin-top:4px;">PLATFORM · DIGITAL SUITE</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body Content -->
+          <tr>
+            <td style="padding:10px 36px 30px 36px;">
+              <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:800;color:#F8FAFC;text-align:center;">¡Te damos la bienvenida a bordo!</h1>
+              <p style="margin:0 0 20px 0;font-size:14.5px;line-height:1.6;color:#94A3B8;text-align:center;">
+                Hola <strong style="color:#F1F5F9;">${displayName}</strong>, tu cuenta en Sanctuary está prácticamente lista. Para garantizar la seguridad de tu identidad y activar todas tus herramientas digitales, por favor confirma tu dirección de correo electrónico.
+              </p>
+
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${activationLink}" target="_blank" style="display:inline-block;background:linear-gradient(135deg, #10B981 0%, #059669 100%);color:#FFFFFF;font-size:15px;font-weight:700;letter-spacing:0.5px;text-decoration:none;padding:16px 36px;border-radius:14px;box-shadow:0 8px 24px rgba(16,185,129,0.35);border:1px solid rgba(255,255,255,0.2);">
+                      ✔ Activar Mi Cuenta Ahora
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback Link -->
+              <div style="background-color:#0A101D;border:1px solid #1E293B;border-radius:14px;padding:16px;margin-top:24px;">
+                <p style="margin:0 0 8px 0;font-size:11.5px;color:#64748B;font-weight:600;">¿El botón no responde? Copia y abre este enlace en tu navegador:</p>
+                <div style="font-size:11.5px;color:#06B6D4;word-break:break-all;line-height:1.4;font-family:monospace;background:#0F172A;padding:8px 10px;border-radius:8px;border:1px solid rgba(6,182,212,0.25);">
+                  ${activationLink}
+                </div>
+              </div>
+
+              <!-- Security Notice -->
+              <p style="margin:24px 0 0 0;font-size:11.5px;line-height:1.5;color:#64748B;text-align:center;">
+                🔒 Este enlace de activación es único y válido durante 24 horas.<br>
+                Si no te has registrado en Sanctuary, puedes desestimar este mensaje de forma segura.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:22px 30px;background-color:#0A0F1A;border-top:1px solid #1E293B;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#475569;line-height:1.5;">
+                Sanctuary Suite © 2026 · Desarrollado con precisión<br>
+                Portal Docente, CV Maker interactivo & Digital Signer
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 // --- Ephemeral Chat Auto-purge (Daily at 00:00 midnight) ---
@@ -589,15 +739,9 @@ app.post('/api/auth/register', async (req, res) => {
         const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
         sendMailNotification({
           to: email.trim(),
-          subject: 'Activa tu cuenta en Sanctuary',
+          subject: 'Activa tu cuenta en Sanctuary 🪐',
           text: `Hola ${full_name || uClean},\n\nGracias por registrarte en Sanctuary. Haz clic en el siguiente enlace para activar tu cuenta:\n${activationLink}\n\nSi no te has registrado tú, ignora este mensaje.`,
-          html: `<div style="font-family:sans-serif;padding:24px;border-radius:12px;background:#0F172A;color:#F8FAFC;">
-                  <h2 style="color:#06B6D4;">¡Bienvenido a Sanctuary!</h2>
-                  <p>Hola <strong>${full_name || uClean}</strong>,</p>
-                  <p>Por favor confirma tu dirección de correo electrónico para activar tu acceso al santuario:</p>
-                  <a href="${activationLink}" style="display:inline-block;padding:12px 24px;background:#06B6D4;color:#000;font-weight:bold;text-decoration:none;border-radius:8px;">Activar Mi Cuenta</a>
-                  <p style="margin-top:20px;font-size:12px;color:#94A3B8;">O copia este enlace en tu navegador:<br>${activationLink}</p>
-                 </div>`,
+          html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationLink }),
         });
       }
 
@@ -640,13 +784,9 @@ app.post('/api/auth/register', async (req, res) => {
     const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
     sendMailNotification({
       to: email.trim(),
-      subject: 'Activa tu cuenta en Sanctuary',
+      subject: 'Activa tu cuenta en Sanctuary 🪐',
       text: `Hola ${full_name || uClean},\n\nActiva tu cuenta aquí: ${activationLink}`,
-      html: `<div style="font-family:sans-serif;padding:24px;background:#0F172A;color:#fff;border-radius:12px;">
-              <h2 style="color:#06B6D4;">Sanctuary · Activación</h2>
-              <p>Hola <strong>${full_name || uClean}</strong>,</p>
-              <p><a href="${activationLink}" style="color:#06B6D4;font-weight:bold;">Haz clic aquí para activar tu cuenta</a></p>
-             </div>`,
+      html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationLink }),
     });
   }
 
@@ -659,6 +799,115 @@ app.post('/api/auth/register', async (req, res) => {
     user: userNoPwd,
   });
 });
+
+function buildVerificationSuccessHtml(username) {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuenta Verificada · Sanctuary</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 20%, #0F172A 0%, #080C14 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      color: #F8FAFC;
+    }
+    .card {
+      max-width: 460px;
+      width: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 28px;
+      padding: 42px 32px;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 35px rgba(16, 185, 129, 0.15);
+      animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .icon-badge {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px auto;
+      border-radius: 22px;
+      background: radial-gradient(circle at 30% 30%, #10B981, #064E3B);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0 0 8px 0;
+      color: #FFFFFF;
+    }
+    .username-chip {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10B981;
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .desc {
+      font-size: 14.5px;
+      line-height: 1.6;
+      color: #94A3B8;
+      margin: 0 0 28px 0;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 15px 24px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 10px 24px rgba(16, 185, 129, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .brand {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #475569;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-badge">🪐</div>
+    <h1 class="title">¡Cuenta Activada con Éxito!</h1>
+    <div class="username-chip">@${username}</div>
+    <p class="desc">Tu dirección de correo ha sido validada. Tu identidad digital en Sanctuary está verificada y ya puedes acceder a todas tus herramientas.</p>
+    <a href="/" class="btn">Entrar a Sanctuary</a>
+    <div class="brand">Sanctuary · Digital Suite 2026</div>
+  </div>
+</body>
+</html>`;
+}
 
 // Authentication: Account Activation Link
 app.get('/api/auth/verify', async (req, res) => {
@@ -673,16 +922,7 @@ app.get('/api/auth/verify', async (req, res) => {
     [token]
   );
   if (result && result.rows.length > 0) {
-    return res.send(`
-      <!DOCTYPE html><html><body style="font-family:sans-serif;background:#0F172A;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-        <div style="text-align:center;padding:40px;background:#1E293B;border-radius:20px;border:1px solid #06B6D4;max-width:440px;">
-          <h1 style="color:#06B6D4;">✔ ¡Cuenta Activada!</h1>
-          <p>Tu cuenta <strong>@${result.rows[0].username}</strong> ha sido verificada con éxito.</p>
-          <p>Ya puedes volver a la aplicación Sanctuary e iniciar sesión con tu usuario y contraseña.</p>
-          <a href="/" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#06B6D4;color:#000;font-weight:bold;text-decoration:none;border-radius:10px;">Entrar a Sanctuary</a>
-        </div>
-      </body></html>
-    `);
+    return res.send(buildVerificationSuccessHtml(result.rows[0].username));
   }
 
   // Local DB fallback
@@ -692,19 +932,18 @@ app.get('/api/auth/verify', async (req, res) => {
     u.is_verified = true;
     u.activation_token = null;
     saveLocalDb(ldb);
-    return res.send(`
-      <!DOCTYPE html><html><body style="font-family:sans-serif;background:#0F172A;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-        <div style="text-align:center;padding:40px;background:#1E293B;border-radius:20px;border:1px solid #06B6D4;max-width:440px;">
-          <h1 style="color:#06B6D4;">✔ ¡Cuenta Activada!</h1>
-          <p>Tu cuenta <strong>@${u.username}</strong> ha sido verificada con éxito.</p>
-          <p>Ya puedes volver a Sanctuary e iniciar sesión.</p>
-          <a href="/" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#06B6D4;color:#000;font-weight:bold;text-decoration:none;border-radius:10px;">Entrar a Sanctuary</a>
-        </div>
-      </body></html>
-    `);
+    return res.send(buildVerificationSuccessHtml(u.username));
   }
 
-  res.status(404).send('<h1>El enlace de activación ha expirado o ya fue utilizado.</h1>');
+  res.status(404).send(`
+    <!DOCTYPE html><html><body style="font-family:sans-serif;background:#080C14;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+      <div style="text-align:center;padding:36px;background:#0F172A;border-radius:20px;border:1px solid #EF4444;max-width:440px;">
+        <h2 style="color:#EF4444;">Enlace expirado o no encontrado</h2>
+        <p style="color:#94A3B8;">Este enlace de activación ya ha sido utilizado o ha vencido. Intenta registrarte o solicitar recuperación.</p>
+        <a href="/" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#1E293B;color:#fff;text-decoration:none;border-radius:10px;">Volver al inicio</a>
+      </div>
+    </body></html>
+  `);
 });
 
 // Authentication: Forgot Password (Solicitar recuperación)
@@ -835,20 +1074,172 @@ app.post('/api/auth/reset-password', async (req, res) => {
 });
 
 
+// Email: Admin Get Email Diagnostics Status
+app.get('/api/admin/email/status', async (req, res) => {
+  const isCustomSmtp = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  const transporter = await getMailTransporter();
+  const isEthereal = !!transporter._isEthereal;
+  const isReal = isCustomSmtp || isEthereal;
+
+  return res.json({
+    success: true,
+    isConfigured: isReal,
+    mode: isCustomSmtp ? 'smtp' : (isEthereal ? 'ethereal' : 'simulated'),
+    host: process.env.SMTP_HOST || (isEthereal ? 'smtp.ethereal.email (Servidor de Prueba)' : 'Modo Consola'),
+    port: process.env.SMTP_PORT || '587',
+    from: process.env.SMTP_FROM || (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'),
+    etherealUser: transporter._etherealUser || null,
+    message: isCustomSmtp
+      ? `Servidor SMTP configurado y activo en ${process.env.SMTP_HOST}`
+      : (isEthereal
+          ? 'Servidor de prueba SMTP Ethereal activo: Los correos se generan con visor web real y previsualización online.'
+          : 'Modo simulado activo: Las credenciales SMTP no están definidas.'),
+  });
+});
+
 // Email: Admin Send Test Email
 app.post('/api/admin/email/test', async (req, res) => {
-  const { to } = req.body;
+  const to = req.body.to || req.body.targetEmail || req.body.email;
   if (!to) return res.status(400).json({ success: false, message: 'Destinatario requerido' });
+  const isCustomSmtp = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+
+  const host = req.get('host') || `localhost:${port}`;
+  const protocol = req.protocol || 'http';
+  const dummyToken = crypto.randomBytes(16).toString('hex');
+  const sampleLink = `${protocol}://${host}/api/auth/verify?token=${dummyToken}`;
+
   const result = await sendMailNotification({
     to: to.trim(),
-    subject: 'Comprobación de Servidor de Correo · Sanctuary',
-    text: 'Este es un correo de prueba emitido desde el Panel de Administración de Sanctuary para verificar la conectividad SMTP.',
-    html: '<div style="padding:20px;background:#0F172A;color:#06B6D4;border-radius:10px;"><h2>✔ Prueba SMTP Exitosa</h2><p>El sistema de envío de correos de Sanctuary funciona correctamente.</p></div>',
+    subject: 'Comprobación de Servidor de Correo · Sanctuary 🪐',
+    text: `Este es un correo de prueba emitido desde el Panel de Administración de Sanctuary para verificar la conectividad SMTP.\n\nEnlace de muestra: ${sampleLink}`,
+    html: buildActivationEmailHtml({ username: 'AdminTester', fullName: 'Administrador de Pruebas', activationLink: sampleLink }),
   });
+
   if (result) {
-    return res.json({ success: true, message: `Correo de prueba enviado a ${to}` });
+    const previewUrl = result.previewUrl || null;
+    return res.json({
+      success: true,
+      message: isCustomSmtp
+        ? `Correo de prueba enviado a ${to} a través del servidor SMTP (${process.env.SMTP_HOST}).`
+        : (previewUrl
+            ? `Correo generado con éxito. Puedes abrir la bandeja de prueba aquí: ${previewUrl}`
+            : `Correo registrado para ${to} en los logs del servidor.`),
+      mode: isCustomSmtp ? 'smtp' : (previewUrl ? 'ethereal' : 'simulated'),
+      previewUrl,
+    });
   }
   res.status(500).json({ success: false, message: 'No se pudo enviar el correo. Revisa la configuración SMTP.' });
+});
+
+// Storage: Admin Storage & Quota Analytics
+app.get('/api/admin/storage', async (req, res) => {
+  try {
+    // 1. Uploads directory stats
+    let uploadsBytes = 0;
+    let fileCount = 0;
+    const fileList = [];
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir);
+      for (const f of files) {
+        try {
+          const st = fs.statSync(path.join(uploadsDir, f));
+          if (st.isFile()) {
+            uploadsBytes += st.size;
+            fileCount++;
+            fileList.push({ name: f, size: st.size, modified: st.mtime });
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Database stats
+    let dbBytes = 0;
+    if (fs.existsSync(localDbPath)) {
+      try {
+        const st = fs.statSync(localDbPath);
+        dbBytes += st.size;
+      } catch (_) {}
+    }
+    const pgRes = await safeQuery('SELECT pg_database_size(current_database()) as size');
+    if (pgRes && pgRes.rows && pgRes.rows[0]?.size) {
+      dbBytes += parseInt(pgRes.rows[0].size, 10);
+    }
+
+    // 3. User quota breakdown
+    const ldb = getLocalDb();
+    const users = ldb.users || [];
+    const profiles = ldb.cv_profiles || [];
+    const messages = ldb.chat_messages || [];
+
+    const formatBytes = (bytes) => {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const usersStorage = users.map((u) => {
+      const role = (u.role || 'usuario').toLowerCase();
+      // Quota policy: Admin = 1024 MB (1GB), Docente = 250 MB, Usuario = 50 MB
+      const quotaBytes = role === 'admin' ? 1024 * 1024 * 1024 : (role === 'docente' ? 250 * 1024 * 1024 : 50 * 1024 * 1024);
+      
+      const userProfiles = profiles.filter(p => p.userId === u.id || (!p.userId && role === 'admin'));
+      const profileEstimatedBytes = JSON.stringify(userProfiles).length;
+      
+      let userUploadsBytes = 0;
+      if (u.avatar_url && u.avatar_url.includes('/uploads/')) {
+        const fname = path.basename(u.avatar_url);
+        const match = fileList.find(f => f.name === fname);
+        if (match) userUploadsBytes += match.size;
+      }
+      
+      const usedBytes = profileEstimatedBytes + userUploadsBytes + 2048; // Base user records overhead
+      const percent = Math.min(100, parseFloat(((usedBytes / quotaBytes) * 100).toFixed(1)));
+
+      return {
+        id: u.id,
+        username: u.username,
+        fullName: u.full_name || u.username,
+        role: u.role || 'usuario',
+        avatarUrl: u.avatar_url || '',
+        usedBytes,
+        formattedUsed: formatBytes(usedBytes),
+        quotaBytes,
+        formattedQuota: formatBytes(quotaBytes),
+        percent,
+        profileCount: userProfiles.length,
+        hasAvatar: !!(u.avatar_url && u.avatar_url.length > 0),
+      };
+    });
+
+    const totalSystemConsumedBytes = uploadsBytes + dbBytes;
+    const systemQuotaBytes = 5 * 1024 * 1024 * 1024; // 5 GB standard allocated system storage
+    const systemPercent = Math.min(100, parseFloat(((totalSystemConsumedBytes / systemQuotaBytes) * 100).toFixed(1)));
+
+    return res.json({
+      success: true,
+      summary: {
+        totalConsumedBytes: totalSystemConsumedBytes,
+        formattedTotal: formatBytes(totalSystemConsumedBytes),
+        systemQuotaBytes,
+        formattedSystemQuota: formatBytes(systemQuotaBytes),
+        systemPercent,
+        uploadsBytes,
+        formattedUploads: formatBytes(uploadsBytes),
+        uploadsCount: fileCount,
+        dbBytes,
+        formattedDb: formatBytes(dbBytes),
+        usersCount: users.length,
+        cvProfilesCount: profiles.length,
+        chatMessagesCount: messages.length,
+      },
+      users: usersStorage,
+    });
+  } catch (err) {
+    console.error('Error fetching storage analytics:', err);
+    return res.status(500).json({ success: false, message: 'Error calculando almacenamiento: ' + err.message });
+  }
 });
 
 // ============================================================================
@@ -858,7 +1249,7 @@ app.post('/api/admin/email/test', async (req, res) => {
 // Admin: List all users
 app.get('/api/admin/users', async (req, res) => {
   const result = await safeQuery(
-    'SELECT id, username, role, full_name, email, avatar_url, bio, COALESCE(is_banned, false) as is_banned, created_at FROM users ORDER BY id ASC'
+    'SELECT id, username, role, full_name, email, avatar_url, bio, COALESCE(is_banned, false) as is_banned, COALESCE(is_verified, true) as is_verified, created_at FROM users ORDER BY id ASC'
   );
   if (result) {
     return res.json({
@@ -871,7 +1262,7 @@ app.get('/api/admin/users', async (req, res) => {
   const ldb = getLocalDb();
   const safeUsers = (ldb.users || []).map(u => {
     const { password: _, ...noPwd } = u;
-    return { ...noPwd, is_banned: !!u.is_banned };
+    return { ...noPwd, is_banned: !!u.is_banned, is_verified: u.is_verified !== false };
   });
   res.json({
     success: true,
@@ -879,15 +1270,26 @@ app.get('/api/admin/users', async (req, res) => {
   });
 });
 
-// Admin: Create user with custom role
+// Admin: Create user with custom role and password confirmation
 app.post('/api/admin/users', async (req, res) => {
-  const { username, password, role, full_name, email, avatar_url, bio } = req.body;
+  const { username, password, confirm_password, confirmPassword, role, full_name, email, avatar_url, bio } = req.body;
   if (!username || !password) {
     return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
   }
 
   const uClean = username.trim();
   const pClean = password.trim();
+  const confClean = (confirm_password || confirmPassword || '').trim();
+
+  // Validate confirmation if sent
+  if (confClean && pClean !== confClean) {
+    return res.status(400).json({ success: false, message: 'Las contraseñas no coinciden. Por favor verifícalas.' });
+  }
+  if (pClean.length < 4) {
+    return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 4 caracteres' });
+  }
+
+  const hashedPwd = hashPassword(pClean);
   const targetRole = ['admin', 'docente', 'usuario'].includes((role || '').toLowerCase())
     ? role.toLowerCase()
     : 'usuario';
@@ -898,10 +1300,10 @@ app.post('/api/admin/users', async (req, res) => {
       return res.status(409).json({ success: false, message: 'El nombre de usuario ya existe' });
     }
     const result = await safeQuery(
-      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
-       RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, created_at`,
-      [uClean, pClean, targetRole, full_name || uClean, email || '', avatar_url || '', bio || '']
+      `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned, is_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, TRUE)
+       RETURNING id, username, role, full_name, email, avatar_url, bio, is_banned, is_verified, created_at`,
+      [uClean, hashedPwd, targetRole, full_name || uClean, email || '', avatar_url || '', bio || '']
     );
     if (result && result.rows.length > 0) {
       return res.status(201).json({
@@ -921,13 +1323,14 @@ app.post('/api/admin/users', async (req, res) => {
   const newUser = {
     id: Date.now(),
     username: uClean,
-    password: pClean,
+    password: hashedPwd,
     role: targetRole,
     full_name: full_name || uClean,
     email: email || '',
     avatar_url: avatar_url || '',
     bio: bio || '',
     is_banned: false,
+    is_verified: true,
     created_at: new Date().toISOString(),
   };
   ldb.users.push(newUser);
