@@ -518,8 +518,26 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
-// Run schema migrations for users profile columns & chat table if PostgreSQL is online
+// Run schema migrations for users, chat table & app_settings if PostgreSQL is online
 safeQuery(`
+  CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role VARCHAR(50) DEFAULT 'usuario',
+    full_name VARCHAR(150),
+    email VARCHAR(150),
+    avatar_url TEXT,
+    bio TEXT,
+    is_banned BOOLEAN DEFAULT FALSE,
+    is_verified BOOLEAN DEFAULT TRUE,
+    activation_token VARCHAR(120),
+    activation_code VARCHAR(20),
+    reset_token VARCHAR(120),
+    reset_expires BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
   ALTER TABLE users 
   ADD COLUMN IF NOT EXISTS full_name VARCHAR(150),
   ADD COLUMN IF NOT EXISTS email VARCHAR(150),
@@ -546,7 +564,46 @@ safeQuery(`
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
   );
-`).catch(() => {});
+`).catch((err) => console.warn('⚠️ Error en migraciones iniciales:', err?.message));
+
+async function syncUsersToPostgres() {
+  try {
+    const adminPwd = hashPassword('Sanctuary#2026*');
+    await safeQuery(
+      `INSERT INTO users (username, password, role, full_name, email, is_banned, is_verified) 
+       VALUES ('admin', $1, 'admin', 'Administrador Sanctuary', 'admin@sanctuary.local', FALSE, TRUE) 
+       ON CONFLICT (username) DO NOTHING`,
+      [adminPwd]
+    );
+
+    const ldb = getLocalDb();
+    if (Array.isArray(ldb.users)) {
+      for (const u of ldb.users) {
+        if (!u.username) continue;
+        await safeQuery(
+          `INSERT INTO users (username, password, role, full_name, email, avatar_url, bio, is_banned, is_verified)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (username) DO NOTHING`,
+          [
+            u.username,
+            u.password || hashPassword('123456'),
+            u.role || 'usuario',
+            u.full_name || u.fullName || u.username,
+            u.email || '',
+            u.avatar_url || u.avatarUrl || '',
+            u.bio || '',
+            !!u.is_banned,
+            u.is_verified !== false,
+          ]
+        );
+      }
+    }
+    console.log('✅ [PostgreSQL] Tabla users y cuentas sincronizadas con éxito.');
+  } catch (err) {
+    console.warn('⚠️ Error sincronizando usuarios en PostgreSQL:', err.message);
+  }
+}
+setTimeout(syncUsersToPostgres, 1500);
 
 // --- Ephemeral Community Chat Endpoints ---
 app.get('/api/chat/messages', async (req, res) => {
