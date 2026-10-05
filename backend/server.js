@@ -2151,12 +2151,27 @@ app.get('/api/slides/proxy', async (req, res) => {
     return res.status(400).json({ success: false, message: 'URL requerida' });
   }
 
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
   try {
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    };
+    if (url.includes('prezi') || url.includes('amazonaws.com')) {
+      reqHeaders['Referer'] = 'https://prezi.com/';
+      reqHeaders['Origin'] = 'https://prezi.com';
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
     const fetchRes = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+      headers: reqHeaders,
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     const contentType = fetchRes.headers.get('content-type') || 'text/html';
     res.setHeader('Content-Type', contentType);
@@ -2169,6 +2184,7 @@ app.get('/api/slides/proxy', async (req, res) => {
       res.status(fetchRes.status).send(text);
     } else {
       const buffer = await fetchRes.arrayBuffer();
+      res.setHeader('Content-Length', buffer.byteLength);
       res.status(fetchRes.status).send(Buffer.from(buffer));
     }
   } catch (err) {
@@ -2184,15 +2200,30 @@ app.get('/api/slides/download', async (req, res) => {
     return res.status(400).json({ success: false, message: 'URL requerida' });
   }
 
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
   try {
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    };
+    if (url.includes('prezi') || url.includes('amazonaws.com')) {
+      reqHeaders['Referer'] = 'https://prezi.com/';
+      reqHeaders['Origin'] = 'https://prezi.com';
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
     const fetchRes = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+      headers: reqHeaders,
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!fetchRes.ok) {
-      return res.status(fetchRes.status).json({ success: false, message: 'Error al descargar archivo' });
+      return res.status(fetchRes.status).json({ success: false, message: `Error ${fetchRes.status} al descargar archivo` });
     }
 
     const safeName = (filename || 'video.mp4').replace(/[^\w\.-]/gi, '_');
@@ -2201,6 +2232,7 @@ app.get('/api/slides/download', async (req, res) => {
     res.setHeader('Content-Type', contentType);
 
     const buffer = await fetchRes.arrayBuffer();
+    res.setHeader('Content-Length', buffer.byteLength);
     res.send(Buffer.from(buffer));
   } catch (err) {
     console.error('Error in /api/slides/download:', err);

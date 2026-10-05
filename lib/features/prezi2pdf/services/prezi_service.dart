@@ -739,40 +739,103 @@ class PreziService {
     return await pdf.save();
   }
 
-  /// Descarga los bytes directos de un video (usando proxy si está disponible o petición directa)
+  // Caché en memoria para evitar descargar múltiples veces los mismos vídeos
+  static final Map<String, Uint8List> _videoBytesCache = {};
+
+  bool hasCachedVideo(String url) => _videoBytesCache.containsKey(url.trim());
+  Uint8List? getCachedVideo(String url) => _videoBytesCache[url.trim()];
+  void cacheVideoBytes(String url, Uint8List bytes) {
+    _videoBytesCache[url.trim()] = bytes;
+  }
+  void clearVideoCache() => _videoBytesCache.clear();
+  int get cachedVideosCount => _videoBytesCache.length;
+
+  /// Descarga los bytes directos de un video con caché en memoria, reintentos y múltiples proxies de respaldo
   Future<Uint8List?> fetchVideoBytes(
     String videoUrl, {
     void Function(String message, double progress)? onProgress,
+    int maxRetries = 2,
   }) async {
-    if (backendBaseUrl != null && backendBaseUrl!.isNotEmpty) {
-      try {
-        final downloadUrl = '$backendBaseUrl/slides/download?url=${Uri.encodeComponent(videoUrl)}';
-        final res = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 45));
-        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
-          return res.bodyBytes;
-        }
-      } catch (e) {
-        debugPrint('Aviso: proxy de descarga devolvió: $e');
-      }
+    final cleanUrl = videoUrl.trim();
+    if (cleanUrl.isEmpty) return null;
 
-      try {
-        final proxyUrl = '$backendBaseUrl/slides/proxy?url=${Uri.encodeComponent(videoUrl)}';
-        final res = await http.get(Uri.parse(proxyUrl)).timeout(const Duration(seconds: 45));
-        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
-          return res.bodyBytes;
-        }
-      } catch (e) {
-        debugPrint('Aviso: proxy genérico devolvió: $e');
-      }
+    // 0. Si ya está en caché, devolverlo inmediatamente
+    if (_videoBytesCache.containsKey(cleanUrl)) {
+      debugPrint('[PreziService] Vídeo obtenido desde la caché en memoria: $cleanUrl');
+      onProgress?.call('Vídeo obtenido instantáneamente desde la caché', 1.0);
+      return _videoBytesCache[cleanUrl];
     }
 
-    try {
-      final res = await http.get(Uri.parse(videoUrl), headers: _standardHeaders).timeout(const Duration(seconds: 45));
-      if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
-        return res.bodyBytes;
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      if (attempt > 1) {
+        debugPrint('[PreziService] Reintentando descarga de vídeo (intento $attempt de $maxRetries): $cleanUrl');
+        onProgress?.call('Reintentando descarga (intento $attempt)...', 0.2);
+        await Future.delayed(Duration(milliseconds: 1000 * attempt));
       }
-    } catch (e) {
-      debugPrint('Aviso: descarga directa de video falló: $e');
+
+      // 1. Backend Sanctuary /slides/download
+      if (backendBaseUrl != null && backendBaseUrl!.isNotEmpty) {
+        try {
+          final downloadUrl = '$backendBaseUrl/slides/download?url=${Uri.encodeComponent(cleanUrl)}';
+          final res = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 40));
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+            _videoBytesCache[cleanUrl] = res.bodyBytes;
+            return res.bodyBytes;
+          }
+        } catch (e) {
+          debugPrint('[PreziService] Aviso: proxy /slides/download falló ($attempt): $e');
+        }
+
+        // 2. Backend Sanctuary /slides/proxy
+        try {
+          final proxyUrl = '$backendBaseUrl/slides/proxy?url=${Uri.encodeComponent(cleanUrl)}';
+          final res = await http.get(Uri.parse(proxyUrl)).timeout(const Duration(seconds: 40));
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+            _videoBytesCache[cleanUrl] = res.bodyBytes;
+            return res.bodyBytes;
+          }
+        } catch (e) {
+          debugPrint('[PreziService] Aviso: proxy /slides/proxy falló ($attempt): $e');
+        }
+      }
+
+      // 3. Fallbacks de proxies públicos CORS (ideales cuando GitHub Pages no alcanza el backend a tiempo o por timeouts)
+      if (kIsWeb) {
+        // Fallback A: api.allorigins.win
+        try {
+          final allOriginsUrl = 'https://api.allorigins.win/raw?url=${Uri.encodeComponent(cleanUrl)}';
+          final res = await http.get(Uri.parse(allOriginsUrl)).timeout(const Duration(seconds: 35));
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+            _videoBytesCache[cleanUrl] = res.bodyBytes;
+            return res.bodyBytes;
+          }
+        } catch (e) {
+          debugPrint('[PreziService] Aviso: fallback allorigins falló ($attempt): $e');
+        }
+
+        // Fallback B: corsproxy.io
+        try {
+          final corsProxyUrl = 'https://corsproxy.io/?${Uri.encodeComponent(cleanUrl)}';
+          final res = await http.get(Uri.parse(corsProxyUrl)).timeout(const Duration(seconds: 35));
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+            _videoBytesCache[cleanUrl] = res.bodyBytes;
+            return res.bodyBytes;
+          }
+        } catch (e) {
+          debugPrint('[PreziService] Aviso: fallback corsproxy.io falló ($attempt): $e');
+        }
+      }
+
+      // 4. Descarga directa como último recurso
+      try {
+        final res = await http.get(Uri.parse(cleanUrl), headers: _standardHeaders).timeout(const Duration(seconds: 35));
+        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+          _videoBytesCache[cleanUrl] = res.bodyBytes;
+          return res.bodyBytes;
+        }
+      } catch (e) {
+        debugPrint('[PreziService] Aviso: descarga directa falló ($attempt): $e');
+      }
     }
 
     return null;

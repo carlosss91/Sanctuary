@@ -514,6 +514,35 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                     ],
                   ),
                 ),
+                Builder(
+                  builder: (_) {
+                    final cachedCount = selected.where((v) => _preziService.hasCachedVideo(v.url)).length;
+                    if (cachedCount == 0) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.cyanAccent.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.offline_bolt_rounded, size: 16, color: Colors.cyanAccent),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '$cachedCount de ${selected.length} vídeos ya están en caché de memoria (descarga inmediata).',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.cyanAccent),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 12),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 280),
@@ -523,22 +552,48 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                     separatorBuilder: (_, __) => const Divider(height: 8),
                     itemBuilder: (context, idx) {
                       final vid = selected[idx];
+                      final isCached = _preziService.hasCachedVideo(vid.url);
+
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
                           radius: 14,
-                          backgroundColor: AppTheme.emerald.withOpacity(0.15),
+                          backgroundColor: isCached ? AppTheme.emerald.withOpacity(0.2) : AppTheme.emerald.withOpacity(0.15),
                           child: Text(
                             '${idx + 1}',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isCached ? AppTheme.emerald : null,
+                            ),
                           ),
                         ),
-                        title: Text(
-                          vid.title,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                vid.title,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isCached)
+                              Container(
+                                margin: const EdgeInsets.only(left: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.emerald.withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                                ),
+                                child: const Text(
+                                  'En caché',
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                ),
+                              ),
+                          ],
                         ),
                         subtitle: Text(
                           '${vid.serviceDisplayName} · Paso #${vid.stepIndex}',
@@ -555,8 +610,12 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                               onPressed: () => _openVideoPreview(vid.url),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.download_rounded, size: 18, color: AppTheme.emerald),
-                              tooltip: 'Descargar archivo a disco',
+                              icon: Icon(
+                                isCached ? Icons.check_circle_outline_rounded : Icons.download_rounded,
+                                size: 18,
+                                color: AppTheme.emerald,
+                              ),
+                              tooltip: isCached ? 'Guardar desde caché' : 'Descargar archivo a disco',
                               onPressed: () {
                                 Navigator.of(ctx).pop();
                                 _downloadSingleVideo(vid);
@@ -623,17 +682,20 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
     setState(() => _isBatchDownloading = true);
 
     final archive = Archive();
-    int addedCount = 0;
-    int skippedCount = 0;
+    final List<PreziVideoItem> successVideos = [];
+    final List<({PreziVideoItem video, String reason})> failedVideos = [];
+    final List<PreziVideoItem> skippedVideos = [];
 
     for (int i = 0; i < selected.length; i++) {
       final video = selected[i];
       if (video.isYouTube || video.isVimeo) {
-        skippedCount++;
+        skippedVideos.add(video);
         continue;
       }
 
       setState(() => _downloadingVideoIds.add(video.id));
+
+      final isAlreadyCached = _preziService.hasCachedVideo(video.url);
 
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -643,7 +705,13 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               children: [
                 const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Descargando vídeo ${i + 1} de ${selected.length}: "${video.title}"...')),
+                Expanded(
+                  child: Text(
+                    isAlreadyCached
+                        ? 'Obteniendo vídeo ${i + 1} de ${selected.length} (desde caché): "${video.title}"...'
+                        : 'Descargando vídeo ${i + 1} de ${selected.length}: "${video.title}"...',
+                  ),
+                ),
               ],
             ),
             duration: const Duration(seconds: 45),
@@ -657,10 +725,13 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         if (bytes != null && bytes.isNotEmpty) {
           final safeName = _buildSafeVideoFilename(index: i, video: video);
           archive.addFile(ArchiveFile(safeName, bytes.length, bytes));
-          addedCount++;
+          successVideos.add(video);
+        } else {
+          failedVideos.add((video: video, reason: 'Tiempo de espera agotado o restricción CORS'));
         }
       } catch (e) {
         debugPrint('Error en descarga de vídeo (${video.title}): $e');
+        failedVideos.add((video: video, reason: e.toString()));
       } finally {
         if (mounted) {
           setState(() => _downloadingVideoIds.remove(video.id));
@@ -668,19 +739,19 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
       }
     }
 
-    if (addedCount > 0) {
+    if (successVideos.isNotEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
               children: [
-                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                SizedBox(width: 12),
-                Expanded(child: Text('Empaquetando todos los vídeos en archivo .ZIP...')),
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Empaquetando ${successVideos.length} vídeos en archivo .ZIP...')),
               ],
             ),
-            duration: Duration(seconds: 15),
+            duration: const Duration(seconds: 15),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -696,17 +767,15 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
 
           if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  skippedCount > 0
-                      ? '✔ ¡$addedCount vídeos empaquetados y guardados en $zipName! ($skippedCount de YouTube/Vimeo omitidos)'
-                      : '✔ ¡Todos los vídeos ($addedCount) se han guardado con éxito en el archivo $zipName!',
+            if (failedVideos.isEmpty && skippedVideos.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✔ ¡Todos los vídeos (${successVideos.length}) se han guardado con éxito en $zipName!'),
+                  backgroundColor: AppTheme.emerald,
+                  duration: const Duration(seconds: 6),
                 ),
-                backgroundColor: AppTheme.emerald,
-                duration: const Duration(seconds: 6),
-              ),
-            );
+              );
+            }
           }
         }
       } catch (e) {
@@ -717,36 +786,41 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
           );
         }
       }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudieron obtener los archivos de vídeo para empaquetar.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
     }
 
     if (mounted) {
       setState(() => _isBatchDownloading = false);
+    }
+
+    // Si algún vídeo falló o fue omitido, mostrar diálogo detallado con opciones de recuperación
+    if (mounted && (failedVideos.isNotEmpty || skippedVideos.isNotEmpty)) {
+      _showBatchDownloadSummaryDialog(
+        isZip: true,
+        successVideos: successVideos,
+        failedVideos: failedVideos,
+        skippedVideos: skippedVideos,
+        originalSelected: selected,
+      );
     }
   }
 
   Future<void> _startBatchDownload(List<PreziVideoItem> selected) async {
     setState(() => _isBatchDownloading = true);
 
-    int downloadedCount = 0;
-    int skippedCount = 0;
+    final List<PreziVideoItem> successVideos = [];
+    final List<({PreziVideoItem video, String reason})> failedVideos = [];
+    final List<PreziVideoItem> skippedVideos = [];
 
     for (int i = 0; i < selected.length; i++) {
       final video = selected[i];
       if (video.isYouTube || video.isVimeo) {
-        skippedCount++;
+        skippedVideos.add(video);
         continue;
       }
 
       setState(() => _downloadingVideoIds.add(video.id));
+
+      final isAlreadyCached = _preziService.hasCachedVideo(video.url);
 
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -756,7 +830,13 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
               children: [
                 const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Descargando vídeo individual ${i + 1} de ${selected.length}: ${video.title}...')),
+                Expanded(
+                  child: Text(
+                    isAlreadyCached
+                        ? 'Recuperando vídeo ${i + 1} de ${selected.length} (desde caché): "${video.title}"...'
+                        : 'Descargando vídeo individual ${i + 1} de ${selected.length}: "${video.title}"...',
+                  ),
+                ),
               ],
             ),
             duration: const Duration(seconds: 25),
@@ -770,35 +850,270 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
         if (bytes != null && bytes.isNotEmpty) {
           final safeName = _buildSafeVideoFilename(index: i, video: video);
           await Printing.sharePdf(bytes: bytes, filename: safeName);
-          downloadedCount++;
+          successVideos.add(video);
+        } else {
+          failedVideos.add((video: video, reason: 'Tiempo de espera agotado o bloqueo de red / CORS'));
         }
       } catch (e) {
         debugPrint('Error en descarga de lote (${video.title}): $e');
+        failedVideos.add((video: video, reason: e.toString()));
       } finally {
         if (mounted) {
           setState(() => _downloadingVideoIds.remove(video.id));
         }
       }
 
-      // Pausa secuencial controlada de 1.8s para que el navegador procese cada descarga sin bloquear la siguiente
-      await Future.delayed(const Duration(milliseconds: 1800));
+      // Pausa secuencial controlada de 1.4s si fue descarga de red
+      if (!isAlreadyCached) {
+        await Future.delayed(const Duration(milliseconds: 1400));
+      }
     }
 
     if (mounted) {
       setState(() => _isBatchDownloading = false);
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            skippedCount > 0
-                ? '✔ $downloadedCount vídeos guardados ($skippedCount de YouTube/Vimeo omitidos).'
-                : '✔ ¡Se han procesado las descargas de todos los vídeos ($downloadedCount)!',
+
+      if (failedVideos.isEmpty && skippedVideos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✔ ¡Se han procesado las descargas de todos los vídeos (${successVideos.length})!'),
+            backgroundColor: AppTheme.emerald,
+            duration: const Duration(seconds: 5),
           ),
-          backgroundColor: AppTheme.emerald,
-          duration: const Duration(seconds: 5),
-        ),
-      );
+        );
+      } else {
+        _showBatchDownloadSummaryDialog(
+          isZip: false,
+          successVideos: successVideos,
+          failedVideos: failedVideos,
+          skippedVideos: skippedVideos,
+          originalSelected: selected,
+        );
+      }
     }
+  }
+
+  void _showBatchDownloadSummaryDialog({
+    required bool isZip,
+    required List<PreziVideoItem> successVideos,
+    required List<({PreziVideoItem video, String reason})> failedVideos,
+    required List<PreziVideoItem> skippedVideos,
+    required List<PreziVideoItem> originalSelected,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final totalAttempted = successVideos.length + failedVideos.length;
+
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(
+                failedVideos.isEmpty
+                    ? Icons.info_outline_rounded
+                    : (successVideos.isEmpty ? Icons.error_outline_rounded : Icons.warning_amber_rounded),
+                color: failedVideos.isEmpty
+                    ? Colors.lightBlueAccent
+                    : (successVideos.isEmpty ? Colors.redAccent : Colors.orangeAccent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  failedVideos.isEmpty
+                      ? 'Resumen de Descargas'
+                      : (successVideos.isNotEmpty
+                          ? 'Descarga Parcial (${successVideos.length}/$totalAttempted)'
+                          : 'No se pudieron descargar los vídeos'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // A. Estado de éxito parcial
+                  if (successVideos.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isZip
+                                  ? '✔ ${successVideos.length} vídeo(s) descargados con éxito e incluidos en el archivo .ZIP (guardados en la caché en memoria).'
+                                  : '✔ ${successVideos.length} vídeo(s) descargados con éxito a tu dispositivo (guardados en memoria).',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.emerald),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // B. Videos con fallos
+                  if (failedVideos.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.withOpacity(0.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${failedVideos.length} vídeo(s) no se pudieron descargar automáticamente en este intento.',
+                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.orange),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Esto suele deberse a bloqueos de CORS del navegador en GitHub Pages o saturación temporal de la CDN. Los vídeos exitosos siguen en memoria, por lo que reintentar solo procesará los que faltan.',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text('Vídeos que requieren atención:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    ...failedVideos.map((item) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.redAccent.withOpacity(0.25)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.video.title,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    item.reason,
+                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.blueAccent),
+                              tooltip: 'Abrir enlace en pestaña nueva',
+                              onPressed: () => _openVideoPreview(item.video.url),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // C. Videos de YouTube/Vimeo omitidos
+                  if (skippedVideos.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blueAccent.withOpacity(0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded, color: Colors.blueAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${skippedVideos.length} vídeo(s) de YouTube/Vimeo se omitieron porque los servidores de streaming no permiten descargas directas en bruto desde la web.',
+                              style: const TextStyle(fontSize: 11, color: Colors.blueAccent),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cerrar'),
+            ),
+            if (failedVideos.isNotEmpty) ...[
+              OutlinedButton.icon(
+                icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                label: const Text('Abrir enlaces fallidos'),
+                onPressed: () async {
+                  Navigator.of(ctx).pop();
+                  for (final item in failedVideos) {
+                    await _openVideoPreview(item.video.url);
+                    await Future.delayed(const Duration(milliseconds: 500));
+                  }
+                },
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: Text('Reintentar fallidos (${failedVideos.length})'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  final retryVideos = failedVideos.map((f) => f.video).toList();
+                  if (isZip) {
+                    _startBatchDownloadZip(retryVideos);
+                  } else {
+                    _startBatchDownload(retryVideos);
+                  }
+                },
+              ),
+            ],
+          ],
+        );
+      },
+    );
   }
 
   String _buildSafeVideoFilename({
@@ -951,7 +1266,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
       drawer: Drawer(
-        backgroundColor: isDark ? const Color(0xFF0D121D) : Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         child: SafeArea(
           child: TrayectoriaSidebar(
             isDark: isDark,
@@ -1801,6 +2117,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
           child: const Icon(Icons.video_library_rounded, color: Color(0xFF8B5CF6), size: 20),
         );
 
+        final cachedCount = _detectedVideos.where((v) => _preziService.hasCachedVideo(v.url)).length;
+
         final videoTitleAndCount = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1831,10 +2149,36 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              '$_selectedVideosCount de ${_detectedVideos.length} seleccionados para descarga',
-              style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                Text(
+                  '$_selectedVideosCount de ${_detectedVideos.length} seleccionados para descarga',
+                  style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                ),
+                if (cachedCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.emerald.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.bolt_rounded, size: 11, color: AppTheme.emerald),
+                        const SizedBox(width: 2),
+                        Text(
+                          '$cachedCount en caché',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         );
@@ -1969,6 +2313,8 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
   }
 
   Widget _buildVideoCard(PreziVideoItem video, bool isDark) {
+    final isCached = _preziService.hasCachedVideo(video.url);
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF131D2E) : const Color(0xFFF8FAFC),
@@ -2072,6 +2418,36 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                   ),
                 ),
               ),
+              if (isCached)
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.emerald.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.35),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 12, color: Colors.white),
+                        SizedBox(width: 2),
+                        Text(
+                          'En caché',
+                          style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Positioned(
                 bottom: 8,
                 right: 8,
@@ -2138,10 +2514,16 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
                               ),
                             )
                           : ElevatedButton.icon(
-                              icon: const Icon(Icons.download_rounded, size: 14),
-                              label: const Text('Descargar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              icon: Icon(
+                                isCached ? Icons.check_circle_outline_rounded : Icons.download_rounded,
+                                size: 14,
+                              ),
+                              label: Text(
+                                isCached ? 'Guardar' : 'Descargar',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.emerald,
+                                backgroundColor: isCached ? const Color(0xFF059669) : AppTheme.emerald,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 minimumSize: Size.zero,
