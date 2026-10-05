@@ -1856,7 +1856,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             onPressed: () {
                               setState(() {
                                 _smtpHostCtrl.text = 'smtp-relay.brevo.com';
-                                _smtpPortCtrl.text = '587';
+                                _smtpPortCtrl.text = '2525';
+                                if (_smtpUserCtrl.text.isEmpty) {
+                                  _smtpUserCtrl.text = 'bcab54001@smtp-brevo.com';
+                                }
+                                if (_smtpFromCtrl.text.isEmpty) {
+                                  _smtpFromCtrl.text = '"Sanctuary Platform" <chals.santana@gmail.com>';
+                                }
                               });
                             },
                           ),
