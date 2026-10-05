@@ -1501,7 +1501,18 @@ app.post('/api/admin/email/config', async (req, res) => {
 app.post('/api/admin/email/test', async (req, res) => {
   const to = req.body.to || req.body.targetEmail || req.body.email;
   if (!to) return res.status(400).json({ success: false, message: 'Destinatario requerido' });
-  const isCustomSmtp = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  const ldb = getLocalDb();
+  let dbSmtp = ldb.smtp_config;
+  if (!dbSmtp?.host) {
+    try {
+      const q = await safeQuery("SELECT value FROM app_settings WHERE key = 'smtp_config'");
+      if (q && q.rows && q.rows.length > 0) {
+        dbSmtp = typeof q.rows[0].value === 'string' ? JSON.parse(q.rows[0].value) : q.rows[0].value;
+      }
+    } catch (_) {}
+  }
+  const isCustomSmtp = !!((process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) || (dbSmtp && dbSmtp.host && dbSmtp.user && dbSmtp.pass));
+  const activeHost = process.env.SMTP_HOST || dbSmtp?.host || 'smtp-relay.brevo.com';
 
   const host = req.get('host') || `localhost:${port}`;
   const protocol = req.protocol || 'http';
@@ -1520,7 +1531,7 @@ app.post('/api/admin/email/test', async (req, res) => {
     return res.json({
       success: true,
       message: isCustomSmtp
-        ? `Correo de prueba enviado a ${to} a través del servidor SMTP (${process.env.SMTP_HOST}).`
+        ? `Correo de prueba enviado a ${to} a través del servidor SMTP (${activeHost}).`
         : (previewUrl
             ? `Correo generado con éxito. Puedes abrir la bandeja de prueba aquí: ${previewUrl}`
             : `Correo registrado para ${to} en los logs del servidor.`),
