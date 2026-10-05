@@ -49,6 +49,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
   String? _avatarUrl;
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
+  bool _obscurePassword = true;
   String? _statusMessage;
   bool _isSuccess = false;
 
@@ -443,10 +444,17 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                       const SizedBox(height: 6),
                       TextField(
                         controller: _passwordController,
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           hintText: '••••••••',
                           prefixIcon: const Icon(Icons.lock_reset, size: 18),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),

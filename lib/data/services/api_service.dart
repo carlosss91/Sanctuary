@@ -113,7 +113,7 @@ class ApiService {
           'email': email,
           'role': role,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 30));
 
       final data = jsonDecode(res.body);
       if (res.statusCode == 201 || res.statusCode == 200) {
@@ -170,7 +170,7 @@ class ApiService {
       'activation_token': localCode,
       'activationCode': localCode,
       'activation_code': localCode,
-      'message': 'Usuario registrado localmente. Introduce el código 123456 para activar tu cuenta.',
+      'message': 'Sin conexión con el servidor. Se ha guardado en modo local con código 123456.',
       'source': 'local',
     };
   }

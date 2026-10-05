@@ -56,6 +56,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   final TextEditingController _smtpPassCtrl = TextEditingController();
   final TextEditingController _smtpFromCtrl = TextEditingController();
   bool _isSmtpConfigOpen = false;
+  bool _obscureSmtpPass = true;
   bool _isSavingSmtp = false;
   bool _isTestingEmail = false;
   String? _emailTestResult;
@@ -119,6 +120,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         }
         if (emailStatus['from'] != null) {
           _smtpFromCtrl.text = emailStatus['from'].toString();
+        }
+        if (emailStatus['isCustomSmtp'] != true) {
+          _isSmtpConfigOpen = true;
         }
       });
     }
@@ -378,6 +382,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     bool isBanned = user.isBanned;
     String? dialogError;
     bool isSaving = false;
+    bool obscureEditPassword = true;
     final isRootAdmin = user.username.toLowerCase() == 'admin';
 
     await showDialog(
@@ -500,10 +505,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       const SizedBox(height: 6),
                       TextField(
                         controller: passwordCtrl,
-                        obscureText: true,
+                        obscureText: obscureEditPassword,
                         decoration: InputDecoration(
                           hintText: 'Nueva contraseña opcional',
                           prefixIcon: const Icon(Icons.lock_reset, size: 18),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureEditPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 18,
+                            ),
+                            onPressed: () => setDialogState(() => obscureEditPassword = !obscureEditPassword),
+                          ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
@@ -1803,7 +1815,77 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     ),
 
                     if (_isSmtpConfigOpen) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+                      // Quick Provider Presets
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(Icons.mail_rounded, size: 15, color: Colors.redAccent),
+                            label: const Text('Gmail (Google)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            onPressed: () {
+                              setState(() {
+                                _smtpHostCtrl.text = 'smtp.gmail.com';
+                                _smtpPortCtrl.text = '465';
+                                if (_smtpUserCtrl.text.isNotEmpty && _smtpFromCtrl.text.isEmpty) {
+                                  _smtpFromCtrl.text = '"Sanctuary Platform" <${_smtpUserCtrl.text.trim()}>';
+                                }
+                              });
+                            },
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.work_outline, size: 15, color: Colors.blueAccent),
+                            label: const Text('Outlook / Hotmail', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            onPressed: () {
+                              setState(() {
+                                _smtpHostCtrl.text = 'smtp-mail.outlook.com';
+                                _smtpPortCtrl.text = '587';
+                                if (_smtpUserCtrl.text.isNotEmpty && _smtpFromCtrl.text.isEmpty) {
+                                  _smtpFromCtrl.text = '"Sanctuary Platform" <${_smtpUserCtrl.text.trim()}>';
+                                }
+                              });
+                            },
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.send_rounded, size: 15, color: Color(0xFF10B981)),
+                            label: const Text('Brevo (Sendinblue)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            onPressed: () {
+                              setState(() {
+                                _smtpHostCtrl.text = 'smtp-relay.brevo.com';
+                                _smtpPortCtrl.text = '587';
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Helper banner for Google App Passwords
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.25)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF06B6D4), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '💡 Para usar Gmail: Activa la verificación en 2 pasos en tu cuenta de Google y crea una "Contraseña de Aplicación" de 16 caracteres en myaccount.google.com/apppasswords. No introduzcas tu contraseña habitual de Google.',
+                                style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155), height: 1.35),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
@@ -1826,7 +1908,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
                                 labelText: 'Puerto',
-                                hintText: '587',
+                                hintText: '465 / 587',
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               ),
@@ -1852,10 +1934,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           Expanded(
                             child: TextField(
                               controller: _smtpPassCtrl,
-                              obscureText: true,
+                              obscureText: _obscureSmtpPass,
                               decoration: InputDecoration(
                                 labelText: 'Contraseña de Aplicación',
-                                hintText: '••••••••••••••••',
+                                hintText: '16 caracteres',
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureSmtpPass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => setState(() => _obscureSmtpPass = !_obscureSmtpPass),
+                                ),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               ),

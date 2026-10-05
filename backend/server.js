@@ -102,13 +102,24 @@ function verifyPassword(enteredPassword, storedPassword, username) {
   return enteredPassword === storedPassword;
 }
 
-// --- Email System (SMTP Real con soporte Ethereal / configuración dinámica) ---
+// --- Email System (SMTP Real con soporte Ethereal / configuración dinámica y persistencia en DB) ---
 let mailTransporter = null;
 async function getMailTransporter() {
   if (mailTransporter) return mailTransporter;
 
   const ldb = getLocalDb();
-  const dbSmtp = ldb.smtp_config;
+  let dbSmtp = ldb.smtp_config;
+
+  // Si no está en local_db.json, consultar tabla app_settings de PostgreSQL para persistencia tras despliegues
+  if (!dbSmtp?.host) {
+    try {
+      const q = await safeQuery("SELECT value FROM app_settings WHERE key = 'smtp_config'");
+      if (q && q.rows && q.rows.length > 0) {
+        dbSmtp = typeof q.rows[0].value === 'string' ? JSON.parse(q.rows[0].value) : q.rows[0].value;
+        ldb.smtp_config = dbSmtp;
+      }
+    } catch (_) {}
+  }
 
   const host = process.env.SMTP_HOST || dbSmtp?.host;
   const port = parseInt(process.env.SMTP_PORT || dbSmtp?.port || '587', 10);
@@ -124,6 +135,9 @@ async function getMailTransporter() {
         secure,
         auth: { user, pass },
         tls: { rejectUnauthorized: process.env.SMTP_REJECT_UNAUTHORIZED !== 'false' },
+        connectionTimeout: 4000,
+        greetingTimeout: 3000,
+        socketTimeout: 5000,
       });
       mailTransporter._isCustom = true;
       mailTransporter._customUser = user;
@@ -134,9 +148,12 @@ async function getMailTransporter() {
     }
   }
 
-  // Si no se suministraron credenciales SMTP, crear automáticamente cuenta de prueba Ethereal
+  // Si no se suministraron credenciales SMTP personalizadas, intentar generar cuenta de prueba Ethereal con timeout estricto
   try {
-    const testAccount = await nodemailer.createTestAccount();
+    const testPromise = nodemailer.createTestAccount();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Ethereal testAccount timeout')), 2500));
+    const testAccount = await Promise.race([testPromise, timeoutPromise]);
+
     mailTransporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
       port: 587,
@@ -145,17 +162,21 @@ async function getMailTransporter() {
         user: testAccount.user,
         pass: testAccount.pass,
       },
+      connectionTimeout: 3000,
+      greetingTimeout: 2000,
+      socketTimeout: 4000,
     });
     mailTransporter._isEthereal = true;
     mailTransporter._etherealUser = testAccount.user;
     console.log(`📧 [Auto-SMTP] Servidor de correo de prueba Ethereal generado: ${testAccount.user}`);
     return mailTransporter;
   } catch (e) {
-    console.warn('⚠️ No se pudo generar transportador Ethereal, activando modo consola:', e.message);
+    console.warn('⚠️ Modo consola simulado activado para correo (SMTP no configurado):', e.message);
     mailTransporter = {
+      _isSimulated: true,
       sendMail: async (options) => {
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log(`📧 [EMAIL SYSTEM] Para: ${options.to} | Asunto: ${options.subject}`);
+        console.log(`📧 [EMAIL SIMULADO] Para: ${options.to} | Asunto: ${options.subject}`);
         console.log(`   Mensaje: ${options.text || options.html}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return { messageId: 'simulated_' + Date.now(), accepted: [options.to] };
@@ -168,10 +189,17 @@ async function getMailTransporter() {
 async function sendMailNotification({ to, subject, html, text }) {
   try {
     const transporter = await getMailTransporter();
+    if (!transporter) return null;
+
     const ldb = getLocalDb();
     const dbSmtp = ldb.smtp_config;
     const from = process.env.SMTP_FROM || dbSmtp?.from || (transporter._customUser ? `"Sanctuary Platform" <${transporter._customUser}>` : (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'));
-    const info = await transporter.sendMail({ from, to, subject, html, text });
+    
+    // Proteger el envío contra bloqueos o cuelgues de red en servidores cloud
+    const sendPromise = transporter.sendMail({ from, to, subject, html, text });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera SMTP excedido (4s)')), 4000));
+    
+    const info = await Promise.race([sendPromise, timeoutPromise]);
     if (transporter._isEthereal && nodemailer.getTestMessageUrl) {
       const previewUrl = nodemailer.getTestMessageUrl(info);
       console.log(`📧 [Vista previa del correo en navegador]: ${previewUrl}`);
@@ -179,7 +207,7 @@ async function sendMailNotification({ to, subject, html, text }) {
     }
     return info;
   } catch (err) {
-    console.error('Error enviando correo:', err.message);
+    console.warn('⚠️ No se pudo completar el envío de correo:', err.message);
     return null;
   }
 }
@@ -512,6 +540,12 @@ safeQuery(`
     avatar_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
 `).catch(() => {});
 
 // --- Ephemeral Community Chat Endpoints ---
@@ -774,19 +808,40 @@ app.post('/api/auth/register', async (req, res) => {
     );
 
     if (result && result.rows.length > 0) {
-      let previewUrl = null;
-      // Send activation email if email provided
+      const dbUser = result.rows[0];
+
+      // Mirror into local database for redundancy
+      const ldb = getLocalDb();
+      if (!ldb.users.some(u => u.username.toLowerCase() === uClean.toLowerCase())) {
+        ldb.users.push({
+          id: dbUser.id,
+          username: dbUser.username,
+          password: hashedPwd,
+          role: dbUser.role,
+          full_name: dbUser.full_name,
+          email: dbUser.email,
+          avatar_url: dbUser.avatar_url,
+          bio: dbUser.bio,
+          is_banned: dbUser.is_banned,
+          is_verified: dbUser.is_verified,
+          activation_token: activationToken,
+          activation_code: activationCode,
+          created_at: dbUser.created_at || new Date().toISOString(),
+        });
+        saveLocalDb(ldb);
+      }
+
+      // Send activation email asynchronously if email provided so registration returns in milliseconds
       if (hasEmail) {
         const host = req.get('host') || `localhost:${port}`;
         const protocol = req.protocol || 'http';
         const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
-        const mailInfo = await sendMailNotification({
+        sendMailNotification({
           to: email.trim(),
           subject: 'Activa tu cuenta en Sanctuary 🪐',
           text: `Hola ${full_name || uClean},\n\nGracias por registrarte en Sanctuary. Tu código de activación es: ${activationCode}\nO activa directamente pulsando aquí:\n${activationLink}\n\nSi no te has registrado tú, ignora este mensaje.`,
           html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationCode, activationLink }),
-        });
-        previewUrl = mailInfo?.previewUrl || null;
+        }).catch(err => console.warn('⚠️ Error al enviar email de activación:', err.message));
       }
 
       return res.status(201).json({
@@ -800,9 +855,9 @@ app.post('/api/auth/register', async (req, res) => {
         activationToken: activationCode,
         activation_code: activationCode,
         activationCode: activationCode,
-        preview_url: previewUrl,
-        previewUrl: previewUrl,
-        user: result.rows[0],
+        preview_url: null,
+        previewUrl: null,
+        user: dbUser,
       });
     }
   }
@@ -831,18 +886,16 @@ app.post('/api/auth/register', async (req, res) => {
   ldb.users.push(newUser);
   saveLocalDb(ldb);
 
-  let previewUrl = null;
   if (hasEmail) {
     const host = req.get('host') || `localhost:${port}`;
     const protocol = req.protocol || 'http';
     const activationLink = `${protocol}://${host}/api/auth/verify?token=${activationToken}`;
-    const mailInfo = await sendMailNotification({
+    sendMailNotification({
       to: email.trim(),
       subject: 'Activa tu cuenta en Sanctuary 🪐',
       text: `Hola ${full_name || uClean},\n\nTu código de activación es: ${activationCode}\nO activa directamente en: ${activationLink}`,
       html: buildActivationEmailHtml({ username: uClean, fullName: full_name || uClean, activationCode, activationLink }),
-    });
-    previewUrl = mailInfo?.previewUrl || null;
+    }).catch(err => console.warn('⚠️ Error al enviar email local:', err.message));
   }
 
   const { password: _, ...userNoPwd } = newUser;
@@ -1294,16 +1347,27 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Email: Admin Get Email Diagnostics Status
 app.get('/api/admin/email/status', async (req, res) => {
   const ldb = getLocalDb();
-  const dbSmtp = ldb.smtp_config;
+  let dbSmtp = ldb.smtp_config;
+
+  if (!dbSmtp?.host) {
+    try {
+      const q = await safeQuery("SELECT value FROM app_settings WHERE key = 'smtp_config'");
+      if (q && q.rows && q.rows.length > 0) {
+        dbSmtp = typeof q.rows[0].value === 'string' ? JSON.parse(q.rows[0].value) : q.rows[0].value;
+        ldb.smtp_config = dbSmtp;
+      }
+    } catch (_) {}
+  }
+
   const isCustomSmtp = !!((process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) || (dbSmtp && dbSmtp.host && dbSmtp.user && dbSmtp.pass));
   const transporter = await getMailTransporter();
-  const isEthereal = !!transporter._isEthereal;
+  const isEthereal = !!transporter?._isEthereal;
   const isReal = isCustomSmtp || isEthereal;
 
-  const currentHost = process.env.SMTP_HOST || dbSmtp?.host || (isEthereal ? 'smtp.ethereal.email (Servidor de Prueba)' : 'Modo Consola');
+  const currentHost = process.env.SMTP_HOST || dbSmtp?.host || (isEthereal ? 'smtp.ethereal.email (Servidor de Prueba)' : 'Modo Simulado / Consola');
   const currentPort = process.env.SMTP_PORT || dbSmtp?.port || '587';
   const currentUser = process.env.SMTP_USER || dbSmtp?.user || null;
-  const currentFrom = process.env.SMTP_FROM || dbSmtp?.from || (transporter._customUser ? `"Sanctuary Platform" <${transporter._customUser}>` : (transporter._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'));
+  const currentFrom = process.env.SMTP_FROM || dbSmtp?.from || (transporter?._customUser ? `"Sanctuary Platform" <${transporter._customUser}>` : (transporter?._etherealUser ? `"Sanctuary Platform" <${transporter._etherealUser}>` : '"Sanctuary Platform" <no-reply@sanctuary.app>'));
 
   return res.json({
     success: true,
@@ -1314,7 +1378,7 @@ app.get('/api/admin/email/status', async (req, res) => {
     port: currentPort,
     user: currentUser,
     from: currentFrom,
-    etherealUser: transporter._etherealUser || null,
+    etherealUser: transporter?._etherealUser || null,
     message: isCustomSmtp
       ? `Servidor SMTP configurado y activo en ${currentHost}`
       : (isEthereal
@@ -1343,13 +1407,21 @@ app.post('/api/admin/email/config', async (req, res) => {
     };
     saveLocalDb(ldb);
 
+    // Guardar en PostgreSQL para persistencia permanente ante reinicios y despliegues
+    await safeQuery(
+      `INSERT INTO app_settings (key, value, updated_at) 
+       VALUES ('smtp_config', $1, NOW()) 
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+      [JSON.stringify(ldb.smtp_config)]
+    );
+
     // Reset transporter so next call re-initializes with new credentials
     mailTransporter = null;
     await getMailTransporter();
 
     res.json({
       success: true,
-      message: 'Configuración SMTP guardada y activada con éxito',
+      message: 'Configuración SMTP guardada y activada con éxito (persistida en base de datos)',
       host: ldb.smtp_config.host,
       port: ldb.smtp_config.port,
       user: ldb.smtp_config.user,

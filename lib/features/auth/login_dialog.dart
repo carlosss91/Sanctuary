@@ -55,6 +55,12 @@ class _LoginDialogState extends State<LoginDialog> {
   String? _errorMessage;
   String? _successMessage;
 
+  // Password visibility flags
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmNewPassword = true;
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -677,9 +683,16 @@ class _LoginDialogState extends State<LoginDialog> {
                       const SizedBox(height: 6),
                       TextField(
                         controller: _newPasswordController,
-                        obscureText: true,
+                        obscureText: _obscureNewPassword,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.lock_outline, size: 19),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureNewPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 19,
+                            ),
+                            onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
+                          ),
                           hintText: '••••••••',
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -690,9 +703,16 @@ class _LoginDialogState extends State<LoginDialog> {
                       const SizedBox(height: 6),
                       TextField(
                         controller: _confirmNewPasswordController,
-                        obscureText: true,
+                        obscureText: _obscureConfirmNewPassword,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.lock_reset, size: 19),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmNewPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 19,
+                            ),
+                            onPressed: () => setState(() => _obscureConfirmNewPassword = !_obscureConfirmNewPassword),
+                          ),
                           hintText: '••••••••',
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -766,9 +786,16 @@ class _LoginDialogState extends State<LoginDialog> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.lock_outline, size: 19),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            size: 19,
+                          ),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
                         hintText: '••••••••',
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -785,9 +812,16 @@ class _LoginDialogState extends State<LoginDialog> {
                       const SizedBox(height: 6),
                       TextField(
                         controller: _confirmPasswordController,
-                        obscureText: true,
+                        obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.lock_reset, size: 19),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              size: 19,
+                            ),
+                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          ),
                           hintText: '••••••••',
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
