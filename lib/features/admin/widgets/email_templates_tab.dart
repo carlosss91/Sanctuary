@@ -756,14 +756,17 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   Widget _buildPreviewCard(bool isDark) {
     final previewIsDark = _currentTheme == 'dark';
     final isSuspension = _selectedTemplate == 'suspension';
+    final isAnnouncement = _selectedTemplate == 'announcement';
 
     // Theme tokens for preview
-    final previewBg = previewIsDark ? const Color(0xFF05080E) : const Color(0xFFE8EEF5);
+    final previewBg = previewIsDark ? const Color(0xFF05080E) : const Color(0xFFD6E4F0);
     final cardBg = previewIsDark ? const Color(0xFF0C1322) : Colors.white;
     final cardBorder = previewIsDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1);
     final textColor = previewIsDark ? Colors.white : const Color(0xFF0F172A);
     final subtextColor = previewIsDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
-    final primaryAccent = isSuspension ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+    final primaryAccent = isSuspension
+        ? const Color(0xFFEF4444)
+        : (isAnnouncement ? const Color(0xFF0891B2) : const Color(0xFF10B981));
     final codeBoxBg = previewIsDark ? const Color(0xFF080E1A) : const Color(0xFFF1F5F9);
 
     final titleText = _titleCtrl.text.isNotEmpty ? _titleCtrl.text : 'Título del Correo';
@@ -886,7 +889,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                     borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                                     gradient: isSuspension
                                         ? const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFF59E0B)])
-                                        : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF3B82F6)]),
+                                        : (isAnnouncement
+                                            ? const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)])
+                                            : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF3B82F6)])),
                                   ),
                                 ),
 
@@ -903,7 +908,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                             center: const Alignment(-0.3, -0.3),
                                             colors: isSuspension
                                                 ? [const Color(0xFFEF4444), const Color(0xFF7F1D1D)]
-                                                : [const Color(0xFF10B981), const Color(0xFF064E3B)],
+                                                : (isAnnouncement
+                                                    ? [const Color(0xFF06B6D4), const Color(0xFF0E7490)]
+                                                    : [const Color(0xFF10B981), const Color(0xFF064E3B)]),
                                           ),
                                           borderRadius: BorderRadius.circular(16),
                                           boxShadow: [
@@ -916,7 +923,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                         ),
                                         child: Center(
                                           child: Text(
-                                            isSuspension ? '⚠️' : '🪐',
+                                            isSuspension ? '⚠️' : (isAnnouncement ? '📢' : '🪐'),
                                             style: const TextStyle(fontSize: 26),
                                           ),
                                         ),
@@ -1012,9 +1019,12 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                         decoration: BoxDecoration(
+                                          color: primaryAccent,
                                           gradient: isSuspension
                                               ? const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])
-                                              : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                                              : (isAnnouncement
+                                                  ? const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0891B2)])
+                                                  : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)])),
                                           borderRadius: BorderRadius.circular(10),
                                           boxShadow: [
                                             BoxShadow(
@@ -1147,11 +1157,11 @@ class CosmicEmailPreviewPainter extends CustomPainter {
 
       Color starColor;
       if (i % 3 == 0) {
-        starColor = const Color(0xFFF59E0B); // Amber
+        starColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706); // Amber
       } else if (i % 3 == 1) {
         starColor = isDark ? Colors.white : const Color(0xFF0284C7); // White / Blue
       } else {
-        starColor = const Color(0xFF38BDF8); // Sapphire
+        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF059669); // Sapphire / Emerald
       }
 
       final starPaint = Paint()..color = starColor.withOpacity(twinkle.clamp(0.2, 1.0));

@@ -281,6 +281,7 @@ function buildSanctuaryEmailHtml({
 }) {
   const isDark = theme !== 'light';
   const isSuspension = templateType === 'suspension';
+  const isAnnouncement = templateType === 'announcement';
   const displayName = fullName || username || 'Usuario';
 
   // Fallback defaults if title or body not supplied
@@ -290,25 +291,43 @@ function buildSanctuaryEmailHtml({
   const finalCta = ctaText !== undefined && ctaText !== null ? ctaText : defs.ctaText;
   const finalFooter = footerNote !== undefined && footerNote !== null ? footerNote : defs.footerNote;
 
-  // Colors & styles
-  const bgColor = isDark ? '#05080E' : '#E8EEF5';
-  const cardBg = isDark ? 'linear-gradient(150deg, #0C1322 0%, #111A2E 100%)' : '#FFFFFF';
-  const cardBorder = isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(203, 213, 225, 0.9)';
+  // Solid & gradient button attributes tailored per template to guarantee contrast across all mail clients
+  let btnSolidColor = '#10B981';
+  let btnGradient = 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
+  let btnBorderColor = '#059669';
+  let btnShadow = 'rgba(16, 185, 129, 0.4)';
+  let primaryAccent = '#10B981';
+  let accentGradient = 'linear-gradient(90deg, #10B981 0%, #06B6D4 50%, #3B82F6 100%)';
+  let emblemIcon = '🪐';
+
+  if (isSuspension) {
+    btnSolidColor = '#DC2626';
+    btnGradient = 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)';
+    btnBorderColor = '#991B1B';
+    btnShadow = 'rgba(220, 38, 38, 0.4)';
+    primaryAccent = '#EF4444';
+    accentGradient = 'linear-gradient(90deg, #EF4444 0%, #F59E0B 50%, #EA580C 100%)';
+    emblemIcon = '⚠️';
+  } else if (isAnnouncement) {
+    btnSolidColor = '#0891B2';
+    btnGradient = 'linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)';
+    btnBorderColor = '#0E7490';
+    btnShadow = 'rgba(8, 145, 178, 0.4)';
+    primaryAccent = '#0891B2';
+    accentGradient = 'linear-gradient(90deg, #06B6D4 0%, #3B82F6 50%, #8B5CF6 100%)';
+    emblemIcon = '📢';
+  }
+
+  // Atmospheric background colors: rich cosmic void in dark mode, radiant celestial twilight in light mode
+  const outerBg = isDark ? '#05080E' : '#D6E4F0';
+  const cardBg = isDark ? '#0C1322' : '#FFFFFF';
+  const cardBorder = isDark ? 'rgba(30, 41, 59, 0.9)' : 'rgba(203, 213, 225, 0.95)';
   const textColor = isDark ? '#F8FAFC' : '#0F172A';
-  const subtextColor = isDark ? '#94A3B8' : '#475569';
-  const cardBoxShadow = isDark ? '0 24px 50px rgba(0, 0, 0, 0.65)' : '0 20px 45px rgba(15, 23, 42, 0.10)';
+  const subtextColor = isDark ? '#94A3B8' : '#334155';
+  const cardBoxShadow = isDark ? '0 24px 50px rgba(0, 0, 0, 0.65)' : '0 20px 45px rgba(15, 23, 42, 0.12)';
   const footerBg = isDark ? '#070C16' : '#F8FAFC';
   const footerBorder = isDark ? '#1E293B' : '#E2E8F0';
   const codeBoxBg = isDark ? '#080E1A' : '#F1F5F9';
-
-  const accentGradient = isSuspension
-    ? 'linear-gradient(90deg, #EF4444 0%, #F59E0B 50%, #EA580C 100%)'
-    : 'linear-gradient(90deg, #10B981 0%, #06B6D4 50%, #3B82F6 100%)';
-  const btnGradient = isSuspension
-    ? 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
-    : 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
-  const btnShadow = isSuspension ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)';
-  const primaryAccent = isSuspension ? '#EF4444' : '#10B981';
 
   // Process placeholders
   const parsedBody = (finalBody || '')
@@ -331,7 +350,7 @@ function buildSanctuaryEmailHtml({
     @media only screen and (max-width: 600px) {
       .main-table { padding: 16px 8px !important; }
       .email-card { width: 100% !important; border-radius: 18px !important; }
-      .email-body { padding: 24px 20px !important; }
+      .email-body { padding: 24px 18px !important; }
       .pin-number { font-size: 26px !important; letter-spacing: 6px !important; }
     }
     ${animated ? `
@@ -339,98 +358,106 @@ function buildSanctuaryEmailHtml({
       0%, 100% { opacity: 0.35; transform: scale(0.85); }
       50% { opacity: 1; transform: scale(1.25); }
     }
-    @keyframes cometFlight1 {
-      0% { transform: translate(-80px, -40px); opacity: 0; }
-      12% { opacity: 0.95; }
-      32% { transform: translate(520px, 320px); opacity: 0; }
-      100% { transform: translate(520px, 320px); opacity: 0; }
+    @keyframes cometGlideLeft {
+      0% { transform: translateX(-30px); opacity: 0; }
+      20% { opacity: 1; }
+      75% { transform: translateX(65px); opacity: 0; }
+      100% { transform: translateX(65px); opacity: 0; }
     }
-    @keyframes cometFlight2 {
-      0% { transform: translate(580px, -30px); opacity: 0; }
-      15% { opacity: 0.95; }
-      35% { transform: translate(-90px, 340px); opacity: 0; }
-      100% { transform: translate(-90px, 340px); opacity: 0; }
+    @keyframes cometGlideRight {
+      0% { transform: translateX(30px); opacity: 0; }
+      20% { opacity: 1; }
+      75% { transform: translateX(-65px); opacity: 0; }
+      100% { transform: translateX(-65px); opacity: 0; }
     }
-    .star-t1 { animation: twinklePulse 2.8s ease-in-out infinite; }
-    .star-t2 { animation: twinklePulse 4.2s ease-in-out infinite 1.2s; }
-    .star-t3 { animation: twinklePulse 3.4s ease-in-out infinite 2s; }
-    .comet-1 { animation: cometFlight1 8.5s ease-in-out infinite 1.2s; }
-    .comet-2 { animation: cometFlight2 11s ease-in-out infinite 4.8s; }
+    .star-t1 { display: inline-block; animation: twinklePulse 2.8s ease-in-out infinite !important; }
+    .star-t2 { display: inline-block; animation: twinklePulse 4.2s ease-in-out infinite 1.2s !important; }
+    .star-t3 { display: inline-block; animation: twinklePulse 3.4s ease-in-out infinite 2s !important; }
+    .comet-anim-1 { display: inline-block; animation: cometGlideLeft 7.5s ease-in-out infinite !important; }
+    .comet-anim-2 { display: inline-block; animation: cometGlideRight 9.5s ease-in-out infinite 2.8s !important; }
     ` : ''}
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:${bgColor};font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
   <!-- Outer Atmospheric Container -->
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${bgColor};background-image:${isDark
-    ? 'radial-gradient(circle at 15% 18%, rgba(16, 185, 129, 0.16) 0%, transparent 45%), radial-gradient(circle at 85% 25%, rgba(6, 182, 212, 0.18) 0%, transparent 45%), radial-gradient(circle at 50% 88%, rgba(59, 130, 246, 0.14) 0%, transparent 50%), linear-gradient(180deg, #05080E 0%, #090E18 50%, #05080E 100%)'
-    : 'radial-gradient(circle at 18% 18%, rgba(16, 185, 129, 0.10) 0%, transparent 45%), radial-gradient(circle at 82% 25%, rgba(6, 182, 212, 0.12) 0%, transparent 45%), linear-gradient(180deg, #E2EAF2 0%, #EDF3F8 50%, #E2EAF2 100%)'
-  };padding:36px 14px;">
-    <tr>
-      <td align="center">
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};width:100%;padding:32px 12px;margin:0;">
+    <tr bgcolor="${outerBg}">
+      <td align="center" bgcolor="${outerBg}" style="background-color:${outerBg};">
 
-        <!-- Top Cosmic Star & Comet Canvas -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin-bottom:-10px;">
+        <!-- Top Cosmic Sky with Glowing Stars and Shooting Comets (100% Bulletproof HTML) -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:550px;margin:0 auto 12px auto;">
+          <!-- Orbit 1: Shooting Comets & Navigational Stars -->
           <tr>
-            <td align="center" style="position:relative;height:70px;overflow:hidden;">
-              <svg width="560" height="70" viewBox="0 0 560 70" fill="none" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block;">
-                <defs>
-                  <linearGradient id="cometTail1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="${isDark ? '#FFFFFF' : '#38BDF8'}" stop-opacity="1" />
-                    <stop offset="25%" stop-color="#10B981" stop-opacity="0.8" />
-                    <stop offset="70%" stop-color="#06B6D4" stop-opacity="0.25" />
-                    <stop offset="100%" stop-color="#3B82F6" stop-opacity="0" />
-                  </linearGradient>
-                  <linearGradient id="cometTail2" x1="100%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="#F59E0B" stop-opacity="1" />
-                    <stop offset="30%" stop-color="#EF4444" stop-opacity="0.75" />
-                    <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0" />
-                  </linearGradient>
-                </defs>
-                <!-- Shooting Comet 1 (Left to Right) -->
-                <g class="comet-1">
-                  <line x1="20" y1="12" x2="110" y2="58" stroke="url(#cometTail1)" stroke-width="2.2" stroke-linecap="round" />
-                  <circle cx="110" cy="58" r="2.8" fill="${isDark ? '#FFFFFF' : '#0EA5E9'}" />
-                </g>
-                <!-- Shooting Comet 2 (Right to Left) -->
-                <g class="comet-2">
-                  <line x1="530" y1="15" x2="455" y2="52" stroke="url(#cometTail2)" stroke-width="1.8" stroke-linecap="round" />
-                  <circle cx="455" cy="52" r="2.4" fill="#FDE68A" />
-                </g>
-                <!-- Constellation of Sparkling Stars -->
-                <circle cx="45" cy="40" r="1.6" fill="#F59E0B" class="star-t1" opacity="0.85" />
-                <circle cx="85" cy="18" r="2.2" fill="${isDark ? '#FFFFFF' : '#0284C7'}" class="star-t2" opacity="0.9" />
-                <circle cx="140" cy="48" r="1.4" fill="#38BDF8" class="star-t3" opacity="0.75" />
-                <circle cx="210" cy="22" r="1.8" fill="#FDE68A" class="star-t1" opacity="0.8" />
-                <circle cx="340" cy="16" r="2.0" fill="${isDark ? '#FFFFFF' : '#10B981'}" class="star-t2" opacity="0.95" />
-                <circle cx="410" cy="42" r="1.5" fill="#38BDF8" class="star-t3" opacity="0.7" />
-                <circle cx="485" cy="26" r="2.2" fill="#F59E0B" class="star-t1" opacity="0.85" />
-                <circle cx="525" cy="45" r="1.3" fill="${isDark ? '#FFFFFF' : '#0EA5E9'}" class="star-t2" opacity="0.75" />
-              </svg>
+            <td align="left" width="30%" style="vertical-align:middle;padding:4px 6px;">
+              <!-- Shooting Comet 1 (Left to Right) -->
+              <div class="comet-anim-1" style="display:inline-block;white-space:nowrap;">
+                <span style="font-size:16px;color:${isDark ? '#FFFFFF' : '#0284C7'};text-shadow:0 0 10px ${isDark ? '#38BDF8' : '#0284C7'};vertical-align:middle;">☄</span><span style="display:inline-block;width:45px;height:2px;background-color:${isDark ? '#38BDF8' : '#0284C7'};background:linear-gradient(90deg, ${isDark ? '#38BDF8' : '#0284C7'} 0%, transparent 100%);vertical-align:middle;border-radius:2px;opacity:0.85;"></span>
+              </div>
+            </td>
+            <td align="center" width="40%" style="vertical-align:middle;padding:4px 0;white-space:nowrap;">
+              <span class="star-t1" style="font-size:15px;color:${isDark ? '#F59E0B' : '#D97706'};text-shadow:0 0 6px ${isDark ? '#F59E0B' : '#D97706'};margin:0 4px;">✦</span>
+              <span class="star-t2" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};margin:0 3px;">★</span>
+              <span class="star-t3" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};text-shadow:0 0 8px ${isDark ? '#FDE68A' : '#D97706'};margin:0 4px;">✧</span>
+              <span class="star-t1" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};margin:0 3px;">⋆</span>
+              <span class="star-t2" style="font-size:14px;color:${isDark ? '#10B981' : '#059669'};text-shadow:0 0 6px ${isDark ? '#10B981' : '#059669'};margin:0 4px;">✦</span>
+            </td>
+            <td align="right" width="30%" style="vertical-align:middle;padding:4px 6px;">
+              <!-- Shooting Comet 2 (Right to Left) -->
+              <div class="comet-anim-2" style="display:inline-block;white-space:nowrap;">
+                <span style="display:inline-block;width:45px;height:2px;background-color:${isDark ? '#F59E0B' : '#D97706'};background:linear-gradient(90deg, transparent 0%, ${isDark ? '#F59E0B' : '#D97706'} 100%);vertical-align:middle;border-radius:2px;opacity:0.85;"></span><span style="font-size:16px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 10px ${isDark ? '#F59E0B' : '#D97706'};vertical-align:middle;">☄</span>
+              </div>
+            </td>
+          </tr>
+          <!-- Orbit 2: Sparkling Constellation -->
+          <tr>
+            <td colspan="3" align="center" style="padding:6px 0 10px 0;letter-spacing:14px;white-space:nowrap;line-height:1;">
+              <span class="star-t2" style="font-size:11px;color:${isDark ? '#F59E0B' : '#D97706'};">⋆</span>
+              <span class="star-t1" style="font-size:15px;color:${isDark ? '#FFFFFF' : '#0284C7'};text-shadow:0 0 8px ${isDark ? '#38BDF8' : '#0284C7'};">✦</span>
+              <span class="star-t3" style="font-size:9px;color:${isDark ? '#10B981' : '#059669'};">•</span>
+              <span class="star-t2" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 8px ${isDark ? '#FDE68A' : '#D97706'};">✧</span>
+              <span class="star-t1" style="font-size:11px;color:${isDark ? '#38BDF8' : '#0284C7'};">★</span>
+              <span class="star-t3" style="font-size:16px;color:${isDark ? '#10B981' : '#059669'};text-shadow:0 0 6px ${isDark ? '#10B981' : '#059669'};">✦</span>
+              <span class="star-t2" style="font-size:10px;color:${isDark ? '#F59E0B' : '#D97706'};">⋆</span>
+              <span class="star-t1" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};text-shadow:0 0 8px ${isDark ? '#FDE68A' : '#D97706'};">✧</span>
+              <span class="star-t3" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
+              <span class="star-t2" style="font-size:14px;color:${isDark ? '#38BDF8' : '#0284C7'};">✦</span>
+              <span class="star-t1" style="font-size:9px;color:${isDark ? '#10B981' : '#059669'};">•</span>
+              <span class="star-t3" style="font-size:13px;color:${isDark ? '#F59E0B' : '#D97706'};">⋆</span>
             </td>
           </tr>
         </table>
 
         <!-- Main Card Container -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:550px;background:${cardBg};border-radius:24px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:550px;background:${cardBg};background-color:${cardBg};border-radius:24px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;">
           
           <!-- Top Accent Bar -->
           <tr>
-            <td style="height:4px;background:${accentGradient};"></td>
+            <td style="height:4px;background-color:${primaryAccent};background:${accentGradient};"></td>
           </tr>
 
-          <!-- Header with Planetary Emblem -->
+          <!-- Header with Planetary Emblem & Cosmic Accents -->
           <tr>
             <td align="center" style="padding:36px 28px 18px 28px;">
-              <table role="presentation" cellpadding="0" cellspacing="0">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                 <tr>
-                  <td align="center">
-                    <div style="width:68px;height:68px;border-radius:22px;background:radial-gradient(circle at 35% 35%, ${isSuspension ? '#EF4444' : '#10B981'}, ${isSuspension ? '#7F1D1D' : '#064E3B'});box-shadow:0 0 28px ${isSuspension ? 'rgba(239,68,68,0.45)' : 'rgba(16,185,129,0.45)'};display:inline-block;line-height:68px;text-align:center;font-size:34px;">
-                      ${isSuspension ? '⚠️' : '🪐'}
+                  <td align="right" style="vertical-align:middle;padding-right:14px;">
+                    <span class="star-t1" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};text-shadow:0 0 6px ${isDark ? '#F59E0B' : '#D97706'};">✦</span>
+                    <br>
+                    <span class="star-t3" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">★</span>
+                  </td>
+                  <td align="center" style="vertical-align:middle;">
+                    <div style="width:68px;height:68px;border-radius:22px;background-color:${primaryAccent};background:radial-gradient(circle at 35% 35%, ${isSuspension ? '#EF4444' : (isAnnouncement ? '#06B6D4' : '#10B981')}, ${isSuspension ? '#7F1D1D' : (isAnnouncement ? '#0E7490' : '#064E3B')});box-shadow:0 0 28px ${isSuspension ? 'rgba(239,68,68,0.45)' : (isAnnouncement ? 'rgba(6,182,212,0.45)' : 'rgba(16,185,129,0.45)')};display:inline-block;line-height:68px;text-align:center;font-size:34px;">
+                      ${emblemIcon}
                     </div>
+                  </td>
+                  <td align="left" style="vertical-align:middle;padding-left:14px;">
+                    <span class="star-t2" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 6px ${isDark ? '#FDE68A' : '#D97706'};">✧</span>
+                    <br>
+                    <span class="star-t1" style="font-size:11px;color:${isDark ? '#10B981' : '#059669'};">✦</span>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding-top:14px;">
+                  <td colspan="3" align="center" style="padding-top:14px;">
                     <span style="font-size:22px;font-weight:900;letter-spacing:3px;color:${textColor};text-transform:uppercase;">SANCTUARY</span>
                     <div style="font-size:11px;font-weight:700;letter-spacing:1.8px;color:${primaryAccent};margin-top:4px;">PLATFORM · DIGITAL SUITE</div>
                   </td>
@@ -459,12 +486,12 @@ function buildSanctuaryEmailHtml({
               </div>` : ''}
 
               ${finalCta && ctaLink ? `
-              <!-- CTA Button -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0 16px 0;">
+              <!-- Bulletproof CTA Button with Guaranteed Solid Fallback and High Contrast -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin:26px auto 16px auto;border-collapse:separate;">
                 <tr>
-                  <td align="center">
-                    <a href="${ctaLink}" target="_blank" style="display:inline-block;background:${btnGradient};color:#FFFFFF;font-size:15px;font-weight:700;letter-spacing:0.5px;text-decoration:none;padding:16px 36px;border-radius:14px;box-shadow:0 8px 24px ${btnShadow};border:1px solid rgba(255,255,255,0.2);">
-                      ${finalCta}
+                  <td align="center" bgcolor="${btnSolidColor}" style="border-radius:14px;background-color:${btnSolidColor} !important;background:${btnGradient};padding:0;text-align:center;box-shadow:0 8px 24px ${btnShadow};">
+                    <a href="${ctaLink}" target="_blank" style="display:inline-block;background-color:${btnSolidColor} !important;background:${btnGradient};color:#FFFFFF !important;font-size:15px;font-weight:800;letter-spacing:0.6px;text-decoration:none;padding:16px 36px;border-radius:14px;border:1px solid ${btnBorderColor};text-align:center;box-sizing:border-box;">
+                      <span style="color:#FFFFFF !important;font-size:15px;font-weight:800;letter-spacing:0.6px;text-decoration:none;display:inline-block;vertical-align:middle;">${finalCta}</span>
                     </a>
                   </td>
                 </tr>
@@ -474,7 +501,7 @@ function buildSanctuaryEmailHtml({
               <!-- Direct Link Fallback -->
               <div style="background-color:${codeBoxBg};border:1px solid ${cardBorder};border-radius:14px;padding:14px;margin-top:20px;">
                 <p style="margin:0 0 6px 0;font-size:11px;color:${subtextColor};font-weight:600;">¿El botón no responde? Abre este enlace directamente en tu navegador:</p>
-                <div style="font-size:11.5px;color:#06B6D4;word-break:break-all;line-height:1.4;font-family:monospace;background:${isDark ? '#080E1A' : '#FFFFFF'};padding:8px 10px;border-radius:8px;border:1px solid rgba(6,182,212,0.25);">
+                <div style="font-size:11.5px;color:${isDark ? '#06B6D4' : '#0284C7'};word-break:break-all;line-height:1.4;font-family:monospace;background:${isDark ? '#080E1A' : '#FFFFFF'};padding:8px 10px;border-radius:8px;border:1px solid rgba(6,182,212,0.25);">
                   ${ctaLink}
                 </div>
               </div>` : ''}
@@ -497,17 +524,27 @@ function buildSanctuaryEmailHtml({
           </tr>
         </table>
 
-        <!-- Bottom Cosmic Starscape Canvas -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin-top:6px;">
+        <!-- Bottom Cosmic Starscape Canvas (HTML Bulletproof) -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:550px;margin:14px auto 0 auto;">
           <tr>
-            <td align="center">
-              <svg width="560" height="40" viewBox="0 0 560 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block;">
-                <circle cx="90" cy="15" r="1.8" fill="#FDE68A" class="star-t2" opacity="0.75" />
-                <circle cx="170" cy="25" r="1.4" fill="${isDark ? '#FFFFFF' : '#10B981'}" class="star-t1" opacity="0.8" />
-                <circle cx="280" cy="12" r="2.2" fill="#38BDF8" class="star-t3" opacity="0.9" />
-                <circle cx="390" cy="28" r="1.5" fill="#F59E0B" class="star-t2" opacity="0.8" />
-                <circle cx="490" cy="18" r="1.9" fill="${isDark ? '#FFFFFF' : '#0EA5E9'}" class="star-t1" opacity="0.85" />
-              </svg>
+            <td align="left" width="25%" style="vertical-align:middle;padding:4px 6px;">
+              <span class="star-t2" style="font-size:13px;color:${isDark ? '#F59E0B' : '#D97706'};margin-right:4px;">✦</span>
+              <span class="star-t1" style="font-size:10px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
+              <span class="star-t3" style="font-size:15px;color:${isDark ? '#FDE68A' : '#D97706'};margin-left:4px;">✧</span>
+            </td>
+            <td align="center" width="50%" style="vertical-align:middle;padding:4px 0;letter-spacing:10px;white-space:nowrap;">
+              <span class="star-t1" style="font-size:11px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
+              <span class="star-t3" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span>
+              <span class="star-t2" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 8px ${isDark ? '#FDE68A' : '#D97706'};">✧</span>
+              <span class="star-t1" style="font-size:11px;color:${isDark ? '#F59E0B' : '#D97706'};">★</span>
+              <span class="star-t3" style="font-size:14px;color:${isDark ? '#FFFFFF' : '#0284C7'};">✦</span>
+              <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
+            </td>
+            <td align="right" width="25%" style="vertical-align:middle;padding:4px 6px;">
+              <!-- Reverse Comet in lower sky -->
+              <div class="comet-anim-1" style="display:inline-block;white-space:nowrap;">
+                <span style="display:inline-block;width:35px;height:2px;background-color:${isDark ? '#10B981' : '#059669'};background:linear-gradient(90deg, transparent, ${isDark ? '#10B981' : '#059669'});vertical-align:middle;border-radius:2px;opacity:0.8;"></span><span style="font-size:14px;color:${isDark ? '#FFFFFF' : '#059669'};vertical-align:middle;">☄</span>
+              </div>
             </td>
           </tr>
         </table>
