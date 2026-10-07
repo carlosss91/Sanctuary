@@ -1010,6 +1010,85 @@ class ApiService {
     }
     return {'success': false, 'message': 'No se pudo obtener analíticas de almacenamiento'};
   }
+
+  // --- Cosmic Email Templates Management ---
+  Future<Map<String, dynamic>> getEmailTemplates() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/admin/email/templates')).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('Error getting email templates: $e');
+    }
+    return {
+      'success': true,
+      'templates': {
+        'activation': {
+          'theme': 'dark',
+          'animated': true,
+          'subject': 'Activa tu cuenta en Sanctuary 🪐',
+          'title': '¡Te damos la bienvenida a bordo!',
+          'body': 'Hola {name}, tu cuenta en Sanctuary está prácticamente lista. Para garantizar la seguridad de tu identidad y activar todas tus herramientas digitales, introduce este código en la aplicación o pulsa el botón inferior:',
+          'ctaText': '✔ Activar Mi Cuenta Ahora',
+          'footerNote': '🔒 Este enlace de activación es único y válido durante 24 horas.',
+        },
+        'suspension': {
+          'theme': 'dark',
+          'animated': true,
+          'subject': 'Aviso de Suspensión de Cuenta · Sanctuary ⚠️',
+          'title': 'Tu cuenta ha sido suspendida',
+          'body': 'Hola {name},\n\nTe notificamos que el acceso a tu cuenta en Sanctuary Suite (@{username}) ha sido restringido por un administrador del sistema por motivos de moderación o seguridad.',
+          'ctaText': 'Contactar con Soporte',
+          'footerNote': 'Si consideras que esta medida es un error, responde a este correo.',
+        },
+        'announcement': {
+          'theme': 'dark',
+          'animated': true,
+          'subject': 'Novedades y Anuncios · Sanctuary Suite 🪐',
+          'title': 'Comunicado Oficial de la Plataforma',
+          'body': 'Estimado/a {name},\n\nNos complace compartir contigo las últimas novedades docentes, herramientas de CV Maker y firmas digitales añadidas a Sanctuary Suite.',
+          'ctaText': 'Explorar la Plataforma',
+          'footerNote': 'Sanctuary Suite © 2026 · Portal Docente, CV Maker interactivo & Digital Signer',
+        },
+      }
+    };
+  }
+
+  Future<Map<String, dynamic>> saveEmailTemplates(Map<String, dynamic> templates) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/email/templates'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'templates': templates}),
+      ).timeout(const Duration(seconds: 10));
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Error al guardar plantillas: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> sendTemplateEmail({
+    required String to,
+    required String templateType,
+    Map<String, dynamic>? customFields,
+  }) async {
+    try {
+      final payload = {
+        'to': to.trim(),
+        'templateType': templateType,
+        ...(customFields ?? {}),
+      };
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/email/send-template'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 15));
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Error al enviar plantilla: $e'};
+    }
+  }
 }
 
 

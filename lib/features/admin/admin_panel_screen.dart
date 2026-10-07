@@ -5,6 +5,7 @@ import '../../core/widgets/sanctuary_planet_logo.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
 import '../hub/user_profile_dialog.dart';
+import 'widgets/email_templates_tab.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   final ApiService apiService;
@@ -77,7 +78,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadAllAdminData();
   }
 
@@ -841,6 +842,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     controller: _tabController,
                     children: [
                       _buildUsersTab(isDark),
+                      EmailTemplatesTab(apiService: widget.apiService, isDark: isDark),
                       _buildChatModerationTab(isDark),
                       _buildStorageTab(isDark),
                       _buildModulesTab(isDark),
@@ -920,6 +922,23 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               Icon(Icons.manage_accounts_rounded, size: 17),
                               SizedBox(width: 8),
                               Text('Usuarios y Roles'),
+                            ],
+                          ),
+                  ),
+                  Tab(
+                    height: 40,
+                    child: isNarrow
+                        ? const Tooltip(
+                            message: 'Plantillas de Correo Cósmicas',
+                            child: Icon(Icons.auto_awesome, size: 20),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome, size: 17),
+                              SizedBox(width: 8),
+                              Text('Plantillas de Correo'),
                             ],
                           ),
                   ),
