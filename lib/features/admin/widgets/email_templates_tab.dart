@@ -431,7 +431,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                 onPressed: _restoreDefaults,
                 icon: const Icon(Icons.restart_alt_rounded, size: 16),
                 label: const Text('Restablecer'),
-                style: TextButton.styleTo(foregroundColor: const Color(0xFF64748B)),
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
               ),
             ],
           ),
