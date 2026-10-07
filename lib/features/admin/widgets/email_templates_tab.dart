@@ -921,10 +921,19 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                             ),
                                           ],
                                         ),
-                                        child: Center(
-                                          child: Text(
-                                            isSuspension ? '⚠️' : (isAnnouncement ? '📢' : '🪐'),
-                                            style: const TextStyle(fontSize: 26),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Image.network(
+                                            'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/icon-192.png',
+                                            width: 52,
+                                            height: 52,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Center(
+                                              child: Text(
+                                                isSuspension ? '⚠️' : (isAnnouncement ? '📢' : '🪐'),
+                                                style: const TextStyle(fontSize: 26),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
