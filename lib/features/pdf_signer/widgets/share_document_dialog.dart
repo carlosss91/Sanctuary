@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/signature_document_model.dart';
 
@@ -31,8 +33,17 @@ class _ShareDocumentDialogState extends State<ShareDocumentDialog> {
   bool _copied = false;
 
   String get _shareUrl {
-    // Generate web-compatible share link
-    return 'https://sanctuary.app/#/sign?docId=${widget.document.id}&token=${widget.document.shareToken}';
+    // URL oficial alojada en GitHub Pages
+    String baseUrl = 'https://carlosss91.github.io/Sanctuary/';
+    if (kIsWeb) {
+      final uri = Uri.base;
+      if (uri.host.contains('github.io')) {
+        final path = uri.path.endsWith('/') ? uri.path : '${uri.path}/';
+        baseUrl = '${uri.scheme}://${uri.host}$path';
+      }
+    }
+    if (!baseUrl.endsWith('/')) baseUrl = '$baseUrl/';
+    return '$baseUrl#/sign?docId=${widget.document.id}&token=${widget.document.shareToken}';
   }
 
   void _copyToClipboard() {
@@ -48,6 +59,17 @@ class _ShareDocumentDialogState extends State<ShareDocumentDialog> {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _copied = false);
     });
+  }
+
+  Future<void> _openInBrowser() async {
+    final uri = Uri.parse(_shareUrl);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Error abriendo enlace: $e');
+    }
   }
 
   @override
@@ -73,25 +95,47 @@ class _ShareDocumentDialogState extends State<ShareDocumentDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Compartir para Firmar en Vivo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Enlace único con auditoría y sincronización en tiempo real', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Text('Enlace único alojado en GitHub Pages con auditoría', style: TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),
         ],
       ),
       content: SizedBox(
-        width: 480,
+        width: 520,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Envía este enlace a los firmantes. Cuando lo abran, el sistema les solicitará obligatoriamente su Nombre y Apellidos antes de permitirles firmar:',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Envía este enlace a los firmantes. Cuando lo abran, el sistema les solicitará su Nombre y Apellidos antes de permitirles firmar:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.emerald.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_done_rounded, size: 12, color: AppTheme.emerald),
+                      SizedBox(width: 4),
+                      Text('GitHub Pages', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Share URL display box with Copy button
+            // Share URL display box with Copy and Open buttons
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -106,12 +150,24 @@ class _ShareDocumentDialogState extends State<ShareDocumentDialog> {
                   Expanded(
                     child: Text(
                       _shareUrl,
-                      style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace'),
+                      style: const TextStyle(fontSize: 11.0, fontFamily: 'monospace'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'Abrir enlace en navegador',
+                    child: IconButton(
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      onPressed: _openInBrowser,
+                      color: isDark ? Colors.cyanAccent : Colors.teal,
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   ElevatedButton.icon(
                     onPressed: _copyToClipboard,
                     icon: Icon(_copied ? Icons.check : Icons.copy, size: 14),

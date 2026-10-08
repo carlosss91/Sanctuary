@@ -47,6 +47,30 @@ class _SanctuaryAppState extends State<SanctuaryApp> {
     _isDark = widget.storage.isDarkTheme();
     _isCosmicActive = widget.storage.isCosmicActive();
     _currentUser = widget.storage.getCurrentUser();
+    _checkInitialSignRoute();
+  }
+
+  void _checkInitialSignRoute() {
+    try {
+      final uri = Uri.base;
+      final fragment = uri.fragment;
+      final isSignRoute = fragment.contains('/sign') ||
+          uri.path.contains('/sign') ||
+          uri.queryParameters.containsKey('docId') ||
+          fragment.contains('docId=');
+
+      if (isSignRoute) {
+        _currentUser ??= UserModel(
+          id: 999999,
+          username: 'Firmante Externo',
+          email: 'invitado@sanctuary.app',
+          role: 'Invitado',
+          fullName: '',
+          createdAt: DateTime.now().toIso8601String(),
+        );
+        _currentRoute = 'pdf_signer';
+      }
+    } catch (_) {}
   }
 
   void _toggleTheme() {

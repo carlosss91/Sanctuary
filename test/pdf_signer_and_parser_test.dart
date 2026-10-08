@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sanctuary/data/models/cv_profile_model.dart';
@@ -180,5 +182,48 @@ void main() {
       expect(clampedMinX, equals(0.0));
       expect(clampedMaxX, equals(maxNormX));
     });
+
+    test('PlacedSignature supports imageBytes and serializes properly to base64', () {
+      final sampleImageBytes = Uint8List.fromList([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      final placedWithImage = PlacedSignature(
+        id: 'sig-img-999',
+        signerName: 'Carlos',
+        signerSurname: 'Sánchez',
+        nationalId: '12345678X',
+        signedAt: DateTime.utc(2026, 10, 8, 12, 0),
+        imageBytes: sampleImageBytes,
+        strokes: const [],
+      );
+
+      final json = placedWithImage.toJson();
+      expect(json['imageBytes'], isNotNull);
+      expect(json['imageBytes'], equals(base64Encode(sampleImageBytes)));
+
+      final restored = PlacedSignature.fromJson(json);
+      expect(restored.id, equals('sig-img-999'));
+      expect(restored.signerName, equals('Carlos'));
+      expect(restored.imageBytes, isNotNull);
+      expect(restored.imageBytes!.length, equals(8));
+      expect(restored.imageBytes![0], equals(0x89));
+      expect(restored.imageBytes![1], equals(0x50));
+    });
+
+    test('GitHub Pages share link correctly formats official repository path and parameters', () {
+      final doc = PdfSignerDocument(
+        id: 'doc-gh-test-456',
+        title: 'Documento Test GH Pages',
+        fileName: 'test.pdf',
+        shareToken: 'tok-abc-123',
+      );
+
+      const expectedBase = 'https://carlosss91.github.io/Sanctuary/';
+      final shareUrl = '$expectedBase#/sign?docId=${doc.id}&token=${doc.shareToken}';
+
+      expect(shareUrl.startsWith('https://carlosss91.github.io/Sanctuary/'), isTrue);
+      expect(shareUrl.contains('docId=doc-gh-test-456'), isTrue);
+      expect(shareUrl.contains('token=tok-abc-123'), isTrue);
+      expect(shareUrl.contains('sanctuary.app'), isFalse);
+    });
   });
 }
+

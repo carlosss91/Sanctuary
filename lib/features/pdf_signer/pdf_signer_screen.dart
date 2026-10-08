@@ -82,7 +82,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   void initState() {
     super.initState();
     final user = widget.apiService.storage.getCurrentUser();
-    if (user != null) {
+    if (user != null && user.role != 'Invitado') {
       _currentUser = user;
       _currentIdentity = SignerIdentity(
         name: user.fullName ?? user.username,
@@ -90,8 +90,27 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       );
     }
 
+    // Comprobar parámetros de URL si se abrió mediante enlace compartido de GitHub Pages
+    String docId = 'doc-${DateTime.now().millisecondsSinceEpoch}';
+    String? token;
+    try {
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('docId')) {
+        docId = uri.queryParameters['docId']!;
+        token = uri.queryParameters['token'];
+      } else if (uri.fragment.contains('docId=')) {
+        final frag = uri.fragment.startsWith('/') ? uri.fragment : '/${uri.fragment}';
+        final parsed = Uri.tryParse(frag);
+        if (parsed != null && parsed.queryParameters.containsKey('docId')) {
+          docId = parsed.queryParameters['docId']!;
+          token = parsed.queryParameters['token'];
+        }
+      }
+    } catch (_) {}
+
     _document = PdfSignerDocument(
-      id: 'doc-${DateTime.now().millisecondsSinceEpoch}',
+      id: docId,
+      shareToken: token,
       title: 'Contrato de Servicios y Gestión Digital · Sanctuary',
       fileName: 'Acuerdo_Prestacion_Servicios_Sanctuary.pdf',
       signatures: [
@@ -277,9 +296,13 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: SignatureCanvasWidget(
             onCancel: () => Navigator.of(ctx).pop(),
-            onSaveSignature: (strokes) {
+            onSaveSignature: ({strokes, imageBytes}) {
               Navigator.of(ctx).pop();
-              _registerNewSignature(strokes, _currentIdentity!);
+              _registerNewSignature(
+                strokes ?? const [],
+                _currentIdentity!,
+                imageBytes: imageBytes,
+              );
             },
           ),
         );
@@ -287,7 +310,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     );
   }
 
-  void _registerNewSignature(List<SignatureStroke> strokes, SignerIdentity identity) {
+  void _registerNewSignature(
+    List<SignatureStroke> strokes,
+    SignerIdentity identity, {
+    Uint8List? imageBytes,
+  }) {
     final now = DateTime.now();
     double startX;
     double startY;
@@ -318,6 +345,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       nationalId: identity.nationalId.isNotEmpty ? identity.nationalId : null,
       signedAt: now,
       strokes: strokes,
+      imageBytes: imageBytes,
       normalizedX: startX,
       normalizedY: startY,
       pageNumber: targetPage,
@@ -427,7 +455,9 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     // 0. Pre-rasterize signature vector strokes to transparent PNG images
     final Map<String, Uint8List> sigImages = {};
     for (final sig in _document.signatures) {
-      if (sig.strokes.isNotEmpty) {
+      if (sig.imageBytes != null) {
+        sigImages[sig.id] = sig.imageBytes!;
+      } else if (sig.strokes.isNotEmpty) {
         final png = await _renderSignatureStrokesToPng(sig.strokes);
         if (png != null) {
           sigImages[sig.id] = png;
@@ -1650,13 +1680,18 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                 ),
                 const SizedBox(height: 2),
 
-                // Signature vector strokes strictly scaled and fitted
+                // Signature vector strokes or cropped image strictly scaled and fitted
                 Expanded(
                   child: ClipRect(
-                    child: CustomPaint(
-                      painter: _SignatureMiniPainter(strokes: sig.strokes),
-                      size: const Size(double.infinity, double.infinity),
-                    ),
+                    child: sig.imageBytes != null
+                        ? Image.memory(
+                            sig.imageBytes!,
+                            fit: BoxFit.contain,
+                          )
+                        : CustomPaint(
+                            painter: _SignatureMiniPainter(strokes: sig.strokes),
+                            size: const Size(double.infinity, double.infinity),
+                          ),
                   ),
                 ),
 

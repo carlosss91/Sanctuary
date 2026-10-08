@@ -442,20 +442,23 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppTheme.emerald.withOpacity(0.35)),
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.link, size: 12, color: AppTheme.emerald),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Configurar perfil',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.emerald,
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.link, size: 12, color: AppTheme.emerald),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Configurar perfil',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.emerald,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),

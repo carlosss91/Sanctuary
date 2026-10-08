@@ -39,6 +39,7 @@ class PlacedSignature {
   final String? nationalId;
   final DateTime signedAt;
   final List<SignatureStroke> strokes;
+  final Uint8List? imageBytes;
   double normalizedX; // 0.0 to 1.0 (relative to page)
   double normalizedY; // 0.0 to 1.0
   double scale;
@@ -51,7 +52,8 @@ class PlacedSignature {
     required this.signerSurname,
     this.nationalId,
     required this.signedAt,
-    required this.strokes,
+    this.strokes = const [],
+    this.imageBytes,
     this.normalizedX = 0.55,
     this.normalizedY = 0.78,
     this.scale = 1.0,
@@ -80,6 +82,7 @@ class PlacedSignature {
       'nationalId': nationalId,
       'signedAt': signedAt.toIso8601String(),
       'strokes': strokes.map((s) => s.toJson()).toList(),
+      if (imageBytes != null) 'imageBytes': base64Encode(imageBytes!),
       'normalizedX': normalizedX,
       'normalizedY': normalizedY,
       'scale': scale,
@@ -98,6 +101,7 @@ class PlacedSignature {
       strokes: ((json['strokes'] as List<dynamic>?) ?? [])
           .map((s) => SignatureStroke.fromJson(Map<String, dynamic>.from(s as Map)))
           .toList(),
+      imageBytes: json['imageBytes'] != null ? base64Decode(json['imageBytes'] as String) : null,
       normalizedX: (json['normalizedX'] as num?)?.toDouble() ?? 0.55,
       normalizedY: (json['normalizedY'] as num?)?.toDouble() ?? 0.78,
       scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
