@@ -1,6 +1,8 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import '../../../core/theme/app_theme.dart';
 import '../models/signature_document_model.dart';
 import 'signature_image_cropper_widget.dart';
@@ -109,8 +111,7 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
     try {
       setState(() => _isPickingImage = true);
       final files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'],
+        type: FileType.image,
       );
 
       if (files.isNotEmpty) {
@@ -122,7 +123,17 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
             _croppedSignatureBytes = null;
             _isCropping = true;
           });
+          return;
         }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se seleccionó ninguna imagen o el archivo estaba vacío.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error seleccionando imagen: $e');
@@ -136,6 +147,44 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
         setState(() => _isPickingImage = false);
       }
     }
+  }
+
+  void _loadSampleSignature() {
+    // Generate an authentic sample rubric on white paper for immediate preview & test
+    final sample = img.Image(width: 800, height: 350);
+    img.fill(sample, color: img.ColorRgb8(248, 249, 252)); // off-white paper
+
+    final ink = img.ColorRgba8(20, 50, 130, 255); // notary blue ink
+
+    void drawSegment(int x0, int y0, int x1, int y1) {
+      img.drawLine(sample, x1: x0, y1: y0, x2: x1, y2: y1, color: ink, thickness: 3);
+    }
+
+    // Curvature rubric
+    for (int t = 0; t < 560; t += 3) {
+      final double angle = t * 0.045;
+      final int x = 120 + t;
+      final int y = (175 + math.sin(angle) * 48 + math.cos(angle * 2.1) * 22).round();
+      if (t > 0) {
+        final double prevAngle = (t - 3) * 0.045;
+        final int prevX = 120 + (t - 3);
+        final int prevY = (175 + math.sin(prevAngle) * 48 + math.cos(prevAngle * 2.1) * 22).round();
+        drawSegment(prevX, prevY, x, y);
+      }
+    }
+    // Decorative underline
+    drawSegment(100, 255, 700, 240);
+    drawSegment(210, 275, 630, 260);
+    // Initial loop
+    drawSegment(130, 110, 160, 270);
+    drawSegment(160, 270, 210, 120);
+
+    final jpgBytes = Uint8List.fromList(img.encodeJpg(sample, quality: 90));
+    setState(() {
+      _uploadedRawBytes = jpgBytes;
+      _croppedSignatureBytes = null;
+      _isCropping = true;
+    });
   }
 
   @override
@@ -653,21 +702,37 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
             const SizedBox(height: 18),
 
             // Pick Button
-            ElevatedButton.icon(
-              onPressed: _isPickingImage ? null : _pickImageFile,
-              icon: _isPickingImage
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.file_upload_outlined, size: 18),
-              label: Text(
-                _isPickingImage ? 'Abriendo selector...' : 'Seleccionar Archivo de Firma',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.emerald,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _isPickingImage ? null : _pickImageFile,
+                  icon: _isPickingImage
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.file_upload_outlined, size: 18),
+                  label: Text(
+                    _isPickingImage ? 'Abriendo selector...' : 'Seleccionar Archivo de Firma',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _loadSampleSignature,
+                  icon: const Icon(Icons.draw_outlined, size: 16),
+                  label: const Text('Probar con rúbrica de ejemplo', style: TextStyle(fontSize: 12.5)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 16),

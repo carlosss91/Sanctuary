@@ -64,13 +64,30 @@ class _SignatureImageCropperWidgetState extends State<SignatureImageCropperWidge
       try {
         final decoded = img.decodeImage(widget.rawImageBytes);
         if (decoded != null) {
-          final rotated = _rotationAngle == 0 ? decoded : img.copyRotate(decoded, angle: _rotationAngle);
-          final pngBytes = Uint8List.fromList(img.encodePng(rotated));
+          // If the image is large (e.g. from a mobile camera 4000x3000), downscale it to max 1200px
+          img.Image effectiveImg = decoded;
+          const maxDim = 1200;
+          if (effectiveImg.width > maxDim || effectiveImg.height > maxDim) {
+            if (effectiveImg.width > effectiveImg.height) {
+              effectiveImg = img.copyResize(effectiveImg, width: maxDim, interpolation: img.Interpolation.linear);
+            } else {
+              effectiveImg = img.copyResize(effectiveImg, height: maxDim, interpolation: img.Interpolation.linear);
+            }
+          }
+
+          final rotated = _rotationAngle == 0 ? effectiveImg : img.copyRotate(effectiveImg, angle: _rotationAngle);
+          final Uint8List preview;
+          if (_rotationAngle == 0 && effectiveImg == decoded) {
+            preview = widget.rawImageBytes;
+          } else {
+            preview = Uint8List.fromList(img.encodeJpg(rotated, quality: 85));
+          }
+
           if (mounted) {
             setState(() {
-              _originalImage = decoded;
+              _originalImage = effectiveImg;
               _rotatedImage = rotated;
-              _previewBytes = pngBytes;
+              _previewBytes = preview;
               _isLoading = false;
             });
           }
@@ -95,12 +112,12 @@ class _SignatureImageCropperWidgetState extends State<SignatureImageCropperWidge
       final rotated = _rotationAngle == 0
           ? _originalImage!
           : img.copyRotate(_originalImage!, angle: _rotationAngle);
-      final pngBytes = Uint8List.fromList(img.encodePng(rotated));
+      final preview = Uint8List.fromList(img.encodeJpg(rotated, quality: 85));
 
       if (mounted) {
         setState(() {
           _rotatedImage = rotated;
-          _previewBytes = pngBytes;
+          _previewBytes = preview;
           _isLoading = false;
           // Reset crop box comfortably centered
           _cropNormLeft = 0.08;
