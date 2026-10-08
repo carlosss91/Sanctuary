@@ -186,6 +186,35 @@ class _SignatureImageCropperWidgetState extends State<SignatureImageCropperWidge
 
       if (_removeWhiteBackground) {
         cropped = _filterWhiteBackground(cropped, enhance: _enhanceContrast);
+
+        // Auto-trim transparent borders so the ink signature is perfectly centered
+        int minX = cropped.width;
+        int maxX = -1;
+        int minY = cropped.height;
+        int maxY = -1;
+
+        for (int y = 0; y < cropped.height; y++) {
+          for (int x = 0; x < cropped.width; x++) {
+            final p = cropped.getPixel(x, y);
+            if (p.a > 15) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        if (maxX >= minX && maxY >= minY) {
+          const pad = 10;
+          final trimX = math.max(0, minX - pad);
+          final trimY = math.max(0, minY - pad);
+          final trimW = math.min(cropped.width - trimX, (maxX - minX + 1) + pad * 2);
+          final trimH = math.min(cropped.height - trimY, (maxY - minY + 1) + pad * 2);
+          if (trimW > 4 && trimH > 4) {
+            cropped = img.copyCrop(cropped, x: trimX, y: trimY, width: trimW, height: trimH);
+          }
+        }
       }
 
       final pngBytes = Uint8List.fromList(img.encodePng(cropped));
@@ -569,13 +598,30 @@ class _CropOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Dark mask outside crop box
+    // 1. Dark mask outside crop box (draw 4 non-overlapping bands around cropRect to ensure the inside is always 100% bright & clear)
     final darkPaint = Paint()..color = Colors.black.withOpacity(0.55);
 
-    final bgPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final cropPath = Path()..addRect(cropRect);
-    final maskPath = Path.combine(PathOperation.difference, bgPath, cropPath);
-    canvas.drawPath(maskPath, darkPaint);
+    final cL = cropRect.left.clamp(0.0, size.width);
+    final cR = cropRect.right.clamp(0.0, size.width);
+    final cT = cropRect.top.clamp(0.0, size.height);
+    final cB = cropRect.bottom.clamp(0.0, size.height);
+
+    // Top band
+    if (cT > 0) {
+      canvas.drawRect(Rect.fromLTRB(0, 0, size.width, cT), darkPaint);
+    }
+    // Bottom band
+    if (cB < size.height) {
+      canvas.drawRect(Rect.fromLTRB(0, cB, size.width, size.height), darkPaint);
+    }
+    // Left band
+    if (cL > 0 && cB > cT) {
+      canvas.drawRect(Rect.fromLTRB(0, cT, cL, cB), darkPaint);
+    }
+    // Right band
+    if (cR < size.width && cB > cT) {
+      canvas.drawRect(Rect.fromLTRB(cR, cT, size.width, cB), darkPaint);
+    }
 
     // 2. Crop border
     final borderPaint = Paint()

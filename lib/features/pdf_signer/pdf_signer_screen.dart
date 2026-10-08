@@ -1637,7 +1637,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Drag handle bar + Delete button
@@ -1680,18 +1680,25 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                 ),
                 const SizedBox(height: 2),
 
-                // Signature vector strokes or cropped image strictly scaled and fitted
+                // Signature vector strokes or cropped image strictly centered and fitted
                 Expanded(
-                  child: ClipRect(
-                    child: sig.imageBytes != null
-                        ? Image.memory(
-                            sig.imageBytes!,
-                            fit: BoxFit.contain,
-                          )
-                        : CustomPaint(
-                            painter: _SignatureMiniPainter(strokes: sig.strokes),
-                            size: const Size(double.infinity, double.infinity),
-                          ),
+                  child: Center(
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: ClipRect(
+                        child: sig.imageBytes != null
+                            ? Image.memory(
+                                sig.imageBytes!,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                              )
+                            : CustomPaint(
+                                painter: _SignatureMiniPainter(strokes: sig.strokes),
+                                size: const Size(double.infinity, double.infinity),
+                              ),
+                      ),
+                    ),
                   ),
                 ),
 

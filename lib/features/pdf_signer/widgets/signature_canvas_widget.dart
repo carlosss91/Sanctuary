@@ -604,9 +604,12 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                   // Signature Image Preview
                   Padding(
                     padding: const EdgeInsets.fromLTRB(28, 16, 28, 48),
-                    child: Image.memory(
-                      _croppedSignatureBytes!,
-                      fit: BoxFit.contain,
+                    child: Center(
+                      child: Image.memory(
+                        _croppedSignatureBytes!,
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                      ),
                     ),
                   ),
                 ],
