@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/marquee_text.dart';
 import '../../../data/models/cv_profile_model.dart';
 import '../../../data/services/api_service.dart';
 import 'photo_zoom_picker.dart';
@@ -663,13 +664,13 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     return '';
   }
 
-  Widget _buildRatingStyleChoice(String style, String label, bool isDark) {
+  Widget _buildRatingStyleChoice(String style, String symbol, bool isDark, {String? tooltip}) {
     final isSelected = widget.profile.skillRatingStyle == style;
-    return InkWell(
+    final btn = InkWell(
       onTap: () => _update(widget.profile.copyWith(skillRatingStyle: style)),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.emerald.withOpacity(0.18)
@@ -683,9 +684,9 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
           ),
         ),
         child: Text(
-          label,
+          symbol,
           style: TextStyle(
-            fontSize: 11.5,
+            fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected
                 ? AppTheme.emerald
@@ -693,6 +694,51 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
           ),
         ),
       ),
+    );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: btn);
+    }
+    return btn;
+  }
+
+  Widget _buildLabeledField({
+    required String label,
+    required String initialValue,
+    required ValueChanged<String> onChanged,
+    String? hintText,
+    int maxLines = 1,
+    bool isDark = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: MarqueeText(
+            text: label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            ),
+          ),
+        ),
+        const SizedBox(height: 5),
+        TextFormField(
+          key: ValueKey('${label}_$initialValue'),
+          initialValue: initialValue,
+          maxLines: maxLines,
+          style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
+          decoration: InputDecoration(
+            hintText: hintText,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 
@@ -826,9 +872,9 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                         ),
                       ),
                       const SizedBox(width: 10),
-                      _buildRatingStyleChoice('dots', '● Círculos', isDark),
+                      _buildRatingStyleChoice('dots', '●', isDark, tooltip: 'Círculos'),
                       const SizedBox(width: 8),
-                      _buildRatingStyleChoice('stars', '★ Estrellas', isDark),
+                      _buildRatingStyleChoice('stars', '★', isDark, tooltip: 'Estrellas'),
                     ],
                   ),
                 ),
@@ -955,11 +1001,11 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                 ),
                               ),
 
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 10),
 
                               // 3. 5 Rating Indicators (Circles or Stars)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: List.generate(5, (dotIndex) {
@@ -973,10 +1019,10 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                         child: MouseRegion(
                                           cursor: SystemMouseCursors.click,
                                           child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                                            padding: const EdgeInsets.symmetric(horizontal: 1.0),
                                             child: Icon(
                                               isFilled ? Icons.star : Icons.star_border,
-                                              size: 18,
+                                              size: 15,
                                               color: isFilled
                                                   ? const Color(0xFFF59E0B)
                                                   : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8)),
@@ -991,19 +1037,19 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                       child: MouseRegion(
                                         cursor: SystemMouseCursors.click,
                                         child: Container(
-                                          width: 14,
-                                          height: 14,
-                                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                                          width: 11,
+                                          height: 11,
+                                          margin: const EdgeInsets.symmetric(horizontal: 2.0),
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             color: isFilled
-                                                ? const Color(0xFFF59E0B) // Amber yellow from Image 2
+                                                ? const Color(0xFFF59E0B)
                                                 : (isDark ? const Color(0xFF263348) : const Color(0xFFCBD5E1)),
                                             boxShadow: isFilled
                                                 ? [
                                                     BoxShadow(
-                                                      color: const Color(0xFFF59E0B).withOpacity(0.4),
-                                                      blurRadius: 3,
+                                                      color: const Color(0xFFF59E0B).withOpacity(0.35),
+                                                      blurRadius: 2.5,
                                                       spreadRadius: 0.5,
                                                     )
                                                   ]
@@ -1016,7 +1062,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                 ),
                               ),
 
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
 
                               // 4. Trash / Delete Icon
                               IconButton(
@@ -1031,25 +1077,40 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                             ],
                           ),
 
-                          // Optional Subtitle/Description row for rich A4 preview
+                          // Subtitle/Description row for rich A4 preview (larger, spacious, and well-padded)
                           Padding(
-                            padding: const EdgeInsets.only(left: 48, right: 40, top: 4),
-                            child: TextFormField(
-                              key: ValueKey('skill_desc_${i}_${item.description}'),
-                              initialValue: item.description.isNotEmpty
-                                  ? item.description
-                                  : _getAutoDescription(item.name),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF0F172A).withOpacity(0.6) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                  width: 1,
+                                ),
                               ),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                                hintText: 'Subtítulo breve (ej. Compañerismo y coordinación en cuadrilla)...',
+                              child: TextFormField(
+                                key: ValueKey('skill_desc_${i}_${item.description}'),
+                                initialValue: item.description.isNotEmpty
+                                    ? item.description
+                                    : _getAutoDescription(item.name),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white70 : const Color(0xFF334155),
+                                ),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                  hintText: 'Subtítulo breve (ej. Compañerismo y coordinación en cuadrilla)...',
+                                  hintStyle: TextStyle(
+                                    fontSize: 11.5,
+                                    color: isDark ? Colors.white30 : Colors.black38,
+                                  ),
+                                ),
+                                onChanged: (val) => _updateSkillDescription(i, val),
                               ),
-                              onChanged: (val) => _updateSkillDescription(i, val),
                             ),
                           ),
                         ],
@@ -1119,9 +1180,11 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                         ],
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: TextEditingController(text: exp.jobTitle),
-                        decoration: const InputDecoration(labelText: 'Cargo / Puesto Aspirado'),
+                      _buildLabeledField(
+                        label: 'Cargo / Puesto Aspirado',
+                        initialValue: exp.jobTitle,
+                        hintText: 'Ej. OPERARIO/A DE MANTENIMIENTO',
+                        isDark: isDark,
                         onChanged: (val) {
                           final list = List<CvExperience>.from(widget.profile.experiences);
                           list[idx] = exp.copyWith(jobTitle: val);
@@ -1132,9 +1195,12 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
-                              controller: TextEditingController(text: exp.company),
-                              decoration: const InputDecoration(labelText: 'Empresa u Organismo'),
+                            flex: 3,
+                            child: _buildLabeledField(
+                              label: 'Empresa u Organismo',
+                              initialValue: exp.company,
+                              hintText: 'Ej. Ayuntamiento de Madrid',
+                              isDark: isDark,
                               onChanged: (val) {
                                 final list = List<CvExperience>.from(widget.profile.experiences);
                                 list[idx] = exp.copyWith(company: val);
@@ -1143,11 +1209,13 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                             ),
                           ),
                           const SizedBox(width: 10),
-                          SizedBox(
-                            width: 140,
-                            child: TextField(
-                              controller: TextEditingController(text: exp.period),
-                              decoration: const InputDecoration(labelText: 'Período (ej. 2024 - 2025)'),
+                          Expanded(
+                            flex: 2,
+                            child: _buildLabeledField(
+                              label: 'Período (ej. 2024 - 2025)',
+                              initialValue: exp.period,
+                              hintText: '2024 - Actualidad',
+                              isDark: isDark,
                               onChanged: (val) {
                                 final list = List<CvExperience>.from(widget.profile.experiences);
                                 list[idx] = exp.copyWith(period: val);
@@ -1158,10 +1226,12 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                         ],
                       ),
                       const SizedBox(height: 10),
-                      TextField(
-                        controller: TextEditingController(text: exp.description),
+                      _buildLabeledField(
+                        label: 'Tareas, competencias aplicadas y EPIs',
+                        initialValue: exp.description,
+                        hintText: 'Labores desempeñadas, herramientas utilizadas...',
                         maxLines: 3,
-                        decoration: const InputDecoration(labelText: 'Tareas, competencias aplicadas y EPIs'),
+                        isDark: isDark,
                         onChanged: (val) {
                           final list = List<CvExperience>.from(widget.profile.experiences);
                           list[idx] = exp.copyWith(description: val);
@@ -1243,9 +1313,11 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                         ],
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: TextEditingController(text: edu.degree),
-                        decoration: const InputDecoration(labelText: 'Titulación / Certificado de Profesionalidad'),
+                      _buildLabeledField(
+                        label: 'Titulación / Certificado de Profesionalidad',
+                        initialValue: edu.degree,
+                        hintText: 'Ej. CERTIFICADO PROFESIONALIDAD NIVEL 1',
+                        isDark: isDark,
                         onChanged: (val) {
                           final list = List<CvEducation>.from(widget.profile.educations);
                           list[idx] = edu.copyWith(degree: val);
@@ -1256,9 +1328,12 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
-                              controller: TextEditingController(text: edu.institution),
-                              decoration: const InputDecoration(labelText: 'Centro o Institución'),
+                            flex: 3,
+                            child: _buildLabeledField(
+                              label: 'Centro o Institución',
+                              initialValue: edu.institution,
+                              hintText: 'Ej. Centro de Formación Ocupacional',
+                              isDark: isDark,
                               onChanged: (val) {
                                 final list = List<CvEducation>.from(widget.profile.educations);
                                 list[idx] = edu.copyWith(institution: val);
@@ -1267,11 +1342,13 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                             ),
                           ),
                           const SizedBox(width: 10),
-                          SizedBox(
-                            width: 140,
-                            child: TextField(
-                              controller: TextEditingController(text: edu.period),
-                              decoration: const InputDecoration(labelText: 'Período'),
+                          Expanded(
+                            flex: 2,
+                            child: _buildLabeledField(
+                              label: 'Período',
+                              initialValue: edu.period,
+                              hintText: 'Ej. 2023 - 2024',
+                              isDark: isDark,
                               onChanged: (val) {
                                 final list = List<CvEducation>.from(widget.profile.educations);
                                 list[idx] = edu.copyWith(period: val);
@@ -1282,10 +1359,12 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                         ],
                       ),
                       const SizedBox(height: 10),
-                      TextField(
-                        controller: TextEditingController(text: edu.details),
+                      _buildLabeledField(
+                        label: 'Detalles o módulos clave',
+                        initialValue: edu.details,
+                        hintText: 'Módulos formativos, horas cursadas, prácticas...',
                         maxLines: 2,
-                        decoration: const InputDecoration(labelText: 'Detalles o módulos clave'),
+                        isDark: isDark,
                         onChanged: (val) {
                           final list = List<CvEducation>.from(widget.profile.educations);
                           list[idx] = edu.copyWith(details: val);
@@ -1426,20 +1505,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                   ),
                   const SizedBox(height: 10),
 
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _buildWatermarkOption('gears', 'Engranajes Técnicos', Icons.settings, isDark),
-                      _buildWatermarkOption('tools', 'Herramientas de Oficio', Icons.build, isDark),
-                      _buildWatermarkOption('geometric', 'Malla Geométrica', Icons.grid_view, isDark),
-                      _buildWatermarkOption('shield', 'Escudo Profesional', Icons.security, isDark),
-                      _buildWatermarkOption('lines', 'Líneas Planimétricas', Icons.line_style, isDark),
-                      _buildWatermarkOption('tech_dots', 'Retícula Técnica', Icons.grain, isDark),
-                      _buildWatermarkOption('custom', 'URL de Imagen', Icons.image_outlined, isDark),
-                      _buildWatermarkOption('none', 'Liso (Sin Marca)', Icons.block, isDark),
-                    ],
-                  ),
+                  _buildWatermarkGrid(isDark),
 
                   // If custom watermark is chosen
                   if (widget.profile.watermarkPattern == 'custom') ...[
@@ -1855,6 +1921,38 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildWatermarkGrid(bool isDark) {
+    const options = [
+      ('gears', 'Engranajes Técnicos', Icons.settings),
+      ('tools', 'Herramientas de Oficio', Icons.build),
+      ('geometric', 'Malla Geométrica', Icons.grid_view),
+      ('shield', 'Escudo Profesional', Icons.security),
+      ('lines', 'Líneas Planimétricas', Icons.line_style),
+      ('tech_dots', 'Retícula Técnica', Icons.grain),
+      ('custom', 'URL de Imagen', Icons.image_outlined),
+      ('none', 'Liso (Sin Marca)', Icons.block),
+    ];
+
+    return Column(
+      children: [
+        for (int i = 0; i < options.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildWatermarkOption(options[i].$1, options[i].$2, options[i].$3, isDark),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildWatermarkOption(options[i + 1].$1, options[i + 1].$2, options[i + 1].$3, isDark),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildWatermarkOption(String key, String label, IconData icon, bool isDark) {
     final isSelected = widget.profile.watermarkPattern == key;
 
@@ -1862,7 +1960,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
       onTap: () => _update(widget.profile.copyWith(watermarkPattern: key)),
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.emerald.withOpacity(0.18)
@@ -1874,16 +1972,19 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: isSelected ? AppTheme.emerald : Colors.grey),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? AppTheme.emerald : (isDark ? Colors.white70 : Colors.black87),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppTheme.emerald : (isDark ? Colors.white70 : Colors.black87),
+                ),
               ),
             ),
           ],

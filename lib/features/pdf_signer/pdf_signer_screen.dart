@@ -289,7 +289,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     // 2. Open signature drawing canvas modal
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) {
         return Dialog(
           backgroundColor: Colors.transparent,

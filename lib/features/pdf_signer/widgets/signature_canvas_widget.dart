@@ -192,7 +192,8 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      width: 620,
+      constraints: const BoxConstraints(maxWidth: 620),
+      width: double.infinity,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -209,7 +210,7 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
         children: [
           // Header Bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 Container(
@@ -224,54 +225,75 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Estampar Firma Digital', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    Text(
-                      _activeMode == 'draw'
-                          ? 'Dibuja con precisión tu rúbrica en el recuadro interactivo'
-                          : 'Adjunta una foto o escaneo de tu firma y recórtala',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Estampar Firma Digital',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _activeMode == 'draw'
+                            ? 'Dibuja con precisión tu firma en el recuadro'
+                            : 'Adjunta una fotografía o escaneo de tu firma',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 if (widget.onCancel != null)
                   IconButton(
                     onPressed: widget.onCancel,
                     icon: const Icon(Icons.close, size: 20),
                     tooltip: 'Cerrar',
+                    visualDensity: VisualDensity.compact,
+                    splashRadius: 20,
                   ),
               ],
             ),
           ),
           const Divider(height: 1),
 
-          // Mode Selector (Dibujar vs Adjuntar Imagen)
+          // Mode Selector (Firmar a mano vs Adjuntar Imagen)
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'draw',
-                  label: Text('Trazar Rúbrica'),
-                  icon: Icon(Icons.gesture, size: 15),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'draw',
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Firmar a mano', maxLines: 1),
+                    ),
+                    icon: Icon(Icons.gesture, size: 15),
+                  ),
+                  ButtonSegment(
+                    value: 'image',
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Adjuntar Imagen', maxLines: 1),
+                    ),
+                    icon: Icon(Icons.crop_original_rounded, size: 15),
+                  ),
+                ],
+                selected: {_activeMode},
+                onSelectionChanged: (val) {
+                  setState(() => _activeMode = val.first);
+                },
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
                 ),
-                ButtonSegment(
-                  value: 'image',
-                  label: Text('Adjuntar y Recortar Imagen'),
-                  icon: Icon(Icons.crop_original_rounded, size: 15),
-                ),
-              ],
-              selected: {_activeMode},
-              onSelectionChanged: (val) {
-                setState(() => _activeMode = val.first);
-              },
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           ),
@@ -305,17 +327,30 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
               // Tool selection
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'pen', label: Text('Pluma'), icon: Icon(Icons.edit, size: 14)),
-                  ButtonSegment(value: 'ballpoint', label: Text('Boli'), icon: Icon(Icons.border_color, size: 14)),
-                  ButtonSegment(value: 'highlighter', label: Text('Marcador'), icon: Icon(Icons.brush, size: 14)),
+                  ButtonSegment(
+                    value: 'pen',
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text('Pluma', maxLines: 1)),
+                    icon: Icon(Icons.edit, size: 14),
+                  ),
+                  ButtonSegment(
+                    value: 'ballpoint',
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text('Boli', maxLines: 1)),
+                    icon: Icon(Icons.border_color, size: 14),
+                  ),
+                  ButtonSegment(
+                    value: 'highlighter',
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text('Marcador', maxLines: 1)),
+                    icon: Icon(Icons.brush, size: 14),
+                  ),
                 ],
                 selected: {_activeTool},
                 onSelectionChanged: (val) {
                   setState(() => _activeTool = val.first);
                 },
-                style: const ButtonStyle(
+                style: ButtonStyle(
                   visualDensity: VisualDensity.compact,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 7, vertical: 4)),
                 ),
               ),
 
@@ -456,26 +491,28 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
 
         // Bottom Actions for Draw Mode
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               OutlinedButton.icon(
                 onPressed: _strokes.isEmpty ? null : _undoLastStroke,
-                icon: const Icon(Icons.undo, size: 15),
-                label: const Text('Deshacer', style: TextStyle(fontSize: 11.5)),
+                icon: const Icon(Icons.undo, size: 14),
+                label: const Text('Deshacer', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               OutlinedButton.icon(
                 onPressed: _strokes.isEmpty ? null : _clearAllStrokes,
-                icon: const Icon(Icons.delete_outline, size: 15),
-                label: const Text('Borrar todo', style: TextStyle(fontSize: 11.5)),
+                icon: const Icon(Icons.delete_outline, size: 14),
+                label: const Text('Borrar', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.redAccent,
                   visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
@@ -486,13 +523,13 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                     : () {
                         widget.onSaveSignature(strokes: _strokes);
                       },
-                icon: const Icon(Icons.check_circle_outline, size: 16),
-                label: const Text('Guardar e Insertar Firma', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                icon: const Icon(Icons.check_circle_outline, size: 15),
+                label: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.emerald,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                 ),
               ),
             ],
@@ -619,25 +656,27 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
 
           // Bottom actions for Cropped Preview
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 OutlinedButton.icon(
                   onPressed: () => setState(() => _isCropping = true),
-                  icon: const Icon(Icons.crop, size: 15),
-                  label: const Text('Reajustar Recorte', style: TextStyle(fontSize: 11.5)),
+                  icon: const Icon(Icons.crop, size: 14),
+                  label: const Text('Reajustar', style: TextStyle(fontSize: 11)),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 OutlinedButton.icon(
                   onPressed: _pickImageFile,
-                  icon: const Icon(Icons.refresh, size: 15),
-                  label: const Text('Cambiar Imagen', style: TextStyle(fontSize: 11.5)),
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('Cambiar', style: TextStyle(fontSize: 11)),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
@@ -646,13 +685,13 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                   onPressed: () {
                     widget.onSaveSignature(imageBytes: _croppedSignatureBytes);
                   },
-                  icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text('Insertar Firma Recortada', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                  icon: const Icon(Icons.check_circle_outline, size: 15),
+                  label: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.emerald,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                   ),
                 ),
               ],

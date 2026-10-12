@@ -273,8 +273,194 @@ class _PhotoZoomPickerState extends State<PhotoZoomPicker> {
     final photoUrl = widget.profile.photoUrl;
     final isCircle = widget.profile.photoShape != 'square';
 
+    Widget buildPhotoWidget({double size = 88}) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: !isCircle ? BorderRadius.circular(14) : null,
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+          border: Border.all(
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: _isUploading
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.emerald))
+            : _buildPhotoContent(photoUrl),
+      );
+    }
+
+    Widget buildShapeSelector() {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => widget.onProfileChanged(widget.profile.copyWith(photoShape: 'circle')),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isCircle ? AppTheme.emerald.withOpacity(0.18) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isCircle ? AppTheme.emerald : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle_outlined, size: 13, color: isCircle ? AppTheme.emerald : Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Redondo',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: isCircle ? FontWeight.bold : FontWeight.normal,
+                      color: isCircle ? AppTheme.emerald : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => widget.onProfileChanged(widget.profile.copyWith(photoShape: 'square')),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: !isCircle ? AppTheme.emerald.withOpacity(0.18) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: !isCircle ? AppTheme.emerald : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.crop_square, size: 13, color: !isCircle ? AppTheme.emerald : Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Cuadrado',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: !isCircle ? FontWeight.bold : FontWeight.normal,
+                      color: !isCircle ? AppTheme.emerald : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final List<Widget> actionButtons = [
+      ElevatedButton.icon(
+        onPressed: _pickAndCropImage,
+        icon: const Icon(Icons.upload_file, size: 14),
+        label: const Text('Subir Foto PC', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.emerald,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          minimumSize: const Size.fromHeight(34),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      if (photoUrl.isNotEmpty)
+        OutlinedButton.icon(
+          onPressed: _recropCurrentImage,
+          icon: const Icon(Icons.crop, size: 14, color: AppTheme.emerald),
+          label: const Text('Re-encuadrar', style: TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            minimumSize: const Size.fromHeight(34),
+            side: const BorderSide(color: AppTheme.emerald),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      OutlinedButton.icon(
+        onPressed: () => setState(() => _showAdjustmentControls = !_showAdjustmentControls),
+        icon: const Icon(Icons.tune, size: 14),
+        label: const Text('Ajuste fino', style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          minimumSize: const Size.fromHeight(34),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      OutlinedButton.icon(
+        onPressed: _showAvatarPicker,
+        icon: const Icon(Icons.account_box_outlined, size: 14),
+        label: const Text('Foto muestra', style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          minimumSize: const Size.fromHeight(34),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      OutlinedButton.icon(
+        onPressed: _showUrlInputDialog,
+        icon: const Icon(Icons.link, size: 14),
+        label: const Text('URL web', style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          minimumSize: const Size.fromHeight(34),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      if (photoUrl.isNotEmpty)
+        OutlinedButton.icon(
+          onPressed: () {
+            widget.onProfileChanged(widget.profile.copyWith(photoUrl: ''));
+          },
+          icon: const Icon(Icons.delete_outline, size: 14, color: Colors.redAccent),
+          label: const Text('Quitar', style: TextStyle(color: Colors.redAccent, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            minimumSize: const Size.fromHeight(34),
+            side: BorderSide(color: Colors.redAccent.withOpacity(0.5)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+    ];
+
+    Widget buildActionsGrid() {
+      return Column(
+        children: [
+          for (int i = 0; i < actionButtons.length; i += 2) ...[
+            if (i > 0) const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(child: actionButtons[i]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: (i + 1 < actionButtons.length)
+                      ? actionButtons[i + 1]
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkInput.withOpacity(0.6) : AppTheme.lightInput,
         borderRadius: BorderRadius.circular(16),
@@ -283,204 +469,52 @@ class _PhotoZoomPickerState extends State<PhotoZoomPicker> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Photo View with Round / Square Frame & Zoom & Pan
-              Container(
-                width: 104,
-                height: 104,
-                decoration: BoxDecoration(
-                  shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
-                  borderRadius: !isCircle ? BorderRadius.circular(16) : null,
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: _isUploading
-                    ? const Center(child: CircularProgressIndicator(color: AppTheme.emerald))
-                    : _buildPhotoContent(photoUrl),
-              ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 450;
 
-              const SizedBox(width: 18),
-
-              // Title, Shape selector and Actions
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (isNarrow) {
+                // Mobile compact layout: Photo at top, shape buttons, then 2-column actions
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          isCircle ? 'Encuadre Circular' : 'Encuadre Cuadrado',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.emerald.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isCircle ? 'Circular' : 'Cuadrado',
-                            style: const TextStyle(fontSize: 10, color: AppTheme.emerald, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Sube una imagen desde tu PC con recorte automático (redondo o cuadrado), o ajusta el zoom y centrado.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                      ),
-                    ),
+                    buildPhotoWidget(size: 82),
+                    const SizedBox(height: 8),
+                    buildShapeSelector(),
                     const SizedBox(height: 10),
-
-                    // Shape Toggle Buttons (Redondo vs Cuadrado)
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            widget.onProfileChanged(widget.profile.copyWith(photoShape: 'circle'));
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isCircle ? AppTheme.emerald.withOpacity(0.2) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isCircle ? AppTheme.emerald : Colors.grey.withOpacity(0.4)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.circle_outlined, size: 14, color: isCircle ? AppTheme.emerald : Colors.grey),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Redondo',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: isCircle ? FontWeight.bold : FontWeight.normal,
-                                    color: isCircle ? AppTheme.emerald : (isDark ? Colors.white70 : Colors.black87),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () {
-                            widget.onProfileChanged(widget.profile.copyWith(photoShape: 'square'));
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: !isCircle ? AppTheme.emerald.withOpacity(0.2) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: !isCircle ? AppTheme.emerald : Colors.grey.withOpacity(0.4)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.crop_square, size: 14, color: !isCircle ? AppTheme.emerald : Colors.grey),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Cuadrado',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: !isCircle ? FontWeight.bold : FontWeight.normal,
-                                    color: !isCircle ? AppTheme.emerald : (isDark ? Colors.white70 : Colors.black87),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Action buttons
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _pickAndCropImage,
-                          icon: const Icon(Icons.upload_file, size: 15),
-                          label: const Text('Subir Foto del PC', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        if (photoUrl.isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: _recropCurrentImage,
-                            icon: const Icon(Icons.crop, size: 14, color: AppTheme.emerald),
-                            label: const Text('Re-encuadrar', style: TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              side: const BorderSide(color: AppTheme.emerald),
-                            ),
-                          ),
-                        OutlinedButton.icon(
-                          onPressed: () => setState(() => _showAdjustmentControls = !_showAdjustmentControls),
-                          icon: const Icon(Icons.tune, size: 14),
-                          label: const Text('Ajuste fino', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _showAvatarPicker,
-                          icon: const Icon(Icons.account_box_outlined, size: 14),
-                          label: const Text('Foto muestra', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _showUrlInputDialog,
-                          icon: const Icon(Icons.link, size: 14),
-                          label: const Text('URL web', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          ),
-                        ),
-                        if (photoUrl.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () {
-                              widget.onProfileChanged(widget.profile.copyWith(photoUrl: ''));
-                            },
-                            icon: const Icon(Icons.delete_outline, size: 14, color: Colors.redAccent),
-                            label: const Text('Quitar', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            ),
-                          ),
-                      ],
-                    ),
+                    buildActionsGrid(),
                   ],
-                ),
-              ),
-            ],
+                );
+              }
+
+              // Desktop / wider layout
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  buildPhotoWidget(size: 96),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              isCircle ? 'Encuadre Circular' : 'Encuadre Cuadrado',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const Spacer(),
+                            buildShapeSelector(),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        buildActionsGrid(),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
 
           // Collapsible Zoom & Pan sliders
