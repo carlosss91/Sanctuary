@@ -10,6 +10,8 @@ import '../../data/models/user_model.dart';
 import '../../data/services/api_service.dart';
 import 'add_link_dialog.dart';
 import 'user_profile_dialog.dart';
+import 'widgets/ai_sentinel_widget.dart';
+import 'widgets/ai_sentinel_dialog.dart';
 
 class HubScreen extends StatefulWidget {
   final ApiService apiService;
@@ -1009,6 +1011,22 @@ class _HubScreenState extends State<HubScreen> {
                                   }
                                 },
                               ),
+                              _buildIPhoneAppIcon(
+                                title: 'AI Sentinel',
+                                subtitle: 'BOC · BOE · GobCan',
+                                icon: Icons.radar_rounded,
+                                gradient: const [Color(0xFF059669), Color(0xFF0D9488)],
+                                badge: 'IA Live',
+                                onTap: () {
+                                  AiSentinelDialog.show(
+                                    context,
+                                    apiService: widget.apiService,
+                                    currentUser: _currentUser,
+                                    onConfigSaved: () => setState(() {}),
+                                    onTriggerScan: () => setState(() {}),
+                                  );
+                                },
+                              ),
                             ],
                           );
                         },
@@ -1017,7 +1035,18 @@ class _HubScreenState extends State<HubScreen> {
                       const SizedBox(height: 34),
 
                       // ================================================================
-                      // 2. GITHUB REPOSITORIES iOS-STYLE WIDGET
+                      // 2. AI SENTINEL · VIGILANCIA OFICIAL DE VIVIENDA (BOC/BOE/ICV)
+                      // ================================================================
+                      AiSentinelWidget(
+                        apiService: widget.apiService,
+                        currentUser: _currentUser,
+                        isDark: isDark,
+                      ),
+
+                      const SizedBox(height: 34),
+
+                      // ================================================================
+                      // 3. GITHUB REPOSITORIES iOS-STYLE WIDGET
                       // ================================================================
                       _buildGitHubIOSWidget(isDark),
 

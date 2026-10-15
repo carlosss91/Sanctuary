@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/cv_profile_model.dart';
 import '../models/repo_link_model.dart';
+import '../models/ai_automation_model.dart';
 
 class StorageService {
   static const String _keyCurrentUser = 'sanctuary_current_user';
@@ -530,6 +531,44 @@ class StorageService {
   Future<void> saveSignerDocumentJson(String docId, Map<String, dynamic> docJson) async {
     try {
       await _prefs.setString('$_keySignerDocs:$docId', jsonEncode(docJson));
+    } catch (_) {}
+  }
+
+  // --- AI Sentinel & Watchdogs Persistent Cache ---
+  static const String _keyAiWatchdogConfig = 'sanctuary_ai_watchdog_config';
+  static const String _keyAiWatchdogNotifs = 'sanctuary_ai_watchdog_notifications';
+
+  AiWatchdogConfig getAiWatchdogConfig() {
+    try {
+      final raw = _prefs.getString(_keyAiWatchdogConfig);
+      if (raw != null && raw.isNotEmpty) {
+        return AiWatchdogConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return const AiWatchdogConfig();
+  }
+
+  Future<void> saveAiWatchdogConfig(AiWatchdogConfig config) async {
+    try {
+      await _prefs.setString(_keyAiWatchdogConfig, jsonEncode(config.toJson()));
+    } catch (_) {}
+  }
+
+  List<AiWatchdogNotification> getAiWatchdogNotifications() {
+    try {
+      final raw = _prefs.getString(_keyAiWatchdogNotifs);
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List<dynamic>;
+        return list.map((e) => AiWatchdogNotification.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<void> saveAiWatchdogNotifications(List<AiWatchdogNotification> notifs) async {
+    try {
+      final jsonList = notifs.map((n) => n.toJson()).toList();
+      await _prefs.setString(_keyAiWatchdogNotifs, jsonEncode(jsonList));
     } catch (_) {}
   }
 }

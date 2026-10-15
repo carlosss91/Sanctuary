@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/cv_profile_model.dart';
 import '../models/repo_link_model.dart';
+import '../models/ai_automation_model.dart';
 import '../../features/pdf_signer/models/signature_document_model.dart';
 import 'storage_service.dart';
 
@@ -1180,6 +1181,105 @@ class ApiService {
     } catch (e) {
       return {'success': false, 'message': 'Error al enviar plantilla: $e'};
     }
+  }
+
+  // --- AI Watchdog & Sentinel System ---
+  Future<AiWatchdogConfig> getAiWatchdogConfig() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/ai-watchdog/config')).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['config'] != null) {
+          final cfg = AiWatchdogConfig.fromJson(data['config'] as Map<String, dynamic>);
+          await storage.saveAiWatchdogConfig(cfg);
+          return cfg;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting AI Watchdog config from backend: $e');
+    }
+    return storage.getAiWatchdogConfig();
+  }
+
+  Future<bool> saveAiWatchdogConfig(AiWatchdogConfig config) async {
+    await storage.saveAiWatchdogConfig(config);
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/ai-watchdog/config'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(config.toJson()),
+      ).timeout(const Duration(seconds: 6));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error saving AI Watchdog config to backend: $e');
+      return true; // Saved locally
+    }
+  }
+
+  Future<List<AiWatchdogNotification>> getAiWatchdogNotifications() async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/ai-watchdog/notifications')).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['notifications'] != null) {
+          final list = (data['notifications'] as List<dynamic>)
+              .map((e) => AiWatchdogNotification.fromJson(e as Map<String, dynamic>))
+              .toList();
+          await storage.saveAiWatchdogNotifications(list);
+          return list;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting AI Watchdog notifications from backend: $e');
+    }
+    return storage.getAiWatchdogNotifications();
+  }
+
+  Future<Map<String, dynamic>> runAiWatchdogScan() async {
+    final cfg = storage.getAiWatchdogConfig();
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/ai-watchdog/scan'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(cfg.toJson()),
+      ).timeout(const Duration(seconds: 25));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['notifications'] != null) {
+          final list = (data['notifications'] as List<dynamic>)
+              .map((e) => AiWatchdogNotification.fromJson(e as Map<String, dynamic>))
+              .toList();
+          await storage.saveAiWatchdogNotifications(list);
+        }
+        return data;
+      }
+    } catch (e) {
+      debugPrint('Error running AI Watchdog scan on backend: $e');
+    }
+    return {'success': false, 'message': 'No se pudo conectar al servidor de escaneo.'};
+  }
+
+  Future<bool> markAiNotificationAsRead(String id) async {
+    final list = storage.getAiWatchdogNotifications();
+    final idx = list.indexWhere((n) => n.id == id);
+    if (idx != -1) {
+      list[idx] = list[idx].copyWith(isRead: true);
+      await storage.saveAiWatchdogNotifications(list);
+    }
+    try {
+      await http.post(Uri.parse('$baseUrl/ai-watchdog/notifications/$id/read')).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+    return true;
+  }
+
+  Future<bool> deleteAiNotification(String id) async {
+    final list = storage.getAiWatchdogNotifications();
+    list.removeWhere((n) => n.id == id);
+    await storage.saveAiWatchdogNotifications(list);
+    try {
+      await http.delete(Uri.parse('$baseUrl/ai-watchdog/notifications/$id')).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+    return true;
   }
 }
 

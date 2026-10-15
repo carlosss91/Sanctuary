@@ -3481,6 +3481,208 @@ app.get('/api/slides/download', async (req, res) => {
   }
 });
 
+// ==============================================================================
+// AI WATCHDOG & OFFICIAL HOUSING SENTINEL (BOC / BOE / ICV / LANZAROTE)
+// ==============================================================================
+const aiWatchdogService = require('./services/ai_watchdog_service');
+
+async function getAiWatchdogConfigFromDb() {
+  const ldb = getLocalDb();
+  if (ldb.ai_watchdog_config) return ldb.ai_watchdog_config;
+
+  try {
+    const q = await safeQuery("SELECT value FROM app_settings WHERE key = 'ai_watchdog_config'");
+    if (q && q.rows && q.rows.length > 0) {
+      const val = typeof q.rows[0].value === 'string' ? JSON.parse(q.rows[0].value) : q.rows[0].value;
+      ldb.ai_watchdog_config = val;
+      return val;
+    }
+  } catch (_) {}
+
+  const def = aiWatchdogService.getDefaultConfig();
+  ldb.ai_watchdog_config = def;
+  saveLocalDb(ldb);
+  return def;
+}
+
+async function saveAiWatchdogConfigToDb(config) {
+  const ldb = getLocalDb();
+  ldb.ai_watchdog_config = config;
+  saveLocalDb(ldb);
+
+  try {
+    await safeQuery(
+      "INSERT INTO app_settings (key, value) VALUES ('ai_watchdog_config', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+      [JSON.stringify(config)]
+    );
+  } catch (_) {}
+}
+
+async function getAiWatchdogNotificationsFromDb() {
+  const ldb = getLocalDb();
+  if (Array.isArray(ldb.ai_watchdog_notifications) && ldb.ai_watchdog_notifications.length > 0) {
+    return ldb.ai_watchdog_notifications;
+  }
+
+  try {
+    const q = await safeQuery("SELECT value FROM app_settings WHERE key = 'ai_watchdog_notifications'");
+    if (q && q.rows && q.rows.length > 0) {
+      const val = typeof q.rows[0].value === 'string' ? JSON.parse(q.rows[0].value) : q.rows[0].value;
+      if (Array.isArray(val) && val.length > 0) {
+        ldb.ai_watchdog_notifications = val;
+        return val;
+      }
+    }
+  } catch (_) {}
+
+  const baseline = aiWatchdogService.getBaselineNotices();
+  ldb.ai_watchdog_notifications = baseline;
+  saveLocalDb(ldb);
+  return baseline;
+}
+
+async function saveAiWatchdogNotificationsToDb(notifications) {
+  const ldb = getLocalDb();
+  ldb.ai_watchdog_notifications = notifications;
+  saveLocalDb(ldb);
+
+  try {
+    await safeQuery(
+      "INSERT INTO app_settings (key, value) VALUES ('ai_watchdog_notifications', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+      [JSON.stringify(notifications)]
+    );
+  } catch (_) {}
+}
+
+app.get('/api/ai-watchdog/config', async (req, res) => {
+  try {
+    const config = await getAiWatchdogConfigFromDb();
+    res.json({ success: true, config });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/ai-watchdog/config', async (req, res) => {
+  try {
+    const newConfig = req.body || {};
+    const current = await getAiWatchdogConfigFromDb();
+    const merged = { ...current, ...newConfig };
+    await saveAiWatchdogConfigToDb(merged);
+    res.json({ success: true, config: merged });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/ai-watchdog/notifications', async (req, res) => {
+  try {
+    const notifications = await getAiWatchdogNotificationsFromDb();
+    res.json({ success: true, notifications });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/ai-watchdog/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const notifs = await getAiWatchdogNotificationsFromDb();
+    const target = notifs.find(n => n.id === id);
+    if (target) {
+      target.isRead = true;
+      await saveAiWatchdogNotificationsToDb(notifs);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/ai-watchdog/notifications/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let notifs = await getAiWatchdogNotificationsFromDb();
+    notifs = notifs.filter(n => n.id !== id);
+    await saveAiWatchdogNotificationsToDb(notifs);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/ai-watchdog/scan', async (req, res) => {
+  try {
+    const incomingConfig = req.body || {};
+    const dbConfig = await getAiWatchdogConfigFromDb();
+    const config = { ...dbConfig, ...incomingConfig };
+
+    // 1. Fetch live notices and combine with baseline notices
+    const liveNotices = await aiWatchdogService.fetchLiveOfficialBulletins();
+    const baselineNotices = aiWatchdogService.getBaselineNotices();
+    const existingNotifs = await getAiWatchdogNotificationsFromDb();
+
+    const knownKeys = new Set(existingNotifs.map(n => n.title.toLowerCase().trim()));
+
+    const candidatePool = [...baselineNotices, ...liveNotices];
+    const filtered = aiWatchdogService.filterNotices(candidatePool, config);
+
+    const updatedNotifs = [...existingNotifs];
+    const brandNewAlerts = [];
+
+    for (const notice of filtered) {
+      const key = notice.title.toLowerCase().trim();
+      if (!knownKeys.has(key)) {
+        if (config.geminiApiKey) {
+          notice.aiAnalysis = await aiWatchdogService.analyzeWithGemini(notice, config);
+        }
+        notice.timestamp = new Date().toISOString();
+        notice.isRead = false;
+        notice.isEmailSent = false;
+        updatedNotifs.unshift(notice);
+        brandNewAlerts.push(notice);
+        knownKeys.add(key);
+      } else {
+        const existing = updatedNotifs.find(n => n.title.toLowerCase().trim() === key);
+        if (existing && config.geminiApiKey && (!existing.aiAnalysis || !existing.aiAnalysis.includes('🤖'))) {
+          existing.aiAnalysis = await aiWatchdogService.analyzeWithGemini(existing, config);
+        }
+      }
+    }
+
+    // 2. Dispatch email alerts if new notices were found and email is enabled
+    if (config.emailNotifications && config.targetEmail && brandNewAlerts.length > 0) {
+      try {
+        await sendMailNotification({
+          to: config.targetEmail,
+          subject: `🪐 Alerta AI Sentinel: ${brandNewAlerts.length} Nueva(s) Convocatoria(s) de Vivienda en ${config.targetIsland}`,
+          html: aiWatchdogService.buildAiSentinelEmailHtml(brandNewAlerts, config),
+          text: `AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) de vivienda para ${config.targetIsland}. Revisa el Hub en Sanctuary Suite.`,
+        });
+        brandNewAlerts.forEach(n => { n.isEmailSent = true; });
+      } catch (mailErr) {
+        console.warn('[AI Sentinel] Error al enviar notificación por correo:', mailErr.message);
+      }
+    }
+
+    config.lastScanDate = new Date().toISOString();
+    config.lastScanStatus = `Completado exitosamente (${updatedNotifs.length} publicaciones analizadas)`;
+    await saveAiWatchdogConfigToDb(config);
+    await saveAiWatchdogNotificationsToDb(updatedNotifs);
+
+    res.json({
+      success: true,
+      notifications: updatedNotifs,
+      newAlertsCount: brandNewAlerts.length,
+      config,
+    });
+  } catch (err) {
+    console.error('Error in /api/ai-watchdog/scan:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`✨ Sanctuary API running on port ${port}`);
 });
+
