@@ -53,3 +53,9 @@ backend/node_modules/
 backend/uploads/
 backend/data/
 *.traineddata
+.neon
+.env.local
+ 
+.env
+backend/.env
+*.env

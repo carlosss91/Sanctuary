@@ -8,7 +8,12 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
 // Load environment variables from .env if present
-const envCandidates = [path.join(__dirname, '.env'), path.join(__dirname, '..', '.env')];
+const envCandidates = [
+  path.join(__dirname, '.env'),
+  path.join(__dirname, '..', '.env'),
+  path.join(__dirname, '.env.local'),
+  path.join(__dirname, '..', '.env.local'),
+];
 for (const envFile of envCandidates) {
   if (fs.existsSync(envFile)) {
     try {
