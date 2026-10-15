@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
@@ -1528,47 +1530,127 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                   // If custom watermark is chosen
                   if (widget.profile.watermarkPattern == 'custom') ...[
                     const SizedBox(height: 14),
-                    const Text('URL de Imagen de Marca de Agua Personalizada:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    const Text('Imagen de Fondo Personalizada:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
-                            controller: TextEditingController(text: widget.profile.customWatermarkUrl),
-                            decoration: const InputDecoration(
-                              hintText: 'https://ejemplo.com/marca-agua.png',
-                              prefixIcon: Icon(Icons.link, size: 16),
+                          child: ElevatedButton.icon(
+                            onPressed: _pickWatermarkImage,
+                            icon: const Icon(Icons.upload_file, size: 16),
+                            label: const Text('Subir Imagen desde el equipo', style: TextStyle(fontSize: 11.5)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            onChanged: (val) => _update(widget.profile.copyWith(customWatermarkUrl: val.trim())),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        OutlinedButton(
+                        OutlinedButton.icon(
                           onPressed: () {
-                            // Preset sample tech texture
                             const sampleUrl = 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=60';
                             _update(widget.profile.copyWith(customWatermarkUrl: sampleUrl));
                           },
-                          child: const Text('Ejemplo', style: TextStyle(fontSize: 11)),
+                          icon: const Icon(Icons.auto_awesome, size: 14),
+                          label: const Text('Ejemplo', style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    _buildLabeledField(
+                      fieldKey: const ValueKey('watermark_custom_url_input'),
+                      label: 'O enlace web (URL):',
+                      initialValue: widget.profile.customWatermarkUrl.startsWith('data:image') ? '' : widget.profile.customWatermarkUrl,
+                      hintText: 'https://ejemplo.com/marca-agua.png',
+                      isDark: isDark,
+                      onChanged: (val) => _update(widget.profile.copyWith(customWatermarkUrl: val.trim())),
+                    ),
+                    if (widget.profile.customWatermarkUrl.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkInput : AppTheme.lightInput,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: widget.profile.customWatermarkUrl.startsWith('data:image')
+                                    ? Image.memory(
+                                        base64Decode(widget.profile.customWatermarkUrl.substring(widget.profile.customWatermarkUrl.indexOf(',') + 1)),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 20, color: Colors.grey),
+                                      )
+                                    : Image.network(
+                                        widget.profile.customWatermarkUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 20, color: Colors.grey),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Imagen asignada al fondo',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                  ),
+                                  Text(
+                                    widget.profile.customWatermarkUrl.startsWith('data:image')
+                                        ? 'Archivo local listo para previsualización'
+                                        : widget.profile.customWatermarkUrl,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Quitar imagen',
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                              onPressed: () => _update(widget.profile.copyWith(customWatermarkUrl: '')),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
-                  // Watermark Opacity & Transparency Slider (0% a 100%)
+                  // 1. Slider: Cantidad de Marcas de Agua
                   Row(
                     children: [
-                      const Icon(Icons.opacity, size: 15, color: AppTheme.emerald),
+                      const Icon(Icons.apps, size: 15, color: AppTheme.emerald),
                       const SizedBox(width: 8),
                       Text(
-                        'Intensidad / Opacidad: ${(widget.profile.watermarkOpacity * 100).toInt()}%',
+                        'Cantidad de marcas de agua: ${(widget.profile.watermarkDensity * 100).toInt()}%',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       const Spacer(),
                       Text(
-                        'Transparencia: ${(100 - (widget.profile.watermarkOpacity * 100)).toInt()}%',
+                        widget.profile.watermarkDensity <= 0.65
+                            ? 'Pocas'
+                            : widget.profile.watermarkDensity >= 1.6
+                                ? 'Máxima'
+                                : widget.profile.watermarkDensity >= 1.25
+                                    ? 'Muchas'
+                                    : 'Normal',
                         style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -1581,27 +1663,80 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       trackHeight: 3,
                     ),
                     child: Slider(
-                      value: widget.profile.watermarkOpacity.clamp(0.0, 1.0),
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 100,
+                      value: widget.profile.watermarkDensity.clamp(0.5, 2.0),
+                      min: 0.5,
+                      max: 2.0,
+                      divisions: 15,
                       onChanged: (val) {
-                        _update(widget.profile.copyWith(watermarkOpacity: val));
+                        _update(widget.profile.copyWith(watermarkDensity: val));
                       },
                     ),
                   ),
 
-                  // Quick presets for transparency
+                  // Quick presets for Cantidad
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      _buildPresetChip('0% Transparente', 0.0, isDark),
-                      _buildPresetChip('15% Sutil', 0.15, isDark),
-                      _buildPresetChip('35% Media', 0.35, isDark),
-                      _buildPresetChip('60% Marcada', 0.60, isDark),
-                      _buildPresetChip('85% Intensa', 0.85, isDark),
-                      _buildPresetChip('100% Opaca', 1.0, isDark),
+                      _buildDensityPresetChip('50% (Pocas)', 0.5, isDark),
+                      _buildDensityPresetChip('100% (Normal)', 1.0, isDark),
+                      _buildDensityPresetChip('150% (Muchas)', 1.5, isDark),
+                      _buildDensityPresetChip('200% (Máxima)', 2.0, isDark),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 2. Slider: Transparencia
+                  Row(
+                    children: [
+                      const Icon(Icons.opacity, size: 15, color: AppTheme.emerald),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Transparencia: ${(100 - (widget.profile.watermarkOpacity * 100)).toInt()}%',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      Text(
+                        widget.profile.watermarkOpacity <= 0.08
+                            ? 'Muy Sutil'
+                            : widget.profile.watermarkOpacity <= 0.18
+                                ? 'Equilibrada'
+                                : widget.profile.watermarkOpacity <= 0.30
+                                    ? 'Visible'
+                                    : 'Marcada',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: AppTheme.emerald,
+                      thumbColor: AppTheme.emerald,
+                      overlayColor: AppTheme.emerald.withOpacity(0.2),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: ((1.0 - widget.profile.watermarkOpacity) * 100).clamp(40.0, 100.0),
+                      min: 40.0,
+                      max: 100.0,
+                      divisions: 60,
+                      onChanged: (transparencyVal) {
+                        final newOpacity = (100.0 - transparencyVal) / 100.0;
+                        _update(widget.profile.copyWith(watermarkOpacity: newOpacity));
+                      },
+                    ),
+                  ),
+
+                  // Quick presets for Transparencia
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _buildTransparencyPresetChip('90% (Sutil)', 0.10, isDark),
+                      _buildTransparencyPresetChip('86% (Equilibrada)', 0.14, isDark),
+                      _buildTransparencyPresetChip('75% (Visible)', 0.25, isDark),
+                      _buildTransparencyPresetChip('60% (Marcada)', 0.40, isDark),
                     ],
                   ),
                 ],
@@ -1939,15 +2074,46 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     );
   }
 
+  Future<void> _pickWatermarkImage() async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'svg'],
+      );
+      if (files.isNotEmpty) {
+        final pickedFile = files.first;
+        final bytes = await pickedFile.readAsBytes();
+        if (bytes.isNotEmpty) {
+          final ext = pickedFile.extension?.toLowerCase() ?? 'png';
+          final mime = ext == 'svg' ? 'image/svg+xml' : 'image/$ext';
+          final b64 = base64Encode(bytes);
+          final dataUri = 'data:$mime;base64,$b64';
+          _update(widget.profile.copyWith(
+            watermarkPattern: 'custom',
+            customWatermarkUrl: dataUri,
+          ));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error seleccionando imagen de fondo: $e');
+    }
+  }
+
   Widget _buildWatermarkGrid(bool isDark) {
     const options = [
       ('gears', 'Engranajes Técnicos', Icons.settings),
       ('tools', 'Herramientas de Oficio', Icons.build),
-      ('geometric', 'Malla Geométrica', Icons.grid_view),
+      ('constellation', 'Redes y Nodos (ASIR)', Icons.hub_outlined),
+      ('circuits', 'Circuitos y Chips', Icons.memory),
+      ('code_brackets', 'Código y Software', Icons.code),
+      ('geometric', 'Malla Hexagonal', Icons.grid_view),
+      ('cubes', 'Cubos Isométricos 3D', Icons.view_in_ar_outlined),
+      ('waves', 'Ondas y Frecuencia', Icons.waves),
       ('shield', 'Escudo Profesional', Icons.security),
       ('lines', 'Líneas Planimétricas', Icons.line_style),
       ('tech_dots', 'Retícula Técnica', Icons.grain),
-      ('custom', 'URL de Imagen', Icons.image_outlined),
+      ('leaves', 'Eco y Sostenibilidad', Icons.eco_outlined),
+      ('custom', 'Imagen Personalizada', Icons.image_outlined),
       ('none', 'Liso (Sin Marca)', Icons.block),
     ];
 
@@ -2011,10 +2177,36 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildPresetChip(String label, double val, bool isDark) {
-    final isSelected = (widget.profile.watermarkOpacity - val).abs() < 0.05;
+  Widget _buildDensityPresetChip(String label, double val, bool isDark) {
+    final isSelected = (widget.profile.watermarkDensity - val).abs() < 0.06;
     return InkWell(
-      onTap: () => _update(widget.profile.copyWith(watermarkOpacity: val)),
+      onTap: () => _update(widget.profile.copyWith(watermarkDensity: val)),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.emerald.withOpacity(0.2) : (isDark ? AppTheme.darkInput : AppTheme.lightInput),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.emerald : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.emerald : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransparencyPresetChip(String label, double opacityVal, bool isDark) {
+    final isSelected = (widget.profile.watermarkOpacity - opacityVal).abs() < 0.04;
+    return InkWell(
+      onTap: () => _update(widget.profile.copyWith(watermarkOpacity: opacityVal)),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

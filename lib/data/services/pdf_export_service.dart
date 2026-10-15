@@ -1346,6 +1346,12 @@ class PdfExportService {
     if (pattern == 'gears') symbol = '* INDUSTRIAL CERTIFIED *';
     if (pattern == 'tools') symbol = '* TECHNICAL CV *';
     if (pattern == 'shield') symbol = '* OFFICIAL PROFILE *';
+    if (pattern == 'constellation') symbol = '* NETWORK & SYSTEMS (ASIR) *';
+    if (pattern == 'circuits') symbol = '* ELECTRONICS & HARDWARE *';
+    if (pattern == 'code_brackets') symbol = '* SOFTWARE & DEVELOPMENT *';
+    if (pattern == 'cubes') symbol = '* 3D & ARCHITECTURE *';
+    if (pattern == 'waves') symbol = '* SIGNAL & TECHNOLOGY *';
+    if (pattern == 'leaves') symbol = '* ECO & SUSTAINABILITY *';
 
     final alpha = (profile.watermarkOpacity * 255).clamp(0, 255).toInt();
     final watermarkColor = PdfColor(color.red, color.green, color.blue, alpha / 255.0);

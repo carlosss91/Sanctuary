@@ -174,6 +174,7 @@ class CvProfileModel {
   final bool showWatermark;
   final String watermarkPattern;
   final double watermarkOpacity;
+  final double watermarkDensity;
   final String customWatermarkUrl;
 
   const CvProfileModel({
@@ -208,6 +209,7 @@ class CvProfileModel {
     this.showWatermark = true,
     this.watermarkPattern = 'gears',
     this.watermarkOpacity = 0.14,
+    this.watermarkDensity = 1.0,
     this.customWatermarkUrl = '',
   });
 
@@ -263,6 +265,7 @@ class CvProfileModel {
       showWatermark: json['showWatermark'] as bool? ?? true,
       watermarkPattern: json['watermarkPattern'] as String? ?? 'gears',
       watermarkOpacity: (json['watermarkOpacity'] as num?)?.toDouble() ?? 0.14,
+      watermarkDensity: (json['watermarkDensity'] as num?)?.toDouble() ?? 1.0,
       customWatermarkUrl: json['customWatermarkUrl'] as String? ?? '',
     );
   }
@@ -300,6 +303,7 @@ class CvProfileModel {
       'showWatermark': showWatermark,
       'watermarkPattern': watermarkPattern,
       'watermarkOpacity': watermarkOpacity,
+      'watermarkDensity': watermarkDensity,
       'customWatermarkUrl': customWatermarkUrl,
     };
   }
@@ -336,6 +340,7 @@ class CvProfileModel {
     bool? showWatermark,
     String? watermarkPattern,
     double? watermarkOpacity,
+    double? watermarkDensity,
     String? customWatermarkUrl,
   }) {
     final effectiveSkillItems = skillItems ??
@@ -377,6 +382,7 @@ class CvProfileModel {
       showWatermark: showWatermark ?? this.showWatermark,
       watermarkPattern: watermarkPattern ?? this.watermarkPattern,
       watermarkOpacity: watermarkOpacity ?? this.watermarkOpacity,
+      watermarkDensity: watermarkDensity ?? this.watermarkDensity,
       customWatermarkUrl: customWatermarkUrl ?? this.customWatermarkUrl,
     );
   }

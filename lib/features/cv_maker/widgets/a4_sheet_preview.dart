@@ -168,7 +168,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     }
   }
 
-  Widget _buildWatermarkOverlay({double? opacity}) {
+  Widget _buildWatermarkOverlay({double? opacity, double? density}) {
     if (!widget.profile.showWatermark ||
         widget.profile.watermarkPattern == 'none') {
       return const SizedBox.shrink();
@@ -176,17 +176,33 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
 
     final effectiveOpacity = (opacity ?? widget.profile.watermarkOpacity).clamp(0.0, 1.0);
     if (effectiveOpacity <= 0.0) return const SizedBox.shrink();
+    final effectiveDensity = (density ?? widget.profile.watermarkDensity).clamp(0.4, 3.0);
 
     if (widget.profile.watermarkPattern == 'custom' && widget.profile.customWatermarkUrl.isNotEmpty) {
-      return Opacity(
-        opacity: effectiveOpacity,
-        child: Image.network(
-          widget.profile.customWatermarkUrl,
+      final img = widget.profile.customWatermarkUrl;
+      final Widget imgWidget;
+      if (img.startsWith('data:image')) {
+        final commaIdx = img.indexOf(',');
+        final b64 = commaIdx != -1 ? img.substring(commaIdx + 1) : img;
+        imgWidget = Image.memory(
+          base64Decode(b64),
           fit: BoxFit.cover,
           color: Colors.white.withOpacity(0.7),
           colorBlendMode: BlendMode.modulate,
           errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        ),
+        );
+      } else {
+        imgWidget = Image.network(
+          img,
+          fit: BoxFit.cover,
+          color: Colors.white.withOpacity(0.7),
+          colorBlendMode: BlendMode.modulate,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        );
+      }
+      return Opacity(
+        opacity: effectiveOpacity,
+        child: imgWidget,
       );
     }
 
@@ -194,6 +210,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
       painter: WatermarkPainter(
         pattern: widget.profile.watermarkPattern,
         opacity: effectiveOpacity,
+        density: effectiveDensity,
       ),
     );
   }
@@ -467,7 +484,6 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
               // Header Banner with Name & Job Title
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: accentColor,
                   borderRadius: BorderRadius.circular(8),
@@ -480,35 +496,38 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                       Positioned.fill(
                         child: _buildWatermarkOverlay(),
                       ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.profile.fullName.isNotEmpty
-                                ? widget.profile.fullName.toUpperCase()
-                                : 'NOMBRE Y APELLIDOS',
-                            textAlign: TextAlign.center,
-                            style: _getTextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          if (widget.profile.jobTitle.isNotEmpty) ...[
-                            const SizedBox(height: 2.5),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Text(
-                              widget.profile.jobTitle.toUpperCase(),
+                              widget.profile.fullName.isNotEmpty
+                                  ? widget.profile.fullName.toUpperCase()
+                                  : 'NOMBRE Y APELLIDOS',
                               textAlign: TextAlign.center,
                               style: _getTextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withOpacity(0.95),
-                                letterSpacing: 0.8,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: 1.0,
                               ),
                             ),
+                            if (widget.profile.jobTitle.isNotEmpty) ...[
+                              const SizedBox(height: 2.5),
+                              Text(
+                                widget.profile.jobTitle.toUpperCase(),
+                                textAlign: TextAlign.center,
+                                style: _getTextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(0.95),
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -1220,7 +1239,6 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
   Widget _buildSectionPill(String title, Color accentColor) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
       decoration: BoxDecoration(
         color: accentColor,
         borderRadius: BorderRadius.circular(12),
@@ -1233,14 +1251,17 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
             Positioned.fill(
               child: _buildWatermarkOverlay(),
             ),
-            Text(
-              title.toUpperCase(),
-              textAlign: TextAlign.center,
-              style: _getTextStyle(
-                color: Colors.white,
-                fontSize: 8.2,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+              child: Text(
+                title.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: _getTextStyle(
+                  color: Colors.white,
+                  fontSize: 8.2,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
           ],
@@ -1573,8 +1594,13 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
 class WatermarkPainter extends CustomPainter {
   final String pattern;
   final double opacity;
+  final double density;
 
-  WatermarkPainter({required this.pattern, this.opacity = 0.14});
+  WatermarkPainter({
+    required this.pattern,
+    this.opacity = 0.14,
+    this.density = 1.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1583,10 +1609,10 @@ class WatermarkPainter extends CustomPainter {
     final strokePaint = Paint()
       ..color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = 1.6;
 
     final fillPaint = Paint()
-      ..color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0) * 0.5)
+      ..color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0) * 0.45)
       ..style = PaintingStyle.fill;
 
     switch (pattern) {
@@ -1596,8 +1622,23 @@ class WatermarkPainter extends CustomPainter {
       case 'tools':
         _drawTools(canvas, size, strokePaint, fillPaint);
         break;
+      case 'constellation':
+        _drawConstellation(canvas, size, strokePaint, fillPaint);
+        break;
+      case 'circuits':
+        _drawCircuits(canvas, size, strokePaint, fillPaint);
+        break;
+      case 'code_brackets':
+        _drawCodeBrackets(canvas, size, strokePaint);
+        break;
       case 'geometric':
         _drawHexagons(canvas, size, strokePaint, fillPaint);
+        break;
+      case 'cubes':
+        _drawCubes(canvas, size, strokePaint, fillPaint);
+        break;
+      case 'waves':
+        _drawWaves(canvas, size, strokePaint);
         break;
       case 'shield':
         _drawShield(canvas, size, strokePaint, fillPaint);
@@ -1608,17 +1649,21 @@ class WatermarkPainter extends CustomPainter {
       case 'tech_dots':
         _drawTechDots(canvas, size, strokePaint, fillPaint);
         break;
+      case 'leaves':
+        _drawLeaves(canvas, size, strokePaint, fillPaint);
+        break;
       default:
         _drawGears(canvas, size, strokePaint, fillPaint);
     }
   }
 
   void _drawTechDots(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    final step = 22.0 / math.sqrt(density.clamp(0.4, 2.5));
     // 1. Circuit test points
-    for (double y = 16; y < size.height; y += 22) {
-      for (double x = 12; x < size.width; x += 22) {
+    for (double y = 10; y < size.height + step; y += step) {
+      for (double x = 10; x < size.width + step; x += step) {
         canvas.drawCircle(Offset(x, y), 1.6, fill);
-        if (((x + y).toInt() % 44) == 0) {
+        if (((x + y).toInt() % (step * 2).toInt()) == 0) {
           canvas.drawCircle(Offset(x, y), 3.2, stroke..strokeWidth = 0.8);
         }
       }
@@ -1626,21 +1671,23 @@ class WatermarkPainter extends CustomPainter {
 
     // 2. High-tech orthogonal circuit traces with 45-degree chamfers
     final tracePaint = stroke..strokeWidth = 1.0;
-    for (double y = 30; y < size.height - 30; y += 80) {
+    final traceStep = 80.0 / math.sqrt(density.clamp(0.4, 2.5));
+    for (double y = 20; y < size.height + 20; y += traceStep) {
       final p = Path()
-        ..moveTo(10, y)
+        ..moveTo(-10, y)
         ..lineTo(size.width * 0.35, y)
-        ..lineTo(size.width * 0.45, y + 14)
-        ..lineTo(size.width * 0.85, y + 14)
-        ..lineTo(size.width * 0.92, y + 26);
+        ..lineTo(size.width * 0.45, y + 12)
+        ..lineTo(size.width * 0.85, y + 12)
+        ..lineTo(size.width * 0.92, y + 22);
       canvas.drawPath(p, tracePaint);
-      canvas.drawCircle(Offset(size.width * 0.92, y + 26), 2.5, fill);
+      canvas.drawCircle(Offset(size.width * 0.92, y + 22), 2.5, fill);
     }
 
     // 3. Mini Micro-controller IC blocks
     final icWidth = 24.0;
     final icHeight = 16.0;
-    for (double y = 50; y < size.height - 40; y += 140) {
+    final icStep = 130.0 / math.sqrt(density.clamp(0.4, 2.5));
+    for (double y = 30; y < size.height + 20; y += icStep) {
       final rect = Rect.fromLTWH(size.width * 0.55 - icWidth / 2, y, icWidth, icHeight);
       canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), stroke..strokeWidth = 1.0);
       for (double px = rect.left + 4; px < rect.right - 2; px += 5) {
@@ -1651,23 +1698,44 @@ class WatermarkPainter extends CustomPainter {
   }
 
   void _drawGears(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    if (size.height <= 60) {
+      final cy = size.height / 2;
+      final step = 38.0 / math.sqrt(density.clamp(0.4, 2.5));
+      int idx = 0;
+      for (double x = 12; x < size.width + 30; x += step) {
+        final r = (idx % 2 == 0)
+            ? (14.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 22.0)
+            : (10.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(6.0, 16.0);
+        final teeth = (idx % 2 == 0) ? 9 : 7;
+        _drawSingleGear(canvas, Offset(x, cy), r, teeth, stroke, fill);
+        idx++;
+      }
+      return;
+    }
+
     // Multi-gear engineering arrangement across the layout
-    _drawSingleGear(canvas, Offset(size.width * 0.82, size.height * 0.08), 34.0, 10, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.96, size.height * 0.15), 18.0, 8, stroke, fill);
+    final d = math.sqrt(density.clamp(0.4, 2.5));
+    _drawSingleGear(canvas, Offset(size.width * 0.82, size.height * 0.08), 34.0 * d, 10, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.96, size.height * 0.15), 18.0 * d, 8, stroke, fill);
 
-    _drawSingleGear(canvas, Offset(size.width * 0.16, size.height * 0.28), 28.0, 9, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.05, size.height * 0.35), 16.0, 7, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.16, size.height * 0.28), 28.0 * d, 9, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.05, size.height * 0.35), 16.0 * d, 7, stroke, fill);
 
-    _drawSingleGear(canvas, Offset(size.width * 0.86, size.height * 0.50), 32.0, 10, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.20, size.height * 0.70), 30.0, 9, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.86, size.height * 0.50), 32.0 * d, 10, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.20, size.height * 0.70), 30.0 * d, 9, stroke, fill);
 
-    _drawSingleGear(canvas, Offset(size.width * 0.74, size.height * 0.88), 48.0, 12, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.26, size.height * 0.94), 30.0, 8, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.92), 20.0, 7, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.74, size.height * 0.88), 46.0 * d, 12, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.26, size.height * 0.94), 30.0 * d, 8, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.92), 20.0 * d, 7, stroke, fill);
+
+    if (density >= 1.25) {
+      _drawSingleGear(canvas, Offset(size.width * 0.52, size.height * 0.20), 22.0 * d, 8, stroke, fill);
+      _drawSingleGear(canvas, Offset(size.width * 0.80, size.height * 0.38), 24.0 * d, 8, stroke, fill);
+      _drawSingleGear(canvas, Offset(size.width * 0.15, size.height * 0.58), 20.0 * d, 7, stroke, fill);
+    }
   }
 
   void _drawSingleGear(Canvas canvas, Offset center, double radius, int teeth, Paint stroke, Paint fill) {
-    // 1. Draw outer teeth with solid gear path
     final path = Path();
     final angleStep = (2 * math.pi) / teeth;
     final toothDepth = radius * 0.18;
@@ -1699,84 +1767,88 @@ class WatermarkPainter extends CustomPainter {
     path.close();
 
     canvas.drawPath(path, fill);
-    canvas.drawPath(path, stroke..strokeWidth = 1.4);
+    canvas.drawPath(path, stroke..strokeWidth = 1.3);
 
-    // 2. Pitch circle
-    canvas.drawCircle(center, innerR * 0.78, stroke..strokeWidth = 0.9);
-
-    // 3. Central axle hub
+    // Pitch circle & axle hub
+    canvas.drawCircle(center, innerR * 0.78, stroke..strokeWidth = 0.8);
     final hubR = innerR * 0.45;
-    canvas.drawCircle(center, hubR, stroke..strokeWidth = 1.4);
+    canvas.drawCircle(center, hubR, stroke..strokeWidth = 1.2);
     canvas.drawCircle(center, hubR * 0.45, fill);
-    canvas.drawCircle(center, hubR * 0.45, stroke..strokeWidth = 1.0);
+    canvas.drawCircle(center, hubR * 0.45, stroke..strokeWidth = 0.9);
 
-    // 4. Lightening holes in wheel body (4 spokes/holes)
+    // Lightening holes (4 spokes)
     final holeR = hubR * 0.38;
     final holeDist = innerR * 0.62;
     for (int h = 0; h < 4; h++) {
       final ha = h * (math.pi / 2) + (math.pi / 4);
       final hc = Offset(center.dx + math.cos(ha) * holeDist, center.dy + math.sin(ha) * holeDist);
-      canvas.drawCircle(hc, holeR, stroke..strokeWidth = 0.9);
+      canvas.drawCircle(hc, holeR, stroke..strokeWidth = 0.8);
     }
   }
 
   void _drawTools(Canvas canvas, Size size, Paint stroke, Paint fill) {
-    _drawCrossedTools(canvas, Offset(size.width * 0.80, size.height * 0.10), 22, stroke, fill);
-    _drawCrossedTools(canvas, Offset(size.width * 0.22, size.height * 0.32), 24, stroke, fill);
-    _drawCrossedTools(canvas, Offset(size.width * 0.82, size.height * 0.54), 26, stroke, fill);
-    _drawCrossedTools(canvas, Offset(size.width * 0.25, size.height * 0.74), 24, stroke, fill);
+    if (size.height <= 60) {
+      final cy = size.height / 2;
+      final step = 50.0 / math.sqrt(density.clamp(0.4, 2.5));
+      for (double x = 20; x < size.width + 30; x += step) {
+        _drawCrossedTools(canvas, Offset(x, cy), (12.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 18.0), stroke, fill);
+      }
+      return;
+    }
 
-    // Bottom large engineering emblem
-    _drawCrossedTools(canvas, Offset(size.width * 0.50, size.height * 0.89), 36, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.89), 42.0, 12, stroke, fill);
+    final d = math.sqrt(density.clamp(0.4, 2.5));
+    _drawCrossedTools(canvas, Offset(size.width * 0.80, size.height * 0.10), 22 * d, stroke, fill);
+    _drawCrossedTools(canvas, Offset(size.width * 0.22, size.height * 0.32), 24 * d, stroke, fill);
+    _drawCrossedTools(canvas, Offset(size.width * 0.82, size.height * 0.54), 26 * d, stroke, fill);
+    _drawCrossedTools(canvas, Offset(size.width * 0.25, size.height * 0.74), 24 * d, stroke, fill);
+
+    _drawCrossedTools(canvas, Offset(size.width * 0.50, size.height * 0.89), 34 * d, stroke, fill);
+    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.89), 40.0 * d, 12, stroke, fill);
+
+    if (density >= 1.25) {
+      _drawCrossedTools(canvas, Offset(size.width * 0.55, size.height * 0.22), 18 * d, stroke, fill);
+      _drawCrossedTools(canvas, Offset(size.width * 0.75, size.height * 0.70), 20 * d, stroke, fill);
+    }
   }
 
   void _drawCrossedTools(Canvas canvas, Offset c, double radius, Paint stroke, Paint fill) {
-    // 1. Wrench tool silhouette
     canvas.save();
     canvas.translate(c.dx, c.dy);
     canvas.rotate(math.pi / 4);
 
-    // Wrench shaft & handle
     final wrenchShaft = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset.zero, width: radius * 2.2, height: radius * 0.26),
       const Radius.circular(2),
     );
     canvas.drawRRect(wrenchShaft, fill);
-    canvas.drawRRect(wrenchShaft, stroke..strokeWidth = 1.2);
+    canvas.drawRRect(wrenchShaft, stroke..strokeWidth = 1.1);
 
-    // Wrench open head on right
     final headRect = Rect.fromCircle(center: Offset(radius * 1.0, 0), radius: radius * 0.45);
-    canvas.drawArc(headRect, -math.pi / 2, math.pi, true, stroke..strokeWidth = 1.4);
+    canvas.drawArc(headRect, -math.pi / 2, math.pi, true, stroke..strokeWidth = 1.3);
 
-    // Wrench closed loop on left
-    canvas.drawCircle(Offset(-radius * 1.0, 0), radius * 0.38, stroke..strokeWidth = 1.2);
-    canvas.drawCircle(Offset(-radius * 1.0, 0), radius * 0.18, stroke..strokeWidth = 1.0);
+    canvas.drawCircle(Offset(-radius * 1.0, 0), radius * 0.38, stroke..strokeWidth = 1.1);
+    canvas.drawCircle(Offset(-radius * 1.0, 0), radius * 0.18, stroke..strokeWidth = 0.9);
 
     canvas.restore();
 
-    // 2. Screwdriver / Hammer tool silhouette
     canvas.save();
     canvas.translate(c.dx, c.dy);
     canvas.rotate(-math.pi / 4);
 
-    // Tool shaft
     final toolShaft = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset.zero, width: radius * 2.1, height: radius * 0.22),
       const Radius.circular(2),
     );
     canvas.drawRRect(toolShaft, fill);
-    canvas.drawRRect(toolShaft, stroke..strokeWidth = 1.2);
+    canvas.drawRRect(toolShaft, stroke..strokeWidth = 1.1);
 
-    // Handle grip on left
     final handle = RRect.fromRectAndRadius(
       Rect.fromLTWH(-radius * 1.1, -radius * 0.22, radius * 0.7, radius * 0.44),
       const Radius.circular(3),
     );
     canvas.drawRRect(handle, fill);
-    canvas.drawRRect(handle, stroke..strokeWidth = 1.2);
+    canvas.drawRRect(handle, stroke..strokeWidth = 1.1);
 
-    // Screwdriver tip on right
     final tip = Path()
       ..moveTo(radius * 1.0, -radius * 0.1)
       ..lineTo(radius * 1.2, -radius * 0.04)
@@ -1784,26 +1856,142 @@ class WatermarkPainter extends CustomPainter {
       ..lineTo(radius * 1.0, radius * 0.1)
       ..close();
     canvas.drawPath(tip, fill);
-    canvas.drawPath(tip, stroke..strokeWidth = 1.0);
+    canvas.drawPath(tip, stroke..strokeWidth = 0.9);
 
     canvas.restore();
 
-    // 3. Central fastening bolt
     canvas.drawCircle(c, radius * 0.38, fill);
-    canvas.drawCircle(c, radius * 0.38, stroke..strokeWidth = 1.4);
-    canvas.drawCircle(c, radius * 0.16, stroke..strokeWidth = 1.0);
+    canvas.drawCircle(c, radius * 0.38, stroke..strokeWidth = 1.3);
+    canvas.drawCircle(c, radius * 0.16, stroke..strokeWidth = 0.9);
+  }
+
+  void _drawConstellation(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    // Network nodes & topology for ASIR / telecommunications
+    final step = 36.0 / math.sqrt(density.clamp(0.4, 2.5));
+    for (double y = 8; y < size.height + step; y += step) {
+      for (double x = 8; x < size.width + step; x += step) {
+        final c = Offset(x, y);
+        // Connect to right neighbor
+        if (x + step < size.width + step) {
+          canvas.drawLine(c, Offset(x + step, y), stroke..strokeWidth = 0.55);
+        }
+        // Connect to bottom and diagonal
+        if (y + step < size.height + step) {
+          canvas.drawLine(c, Offset(x, y + step), stroke..strokeWidth = 0.55);
+          if (((x + y).toInt() % (step * 2).toInt()) == 0) {
+            canvas.drawLine(c, Offset(x + step, y + step), stroke..strokeWidth = 0.55);
+          }
+        }
+        // Hub vs regular node
+        final isHub = ((x + y).toInt() % (step * 3).toInt()) == 0;
+        if (isHub) {
+          canvas.drawCircle(c, 4.2, fill);
+          canvas.drawCircle(c, 4.2, stroke..strokeWidth = 0.9);
+          canvas.drawCircle(c, 1.8, fill);
+        } else {
+          canvas.drawCircle(c, 2.2, fill);
+          canvas.drawCircle(c, 2.2, stroke..strokeWidth = 0.7);
+        }
+      }
+    }
+  }
+
+  void _drawCircuits(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    final step = 42.0 / math.sqrt(density.clamp(0.4, 2.5));
+    for (double y = 10; y < size.height + 20; y += step) {
+      final p = Path()
+        ..moveTo(-10, y)
+        ..lineTo(size.width * 0.35, y)
+        ..lineTo(size.width * 0.45, y + 10)
+        ..lineTo(size.width * 0.82, y + 10)
+        ..lineTo(size.width * 0.88, y + 18)
+        ..lineTo(size.width + 15, y + 18);
+      canvas.drawPath(p, stroke..strokeWidth = 0.8);
+      canvas.drawCircle(Offset(size.width * 0.35, y), 2.2, fill);
+      canvas.drawCircle(Offset(size.width * 0.45, y + 10), 2.2, fill);
+      canvas.drawCircle(Offset(size.width * 0.82, y + 10), 2.2, fill);
+    }
+
+    if (size.height > 60) {
+      final icW = 26.0;
+      final icH = 15.0;
+      final icStep = 110.0 / math.sqrt(density.clamp(0.4, 2.5));
+      for (double y = 25; y < size.height + 10; y += icStep) {
+        final r = Rect.fromLTWH(size.width * 0.4 - icW / 2, y, icW, icH);
+        canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(2)), stroke..strokeWidth = 1.0);
+        for (double px = r.left + 3; px < r.right - 2; px += 5) {
+          canvas.drawLine(Offset(px, r.top), Offset(px, r.top - 3), stroke..strokeWidth = 0.7);
+          canvas.drawLine(Offset(px, r.bottom), Offset(px, r.bottom + 3), stroke..strokeWidth = 0.7);
+        }
+      }
+    }
+  }
+
+  void _drawCodeBrackets(Canvas canvas, Size size, Paint stroke) {
+    final stepX = 54.0 / math.sqrt(density.clamp(0.4, 2.5));
+    final stepY = 26.0 / math.sqrt(density.clamp(0.4, 2.5));
+    int row = 0;
+    for (double y = 12; y < size.height + 20; y += stepY) {
+      int col = 0;
+      for (double x = 12; x < size.width + 20; x += stepX) {
+        final sym = (row + col) % 3;
+        final c = Offset(x, y);
+        if (sym == 0) {
+          // </ >
+          final p = Path()
+            ..moveTo(c.dx - 9, c.dy - 4.5)
+            ..lineTo(c.dx - 13, c.dy)
+            ..lineTo(c.dx - 9, c.dy + 4.5)
+            ..moveTo(c.dx - 3, c.dy + 5.5)
+            ..lineTo(c.dx + 3, c.dy - 5.5)
+            ..moveTo(c.dx + 9, c.dy - 4.5)
+            ..lineTo(c.dx + 13, c.dy)
+            ..lineTo(c.dx + 9, c.dy + 4.5);
+          canvas.drawPath(p, stroke..strokeWidth = 0.9);
+        } else if (sym == 1) {
+          // { }
+          final p = Path()
+            ..moveTo(c.dx - 6, c.dy - 5)
+            ..lineTo(c.dx - 9, c.dy - 5)
+            ..lineTo(c.dx - 9, c.dy - 1)
+            ..lineTo(c.dx - 12, c.dy)
+            ..lineTo(c.dx - 9, c.dy + 1)
+            ..lineTo(c.dx - 9, c.dy + 5)
+            ..lineTo(c.dx - 6, c.dy + 5)
+            ..moveTo(c.dx + 6, c.dy - 5)
+            ..lineTo(c.dx + 9, c.dy - 5)
+            ..lineTo(c.dx + 9, c.dy - 1)
+            ..lineTo(c.dx + 12, c.dy)
+            ..lineTo(c.dx + 9, c.dy + 1)
+            ..lineTo(c.dx + 9, c.dy + 5)
+            ..lineTo(c.dx + 6, c.dy + 5);
+          canvas.drawPath(p, stroke..strokeWidth = 0.9);
+        } else {
+          // >_ terminal
+          final p = Path()
+            ..moveTo(c.dx - 8, c.dy - 4)
+            ..lineTo(c.dx - 3, c.dy)
+            ..lineTo(c.dx - 8, c.dy + 4)
+            ..moveTo(c.dx + 1, c.dy + 4)
+            ..lineTo(c.dx + 8, c.dy + 4);
+          canvas.drawPath(p, stroke..strokeWidth = 0.9);
+        }
+        col++;
+      }
+      row++;
+    }
   }
 
   void _drawHexagons(Canvas canvas, Size size, Paint stroke, Paint fill) {
-    const hexR = 14.0;
+    final hexR = 14.0 / math.sqrt(density.clamp(0.4, 2.5));
     final wStep = hexR * 1.732;
     final hStep = hexR * 1.5;
 
-    for (double y = 14; y < size.height + 20; y += hStep) {
-      final isOdd = ((y ~/ hStep) % 2 == 1);
+    for (double y = -hStep / 2; y < size.height + hStep; y += hStep) {
+      final isOdd = (((y + 1000) ~/ hStep) % 2 == 1);
       final startX = isOdd ? (wStep / 2) : 0.0;
 
-      for (double x = startX - 10; x < size.width + 20; x += wStep) {
+      for (double x = startX - wStep; x < size.width + wStep; x += wStep) {
         final center = Offset(x, y);
         final path = Path();
         for (int i = 0; i < 6; i++) {
@@ -1818,27 +2006,101 @@ class WatermarkPainter extends CustomPainter {
         }
         path.close();
 
-        canvas.drawPath(path, stroke..strokeWidth = 0.9);
+        canvas.drawPath(path, stroke..strokeWidth = 0.8);
         canvas.drawCircle(center, 1.8, fill);
 
-        // Nested miniature hexagon in selected nodes
         if (((x + y).toInt() % 48) == 0) {
-          canvas.drawCircle(center, hexR * 0.45, stroke..strokeWidth = 0.8);
+          canvas.drawCircle(center, hexR * 0.45, stroke..strokeWidth = 0.7);
         }
       }
     }
   }
 
+  void _drawCubes(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    final s = 14.0 / math.sqrt(density.clamp(0.4, 2.5));
+    final dx = s * 1.732;
+    final dy = s * 1.5;
+
+    for (double y = -s; y < size.height + s * 2; y += dy) {
+      final isOdd = (((y + 1000) ~/ dy) % 2 == 1);
+      final startX = isOdd ? (dx / 2) : 0.0;
+
+      for (double x = startX - dx; x < size.width + dx; x += dx) {
+        final c = Offset(x, y);
+
+        // Top face
+        final topP = Path()
+          ..moveTo(c.dx, c.dy - s)
+          ..lineTo(c.dx + dx / 2, c.dy - s / 2)
+          ..lineTo(c.dx, c.dy)
+          ..lineTo(c.dx - dx / 2, c.dy - s / 2)
+          ..close();
+        canvas.drawPath(topP, fill);
+        canvas.drawPath(topP, stroke..strokeWidth = 0.8);
+
+        // Left face
+        final leftP = Path()
+          ..moveTo(c.dx - dx / 2, c.dy - s / 2)
+          ..lineTo(c.dx, c.dy)
+          ..lineTo(c.dx, c.dy + s)
+          ..lineTo(c.dx - dx / 2, c.dy + s / 2)
+          ..close();
+        canvas.drawPath(leftP, stroke..strokeWidth = 0.8);
+
+        // Right face
+        final rightP = Path()
+          ..moveTo(c.dx, c.dy)
+          ..lineTo(c.dx + dx / 2, c.dy - s / 2)
+          ..lineTo(c.dx + dx / 2, c.dy + s / 2)
+          ..lineTo(c.dx, c.dy + s)
+          ..close();
+        canvas.drawPath(rightP, stroke..strokeWidth = 0.8);
+      }
+    }
+  }
+
+  void _drawWaves(Canvas canvas, Size size, Paint stroke) {
+    final stepY = 22.0 / math.sqrt(density.clamp(0.4, 2.5));
+    final freq = 0.045 * math.sqrt(density.clamp(0.4, 2.5));
+
+    for (double y = -5; y < size.height + 25; y += stepY) {
+      final p = Path();
+      for (double x = -10; x <= size.width + 15; x += 4) {
+        final waveY = y + 7 * math.sin(x * freq + (y * 0.12));
+        if (x == -10) {
+          p.moveTo(x, waveY);
+        } else {
+          p.lineTo(x, waveY);
+        }
+      }
+      canvas.drawPath(p, stroke..strokeWidth = 0.85);
+    }
+  }
+
   void _drawShield(Canvas canvas, Size size, Paint stroke, Paint fill) {
-    _drawSingleShield(canvas, Offset(size.width * 0.80, size.height * 0.10), 24, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.20, size.height * 0.32), 26, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.82, size.height * 0.53), 28, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.22, size.height * 0.74), 26, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.50, size.height * 0.88), 42, stroke, fill);
+    if (size.height <= 60) {
+      final cy = size.height / 2;
+      final step = 46.0 / math.sqrt(density.clamp(0.4, 2.5));
+      for (double x = 18; x < size.width + 30; x += step) {
+        _drawSingleShield(canvas, Offset(x, cy), (11.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 16.0), stroke, fill);
+      }
+      return;
+    }
+
+    final d = math.sqrt(density.clamp(0.4, 2.5));
+    _drawSingleShield(canvas, Offset(size.width * 0.80, size.height * 0.10), 24 * d, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.20, size.height * 0.32), 26 * d, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.82, size.height * 0.53), 28 * d, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.22, size.height * 0.74), 26 * d, stroke, fill);
+    _drawSingleShield(canvas, Offset(size.width * 0.50, size.height * 0.88), 40 * d, stroke, fill);
+
+    if (density >= 1.25) {
+      _drawSingleShield(canvas, Offset(size.width * 0.52, size.height * 0.20), 20 * d, stroke, fill);
+      _drawSingleShield(canvas, Offset(size.width * 0.72, size.height * 0.70), 22 * d, stroke, fill);
+    }
   }
 
   void _drawSingleShield(Canvas canvas, Offset c, double s, Paint stroke, Paint fill) {
-    // Outer shield contour
     final outerPath = Path()
       ..moveTo(c.dx, c.dy - s)
       ..lineTo(c.dx + s * 0.85, c.dy - s * 0.45)
@@ -1847,9 +2109,8 @@ class WatermarkPainter extends CustomPainter {
       ..close();
 
     canvas.drawPath(outerPath, fill);
-    canvas.drawPath(outerPath, stroke..strokeWidth = 1.6);
+    canvas.drawPath(outerPath, stroke..strokeWidth = 1.4);
 
-    // Inner shield contour
     final innerS = s * 0.78;
     final innerPath = Path()
       ..moveTo(c.dx, c.dy - innerS)
@@ -1857,9 +2118,8 @@ class WatermarkPainter extends CustomPainter {
       ..quadraticBezierTo(c.dx + innerS * 0.8, c.dy + innerS * 0.4, c.dx, c.dy + innerS)
       ..quadraticBezierTo(c.dx - innerS * 0.8, c.dy + innerS * 0.4, c.dx - innerS * 0.85, c.dy - innerS * 0.45)
       ..close();
-    canvas.drawPath(innerPath, stroke..strokeWidth = 0.9);
+    canvas.drawPath(innerPath, stroke..strokeWidth = 0.8);
 
-    // Central 5-point star emblem
     final starR = s * 0.35;
     final starPath = Path();
     for (int i = 0; i < 5; i++) {
@@ -1874,33 +2134,52 @@ class WatermarkPainter extends CustomPainter {
     }
     starPath.close();
     canvas.drawPath(starPath, fill);
-    canvas.drawPath(starPath, stroke..strokeWidth = 1.0);
+    canvas.drawPath(starPath, stroke..strokeWidth = 0.9);
   }
 
   void _drawBlueprintLines(Canvas canvas, Size size, Paint stroke) {
-    // Fine blueprint millimeter grid
-    for (double y = 12; y < size.height; y += 14) {
-      final isMajor = ((y ~/ 14) % 4 == 0);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), stroke..strokeWidth = isMajor ? 1.0 : 0.5);
+    final step = 14.0 / math.sqrt(density.clamp(0.4, 2.5));
+    for (double y = 0; y <= size.height + step; y += step) {
+      final isMajor = (((y / step).round()) % 4 == 0);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), stroke..strokeWidth = isMajor ? 0.9 : 0.45);
     }
-    for (double x = 12; x < size.width; x += 14) {
-      final isMajor = ((x ~/ 14) % 4 == 0);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), stroke..strokeWidth = isMajor ? 1.0 : 0.5);
+    for (double x = 0; x <= size.width + step; x += step) {
+      final isMajor = (((x / step).round()) % 4 == 0);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), stroke..strokeWidth = isMajor ? 0.9 : 0.45);
     }
 
-    // Engineering registration crosshairs at key vertices
-    final crossR = 6.0;
-    for (double y = 42; y < size.height - 20; y += 112) {
-      for (double x = 42; x < size.width - 20; x += 112) {
-        canvas.drawLine(Offset(x - crossR, y), Offset(x + crossR, y), stroke..strokeWidth = 1.2);
-        canvas.drawLine(Offset(x, y - crossR), Offset(x, y + crossR), stroke..strokeWidth = 1.2);
-        canvas.drawCircle(Offset(x, y), crossR * 0.7, stroke..strokeWidth = 0.8);
+    final crossR = 5.5;
+    for (double y = 30; y < size.height; y += 100) {
+      for (double x = 30; x < size.width; x += 100) {
+        canvas.drawLine(Offset(x - crossR, y), Offset(x + crossR, y), stroke..strokeWidth = 1.0);
+        canvas.drawLine(Offset(x, y - crossR), Offset(x, y + crossR), stroke..strokeWidth = 1.0);
+        canvas.drawCircle(Offset(x, y), crossR * 0.65, stroke..strokeWidth = 0.7);
+      }
+    }
+  }
+
+  void _drawLeaves(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    final stepX = 42.0 / math.sqrt(density.clamp(0.4, 2.5));
+    final stepY = 32.0 / math.sqrt(density.clamp(0.4, 2.5));
+
+    for (double y = 10; y < size.height + 20; y += stepY) {
+      for (double x = 10; x < size.width + 20; x += stepX) {
+        final c = Offset(x, y);
+        final p = Path()
+          ..moveTo(c.dx - 10, c.dy + 8)
+          ..quadraticBezierTo(c.dx - 8, c.dy - 6, c.dx + 10, c.dy - 8)
+          ..quadraticBezierTo(c.dx + 8, c.dy + 6, c.dx - 10, c.dy + 8);
+        canvas.drawPath(p, fill);
+        canvas.drawPath(p, stroke..strokeWidth = 0.85);
+        canvas.drawLine(Offset(c.dx - 10, c.dy + 8), Offset(c.dx + 10, c.dy - 8), stroke..strokeWidth = 0.7);
       }
     }
   }
 
   @override
   bool shouldRepaint(covariant WatermarkPainter oldDelegate) {
-    return oldDelegate.pattern != pattern || oldDelegate.opacity != opacity;
+    return oldDelegate.pattern != pattern ||
+        oldDelegate.opacity != opacity ||
+        oldDelegate.density != density;
   }
 }
