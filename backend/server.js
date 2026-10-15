@@ -2983,6 +2983,7 @@ app.post('/api/cv/extract-pdf', async (req, res) => {
     console.error('[Backend] Error en /api/cv/extract-pdf:', err);
     return res.status(500).json({ success: false, message: 'Error procesando documento PDF: ' + err.message });
   }
+});
 // --- PDF Signer: Endpoints de Documentos y Firmas en Tiempo Real ---
 
 // 1. Obtener documento con sus firmas y notificaciones actuales
