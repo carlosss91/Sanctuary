@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/trayectoria_sidebar.dart';
 import '../../core/widgets/sanctuary_planet_logo.dart';
@@ -57,6 +58,9 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
   int _mobileTabIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  final List<CvProfileModel> _undoStack = [];
+  final List<CvProfileModel> _redoStack = [];
+
   @override
   void initState() {
     super.initState();
@@ -94,7 +98,18 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
     );
   }
 
-  void _onProfileEdited(CvProfileModel updated) {
+  void _onProfileEdited(CvProfileModel updated, {bool recordHistory = true}) {
+    if (recordHistory) {
+      final current = _activeProfile;
+      if (_undoStack.isEmpty || _undoStack.last != current) {
+        _undoStack.add(current);
+        if (_undoStack.length > 30) {
+          _undoStack.removeAt(0);
+        }
+      }
+      _redoStack.clear();
+    }
+
     setState(() {
       final index = _profiles.indexWhere((p) => p.id == updated.id);
       if (index >= 0) {
@@ -116,6 +131,38 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
         });
       }
     });
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    final current = _activeProfile;
+    final previous = _undoStack.removeLast();
+    _redoStack.add(current);
+    _onProfileEdited(previous, recordHistory: false);
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Acción deshecha (Deshacer)'),
+        backgroundColor: Color(0xFF334155),
+        duration: Duration(milliseconds: 1000),
+      ),
+    );
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    final current = _activeProfile;
+    final next = _redoStack.removeLast();
+    _undoStack.add(current);
+    _onProfileEdited(next, recordHistory: false);
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Acción rehecha (Rehacer)'),
+        backgroundColor: Color(0xFF334155),
+        duration: Duration(milliseconds: 1000),
+      ),
+    );
   }
 
   Future<void> _addNewLearner() async {
@@ -677,8 +724,19 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
           const SizedBox(width: 14),
         ],
       ),
-      body: Stack(
-        children: [
+      body: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo,
+          const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _undo,
+          const SingleActivator(LogicalKeyboardKey.keyY, control: true): _redo,
+          const SingleActivator(LogicalKeyboardKey.keyY, meta: true): _redo,
+          const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _redo,
+          const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _redo,
+        },
+        child: Focus(
+          autofocus: true,
+          child: Stack(
+            children: [
           // 1. CARDS / MAIN CONTENT (Full height down to bottom with small padding)
           Positioned.fill(
             child: LayoutBuilder(
@@ -704,12 +762,20 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
                         profiles: _profiles,
                         activeProfileId: _activeId,
                         onSelectProfile: (id) async {
-                          setState(() => _activeId = id);
+                          setState(() {
+                            _activeId = id;
+                            _undoStack.clear();
+                            _redoStack.clear();
+                          });
                           await widget.apiService.storage.setActiveCvId(id);
                         },
                         onAddProfile: _addNewLearner,
                         onDeleteProfile: _confirmAndDeleteProfile,
                         onImportCv: () => _handleImportCvDocument(activeProfile),
+                        onUndo: _undo,
+                        onRedo: _redo,
+                        canUndo: _undoStack.isNotEmpty,
+                        canRedo: _redoStack.isNotEmpty,
                       ),
 
                       const SizedBox(height: 10),
@@ -800,7 +866,9 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   // Floating Action Dock for CV Maker (iOS27 glassmorphic style on mobile & desktop)

@@ -93,17 +93,20 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     // Comprobar parámetros de URL si se abrió mediante enlace compartido de GitHub Pages
     String docId = 'doc-${DateTime.now().millisecondsSinceEpoch}';
     String? token;
+    bool isFromSharedLink = false;
     try {
       final uri = Uri.base;
       if (uri.queryParameters.containsKey('docId')) {
         docId = uri.queryParameters['docId']!;
         token = uri.queryParameters['token'];
+        isFromSharedLink = true;
       } else if (uri.fragment.contains('docId=')) {
         final frag = uri.fragment.startsWith('/') ? uri.fragment : '/${uri.fragment}';
         final parsed = Uri.tryParse(frag);
         if (parsed != null && parsed.queryParameters.containsKey('docId')) {
           docId = parsed.queryParameters['docId']!;
           token = parsed.queryParameters['token'];
+          isFromSharedLink = true;
         }
       }
     } catch (_) {}
@@ -135,14 +138,127 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       ],
     );
 
-    // Periodic live sync simulator (refreshes audit log)
-    _pollingTimer = Timer.periodic(const Duration(seconds: 45), (_) {
-      if (mounted) {
+    // Cargar versión compartida remota y suscribirse a firmas de otros participantes
+    _initDocumentFromBackend(docId, token, isFromSharedLink);
+
+    // Live sync polling: verifica cada 5 segundos si otro firmante ha rubricado el documento
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      await _pollForRemoteSignatures();
+    });
+  }
+
+  Future<void> _initDocumentFromBackend(String docId, String? token, bool isShared) async {
+    try {
+      final remote = await widget.apiService.getSignerDocument(docId);
+      if (remote != null && mounted) {
         setState(() {
-          _document.updatedAt = DateTime.now();
+          _document = remote;
+        });
+        if (remote.pdfBytes != null && remote.pdfBytes!.isNotEmpty && _pdfPageImages.isEmpty) {
+          await _rasterizePdfBytes(remote.pdfBytes!);
+        }
+        if (isShared && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Documento cargado con ${_document.signatures.length} firma(s) registrada(s).'),
+              backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } else if (!isShared) {
+        await widget.apiService.saveSignerDocument(_document);
+      }
+    } catch (e) {
+      debugPrint('[PdfSignerScreen] init backend notice: $e');
+    }
+  }
+
+  Future<void> _pollForRemoteSignatures() async {
+    try {
+      final remoteDoc = await widget.apiService.getSignerDocument(_document.id);
+      if (remoteDoc == null || !mounted) return;
+
+      final currentSigIds = _document.signatures.map((s) => s.id).toSet();
+      final newSignatures = remoteDoc.signatures.where((s) => !currentSigIds.contains(s.id)).toList();
+
+      if (newSignatures.isNotEmpty) {
+        for (final sig in newSignatures) {
+          if (!mounted) break;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '¡Nueva firma registrada! ${sig.fullName} ha rubricado el documento.',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+
+        setState(() {
+          _document = remoteDoc;
+        });
+
+        if (remoteDoc.pdfBytes != null && remoteDoc.pdfBytes!.isNotEmpty && _pdfPageImages.isEmpty) {
+          await _rasterizePdfBytes(remoteDoc.pdfBytes!);
+        }
+      } else if (remoteDoc.updatedAt.isAfter(_document.updatedAt)) {
+        setState(() {
+          _document = remoteDoc;
         });
       }
-    });
+    } catch (_) {}
+  }
+
+  Future<List<Uint8List>> _rasterizePdfBytes(Uint8List bytes) async {
+    setState(() => _isRasterizingPdf = true);
+    List<Uint8List> rasterPages = [];
+    try {
+      await for (final page in Printing.raster(bytes, dpi: 150)) {
+        final png = await page.toPng();
+        rasterPages.add(png);
+      }
+    } catch (err) {
+      debugPrint('Aviso: raster 150 DPI reintentando...');
+    }
+
+    if (rasterPages.isEmpty) {
+      try {
+        await for (final page in Printing.raster(bytes, dpi: 96)) {
+          final png = await page.toPng();
+          rasterPages.add(png);
+        }
+      } catch (_) {}
+    }
+
+    if (rasterPages.isEmpty) {
+      try {
+        await for (final page in Printing.raster(bytes, dpi: 72)) {
+          final png = await page.toPng();
+          rasterPages.add(png);
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() {
+        _pdfPageImages = rasterPages;
+        _isRasterizingPdf = false;
+      });
+    }
+    return rasterPages;
   }
 
   @override
@@ -177,69 +293,34 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         final file = files.first;
         final bytes = await file.readAsBytes();
         if (bytes.isNotEmpty) {
-          setState(() {
-            _isRasterizingPdf = true;
-          });
-
-          List<Uint8List> rasterPages = [];
-          // Method 1: High quality 150 DPI rasterization
-          try {
-            await for (final page in Printing.raster(bytes, dpi: 150)) {
-              final png = await page.toPng();
-              rasterPages.add(png);
-            }
-          } catch (err) {
-            debugPrint('Aviso: raster 150 DPI no completado ($err). Reintentando con DPI optimizado...');
-          }
-
-          // Method 2: Low-memory 96 DPI fallback if Method 1 produced 0 pages
-          if (rasterPages.isEmpty) {
-            try {
-              await for (final page in Printing.raster(bytes, dpi: 96)) {
-                final png = await page.toPng();
-                rasterPages.add(png);
-              }
-            } catch (err) {
-              debugPrint('Aviso: raster 96 DPI no completado ($err). Reintentando con 72 DPI...');
-            }
-          }
-
-          // Method 3: 72 DPI emergency fallback
-          if (rasterPages.isEmpty) {
-            try {
-              await for (final page in Printing.raster(bytes, dpi: 72)) {
-                final png = await page.toPng();
-                rasterPages.add(png);
-              }
-            } catch (err) {
-              debugPrint('Error en rasterización PDF en navegador: $err');
-            }
-          }
+          final rasterPages = await _rasterizePdfBytes(bytes);
 
           final cleanTitle = file.name
               .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '')
               .replaceAll('_', ' ');
 
+          final newDoc = PdfSignerDocument(
+            id: 'doc-${DateTime.now().millisecondsSinceEpoch}',
+            title: cleanTitle,
+            fileName: file.name,
+            pdfBytes: bytes,
+            signatures: [],
+            notifications: [
+              SignerNotification(
+                id: 'notif-new',
+                signerName: _currentIdentity?.fullName ?? 'Usuario',
+                timestamp: DateTime.now(),
+                message: 'Nuevo PDF adjuntado: ${file.name} (${rasterPages.length} pág.)',
+              ),
+            ],
+          );
+
           setState(() {
-            _pdfPageImages = rasterPages;
             _currentPageIndex = 0;
-            _isRasterizingPdf = false;
-            _document = PdfSignerDocument(
-              id: 'doc-${DateTime.now().millisecondsSinceEpoch}',
-              title: cleanTitle,
-              fileName: file.name,
-              pdfBytes: bytes,
-              signatures: [],
-              notifications: [
-                SignerNotification(
-                  id: 'notif-new',
-                  signerName: _currentIdentity?.fullName ?? 'Usuario',
-                  timestamp: DateTime.now(),
-                  message: 'Nuevo PDF adjuntado: ${file.name} (${rasterPages.length} pág.)',
-                ),
-              ],
-            );
+            _document = newDoc;
           });
+
+          await widget.apiService.saveSignerDocument(newDoc);
 
           if (mounted) {
             if (rasterPages.isNotEmpty) {
@@ -310,11 +391,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     );
   }
 
-  void _registerNewSignature(
+  Future<void> _registerNewSignature(
     List<SignatureStroke> strokes,
     SignerIdentity identity, {
     Uint8List? imageBytes,
-  }) {
+  }) async {
     final now = DateTime.now();
     double startX;
     double startY;
@@ -364,6 +445,16 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       _document.updatedAt = now;
     });
 
+    // Guardar y sincronizar firma en tiempo real en la nube y en almacenamiento local
+    await widget.apiService.addSignatureToDocument(
+      _document.id,
+      newSig,
+      notif,
+      currentDoc: _document,
+    );
+
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -410,22 +501,18 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     _registerNewSignature(guestStrokes, guest);
   }
 
-  void _manualRefresh() {
+  void _manualRefresh() async {
     setState(() => _isRefreshing = true);
-    Future.delayed(const Duration(milliseconds: 700), () {
-      if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-          _document.updatedAt = DateTime.now();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Documento y firmas sincronizados en tiempo real.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    });
+    await _pollForRemoteSignatures();
+    if (mounted) {
+      setState(() => _isRefreshing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Documento y firmas sincronizados en tiempo real.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<Uint8List?> _renderSignatureStrokesToPng(
@@ -932,11 +1019,15 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             icon: Icons.share_rounded,
             label: isMobile ? null : 'Compartir',
             tooltip: 'Compartir enlace y firmantes acreditados',
-            onTap: () => ShareDocumentDialog.show(
-              context,
-              _document,
-              onSimulateGuestSigner: _simulateExternalGuestSigner,
-            ),
+            onTap: () async {
+              await widget.apiService.saveSignerDocument(_document);
+              if (!mounted) return;
+              ShareDocumentDialog.show(
+                context,
+                _document,
+                onSimulateGuestSigner: _simulateExternalGuestSigner,
+              );
+            },
             color: const Color(0xFF06B6D4),
             bgColor: isDark ? const Color(0xFF06B6D4).withOpacity(0.18) : const Color(0xFF06B6D4).withOpacity(0.12),
           ),

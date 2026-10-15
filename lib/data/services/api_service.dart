@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/cv_profile_model.dart';
 import '../models/repo_link_model.dart';
+import '../../features/pdf_signer/models/signature_document_model.dart';
 import 'storage_service.dart';
 
 class ApiService {
@@ -356,6 +357,97 @@ class ApiService {
       }
     } catch (e) {
       debugPrint('[ApiService] extractCvPdfOnline notice/fallback: $e');
+    }
+    return null;
+  }
+
+  // --- PDF Signer Service ---
+  Future<PdfSignerDocument?> getSignerDocument(String docId) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/signer/documents/$docId')).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['document'] is Map<String, dynamic>) {
+          final doc = PdfSignerDocument.fromJson(Map<String, dynamic>.from(data['document'] as Map));
+          await storage.saveSignerDocumentJson(docId, doc.toJson());
+          return doc;
+        }
+      }
+    } catch (_) {}
+    // Fallback to local storage cache
+    final localJson = storage.getSignerDocumentJson(docId);
+    if (localJson.isNotEmpty) {
+      return PdfSignerDocument.fromJson(localJson);
+    }
+    return null;
+  }
+
+  Future<bool> saveSignerDocument(PdfSignerDocument doc) async {
+    // 1. Always save to local storage cache immediately
+    await storage.saveSignerDocumentJson(doc.id, doc.toJson());
+    // 2. Persist to backend
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/signer/documents'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(doc.toJson()),
+      ).timeout(const Duration(seconds: 6));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<PdfSignerDocument?> addSignatureToDocument(
+    String docId,
+    PlacedSignature sig,
+    SignerNotification notif, {
+    PdfSignerDocument? currentDoc,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/signer/documents/$docId/signatures'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'signature': sig.toJson(),
+          'notification': notif.toJson(),
+          if (currentDoc != null) ...{
+            'title': currentDoc.title,
+            'fileName': currentDoc.fileName,
+            if (currentDoc.pdfBytes != null) 'pdfBase64': base64Encode(currentDoc.pdfBytes!),
+            'shareToken': currentDoc.shareToken,
+          }
+        }),
+      ).timeout(const Duration(seconds: 6));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['document'] is Map<String, dynamic>) {
+          final updated = PdfSignerDocument.fromJson(Map<String, dynamic>.from(data['document'] as Map));
+          await storage.saveSignerDocumentJson(docId, updated.toJson());
+          return updated;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: update local storage cache
+    if (currentDoc != null) {
+      final existingSigs = List<PlacedSignature>.from(currentDoc.signatures);
+      final idx = existingSigs.indexWhere((s) => s.id == sig.id);
+      if (idx >= 0) {
+        existingSigs[idx] = sig;
+      } else {
+        existingSigs.add(sig);
+      }
+      final existingNotifs = List<SignerNotification>.from(currentDoc.notifications);
+      existingNotifs.insert(0, notif);
+      final updated = currentDoc.copyWith(
+        signatures: existingSigs,
+        notifications: existingNotifs,
+        updatedAt: DateTime.now(),
+      );
+      await storage.saveSignerDocumentJson(docId, updated.toJson());
+      return updated;
     }
     return null;
   }

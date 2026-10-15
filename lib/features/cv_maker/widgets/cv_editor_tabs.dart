@@ -69,15 +69,28 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   @override
   void didUpdateWidget(covariant CvEditorTabs oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile.id != widget.profile.id ||
-        oldWidget.profile.isEnglishVersion != widget.profile.isEnglishVersion) {
+    if (_nameCtrl.text != widget.profile.fullName) {
       _nameCtrl.text = widget.profile.fullName;
+    }
+    if (_jobTitleCtrl.text != widget.profile.jobTitle) {
       _jobTitleCtrl.text = widget.profile.jobTitle;
+    }
+    if (_phoneCtrl.text != widget.profile.phone) {
       _phoneCtrl.text = widget.profile.phone;
+    }
+    if (_emailCtrl.text != widget.profile.email) {
       _emailCtrl.text = widget.profile.email;
+    }
+    if (_locationCtrl.text != widget.profile.location) {
       _locationCtrl.text = widget.profile.location;
+    }
+    if (_availabilityCtrl.text != widget.profile.availability) {
       _availabilityCtrl.text = widget.profile.availability;
+    }
+    if (_licenseCtrl.text != widget.profile.drivingLicense) {
       _licenseCtrl.text = widget.profile.drivingLicense;
+    }
+    if (_summaryCtrl.text != widget.profile.summary) {
       _summaryCtrl.text = widget.profile.summary;
     }
   }

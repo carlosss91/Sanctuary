@@ -123,6 +123,24 @@ class SignerNotification {
     required this.timestamp,
     required this.message,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'signerName': signerName,
+      'timestamp': timestamp.toIso8601String(),
+      'message': message,
+    };
+  }
+
+  factory SignerNotification.fromJson(Map<String, dynamic> json) {
+    return SignerNotification(
+      id: json['id'] as String? ?? 'notif-${DateTime.now().millisecondsSinceEpoch}',
+      signerName: json['signerName'] as String? ?? '',
+      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
+      message: json['message'] as String? ?? '',
+    );
+  }
 }
 
 class PdfSignerDocument {
@@ -151,6 +169,44 @@ class PdfSignerDocument {
         signatures = signatures ?? [],
         notifications = notifications ?? [],
         shareToken = shareToken ?? 'tok-${DateTime.now().millisecondsSinceEpoch}';
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'fileName': fileName,
+      if (pdfBytes != null) 'pdfBase64': base64Encode(pdfBytes!),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'signatures': signatures.map((s) => s.toJson()).toList(),
+      'notifications': notifications.map((n) => n.toJson()).toList(),
+      'shareToken': shareToken,
+    };
+  }
+
+  factory PdfSignerDocument.fromJson(Map<String, dynamic> json) {
+    Uint8List? bytes;
+    if (json['pdfBase64'] != null && (json['pdfBase64'] as String).isNotEmpty) {
+      try {
+        bytes = base64Decode(json['pdfBase64'] as String);
+      } catch (_) {}
+    }
+    return PdfSignerDocument(
+      id: json['id'] as String? ?? 'doc-${DateTime.now().millisecondsSinceEpoch}',
+      title: json['title'] as String? ?? 'Documento sin título',
+      fileName: json['fileName'] as String? ?? 'documento.pdf',
+      pdfBytes: bytes,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      signatures: ((json['signatures'] as List<dynamic>?) ?? [])
+          .map((s) => PlacedSignature.fromJson(Map<String, dynamic>.from(s as Map)))
+          .toList(),
+      notifications: ((json['notifications'] as List<dynamic>?) ?? [])
+          .map((n) => SignerNotification.fromJson(Map<String, dynamic>.from(n as Map)))
+          .toList(),
+      shareToken: json['shareToken'] as String?,
+    );
+  }
 
   PdfSignerDocument copyWith({
     String? id,

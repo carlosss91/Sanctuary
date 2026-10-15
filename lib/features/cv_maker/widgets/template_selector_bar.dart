@@ -26,6 +26,10 @@ class TemplateSelectorBar extends StatelessWidget {
   final VoidCallback onAddProfile;
   final ValueChanged<String>? onDeleteProfile;
   final VoidCallback? onImportCv;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final bool canUndo;
+  final bool canRedo;
 
   const TemplateSelectorBar({
     super.key,
@@ -37,6 +41,10 @@ class TemplateSelectorBar extends StatelessWidget {
     required this.onAddProfile,
     this.onDeleteProfile,
     this.onImportCv,
+    this.onUndo,
+    this.onRedo,
+    this.canUndo = false,
+    this.canRedo = false,
   });
 
   static const List<TemplateOption> templates = [
@@ -97,11 +105,15 @@ class TemplateSelectorBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Título arriba de la tarjeta + botón de importar más pequeño
+                // 1. Título arriba de la tarjeta + botón de deshacer/rehacer + botón de importar
                 Row(
                   children: [
                     _buildTitleLabel(isDark, isCompact: true),
                     const Spacer(),
+                    if (onUndo != null || onRedo != null) ...[
+                      _buildUndoRedoButtons(isDark, isCompact: true),
+                      const SizedBox(width: 6),
+                    ],
                     if (onImportCv != null)
                       _buildCompactImportButton(isDark),
                   ],
@@ -160,8 +172,12 @@ class TemplateSelectorBar extends StatelessWidget {
                       ),
               ),
 
+              if (onUndo != null || onRedo != null) ...[
+                const SizedBox(width: 8),
+                _buildUndoRedoButtons(isDark),
+              ],
               if (onImportCv != null) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 _buildImportButton(),
               ],
             ],
@@ -247,6 +263,64 @@ class TemplateSelectorBar extends StatelessWidget {
                 : (isDark ? Colors.white70 : const Color(0xFF475569)),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildUndoRedoButtons(bool isDark, {bool isCompact = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withOpacity(0.65) : const Color(0xFFF1F5F9).withOpacity(0.85),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+          width: 0.8,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: 'Deshacer cambios (Ctrl+Z)',
+            child: InkWell(
+              onTap: canUndo ? onUndo : null,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: EdgeInsets.all(isCompact ? 4.0 : 5.0),
+                child: Icon(
+                  Icons.undo_rounded,
+                  size: isCompact ? 15 : 17,
+                  color: canUndo
+                      ? (isDark ? Colors.white : Colors.black87)
+                      : (isDark ? Colors.white24 : Colors.black26),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: isCompact ? 13 : 15,
+            color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+          ),
+          Tooltip(
+            message: 'Rehacer cambios (Ctrl+Y)',
+            child: InkWell(
+              onTap: canRedo ? onRedo : null,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: EdgeInsets.all(isCompact ? 4.0 : 5.0),
+                child: Icon(
+                  Icons.redo_rounded,
+                  size: isCompact ? 15 : 17,
+                  color: canRedo
+                      ? (isDark ? Colors.white : Colors.black87)
+                      : (isDark ? Colors.white24 : Colors.black26),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

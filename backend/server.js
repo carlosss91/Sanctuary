@@ -901,6 +901,16 @@ safeQuery(`
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
   );
+
+  CREATE TABLE IF NOT EXISTS signer_documents (
+    id VARCHAR(100) PRIMARY KEY,
+    title TEXT,
+    file_name TEXT,
+    pdf_base64 TEXT,
+    share_token VARCHAR(100),
+    data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
 `).catch((err) => console.warn('⚠️ Error en migraciones iniciales:', err?.message));
 
 async function syncUsersToPostgres() {
@@ -2928,7 +2938,33 @@ app.post('/api/cv/extract-pdf', async (req, res) => {
       }
     }
 
+    // 3.5 Extract embedded JPEG profile photo if present
+    let photoUrl = '';
+    let bestPhotoSize = 0;
+    for (let i = 0; i < pdfBuffer.length - 4; i++) {
+      if (pdfBuffer[i] === 0xFF && pdfBuffer[i + 1] === 0xD8 && pdfBuffer[i + 2] === 0xFF) {
+        let end = -1;
+        const limit = Math.min(pdfBuffer.length - 1, i + 6000000);
+        for (let j = i + 20; j < limit; j++) {
+          if (pdfBuffer[j] === 0xFF && pdfBuffer[j + 1] === 0xD9) {
+            end = j + 2;
+          }
+        }
+        if (end > i + 2500) {
+          const slice = pdfBuffer.slice(i, end);
+          if (slice.length > bestPhotoSize && slice.length < 5000000) {
+            bestPhotoSize = slice.length;
+            photoUrl = `data:image/jpeg;base64,${slice.toString('base64')}`;
+          }
+          i = end - 1;
+        }
+      }
+    }
+
     const parsedProfile = parseCvTextNode(extractedText, filename || '');
+    if (photoUrl && (!parsedProfile.photoUrl || parsedProfile.photoUrl.includes('unsplash.com'))) {
+      parsedProfile.photoUrl = photoUrl;
+    }
 
     return res.json({
       success: true,
@@ -2938,6 +2974,126 @@ app.post('/api/cv/extract-pdf', async (req, res) => {
   } catch (err) {
     console.error('[Backend] Error en /api/cv/extract-pdf:', err);
     return res.status(500).json({ success: false, message: 'Error procesando documento PDF: ' + err.message });
+  }
+// --- PDF Signer: Endpoints de Documentos y Firmas en Tiempo Real ---
+
+// 1. Obtener documento con sus firmas y notificaciones actuales
+app.get('/api/signer/documents/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const pgRes = await safeQuery('SELECT data, updated_at FROM signer_documents WHERE id = $1', [id]);
+    if (pgRes && pgRes.rows.length > 0) {
+      const doc = pgRes.rows[0].data;
+      return res.json({ success: true, document: doc, source: 'postgres' });
+    }
+    const ldb = getLocalDb();
+    if (ldb.signer_documents && ldb.signer_documents[id]) {
+      return res.json({ success: true, document: ldb.signer_documents[id], source: 'local_db' });
+    }
+    return res.status(404).json({ success: false, message: 'Documento no encontrado' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Crear o actualizar documento completo (con PDF opcional y firmas iniciales)
+app.post('/api/signer/documents', async (req, res) => {
+  try {
+    const doc = req.body;
+    if (!doc || !doc.id) {
+      return res.status(400).json({ success: false, message: 'Identificador de documento requerido' });
+    }
+    doc.updatedAt = new Date().toISOString();
+
+    // Guardar en PostgreSQL
+    await safeQuery(
+      `INSERT INTO signer_documents (id, title, file_name, pdf_base64, share_token, data, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (id) DO UPDATE SET 
+         title = EXCLUDED.title,
+         file_name = EXCLUDED.file_name,
+         pdf_base64 = COALESCE(EXCLUDED.pdf_base64, signer_documents.pdf_base64),
+         share_token = EXCLUDED.share_token,
+         data = EXCLUDED.data,
+         updated_at = NOW()`,
+      [doc.id, doc.title || '', doc.fileName || '', doc.pdfBase64 || null, doc.shareToken || '', JSON.stringify(doc)]
+    );
+
+    // Guardar en local_db.json
+    const ldb = getLocalDb();
+    ldb.signer_documents = ldb.signer_documents || {};
+    ldb.signer_documents[doc.id] = doc;
+    saveLocalDb(ldb);
+
+    return res.json({ success: true, message: 'Documento guardado con éxito', document: doc });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Añadir nueva rúbrica / firma y notificación al documento en tiempo real
+app.post('/api/signer/documents/:id/signatures', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { signature, notification, title, fileName, pdfBase64, shareToken } = req.body;
+    if (!signature) {
+      return res.status(400).json({ success: false, message: 'Datos de rúbrica requeridos' });
+    }
+
+    let doc = null;
+    const pgRes = await safeQuery('SELECT data FROM signer_documents WHERE id = $1', [id]);
+    if (pgRes && pgRes.rows.length > 0) {
+      doc = pgRes.rows[0].data;
+    }
+    if (!doc) {
+      const ldb = getLocalDb();
+      if (ldb.signer_documents && ldb.signer_documents[id]) {
+        doc = ldb.signer_documents[id];
+      }
+    }
+    if (!doc) {
+      doc = {
+        id,
+        title: title || 'Documento sin título',
+        fileName: fileName || 'documento.pdf',
+        pdfBase64: pdfBase64 || null,
+        shareToken: shareToken || '',
+        signatures: [],
+        notifications: [],
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    doc.signatures = doc.signatures || [];
+    doc.notifications = doc.notifications || [];
+
+    const existingIndex = doc.signatures.findIndex(s => s.id === signature.id);
+    if (existingIndex >= 0) {
+      doc.signatures[existingIndex] = signature;
+    } else {
+      doc.signatures.push(signature);
+    }
+
+    if (notification) {
+      doc.notifications.unshift(notification);
+    }
+    doc.updatedAt = new Date().toISOString();
+
+    await safeQuery(
+      `INSERT INTO signer_documents (id, title, file_name, pdf_base64, share_token, data, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+      [doc.id, doc.title || '', doc.fileName || '', doc.pdfBase64 || null, doc.shareToken || '', JSON.stringify(doc)]
+    );
+
+    const ldb = getLocalDb();
+    ldb.signer_documents = ldb.signer_documents || {};
+    ldb.signer_documents[doc.id] = doc;
+    saveLocalDb(ldb);
+
+    return res.json({ success: true, message: 'Rúbrica registrada y sincronizada', document: doc });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

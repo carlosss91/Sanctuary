@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import '../models/cv_profile_model.dart';
 import '../../core/theme/app_theme.dart';
 import 'api_service.dart';
@@ -41,23 +42,33 @@ class CvDocumentParserService {
       }
 
       String extractedText = '';
+      String? extractedPhoto;
       if (ext == 'docx') {
         extractedText = _extractTextFromDocx(bytes);
       } else if (ext == 'pdf') {
+        // 0. Extract embedded profile photo if present
+        extractedPhoto = _extractPhotoFromPdf(bytes);
+
         // 1. Check for embedded Sanctuary CV JSON metadata across all encoding layers for 100% reconstruction
         final exactProfile = _tryExtractSanctuaryMetadata(bytes);
         if (exactProfile != null) {
-          if (!context.mounted) return exactProfile;
-          final confirmed = await _showReviewImportDialog(context, exactProfile, fileName);
-          if (confirmed == true) return exactProfile;
+          final withPhoto = (extractedPhoto != null && (exactProfile.photoUrl.isEmpty || exactProfile.photoUrl.contains('unsplash.com')))
+              ? exactProfile.copyWith(photoUrl: extractedPhoto)
+              : exactProfile;
+          if (!context.mounted) return withPhoto;
+          final confirmed = await _showReviewImportDialog(context, withPhoto, fileName);
+          if (confirmed == true) return withPhoto;
           return null;
         }
 
         // 2. High-fidelity Server/Render extraction with OCR if online
         if (apiService != null) {
           try {
-            final onlineProfile = await apiService.extractCvPdfOnline(bytes, fileName, baseProfile);
-            if (onlineProfile != null && (onlineProfile.experiences.isNotEmpty || onlineProfile.educations.isNotEmpty)) {
+            var onlineProfile = await apiService.extractCvPdfOnline(bytes, fileName, baseProfile);
+            if (onlineProfile != null && (onlineProfile.fullName.isNotEmpty || onlineProfile.experiences.isNotEmpty || onlineProfile.educations.isNotEmpty)) {
+              if (extractedPhoto != null && (onlineProfile.photoUrl.isEmpty || onlineProfile.photoUrl.contains('unsplash.com'))) {
+                onlineProfile = onlineProfile.copyWith(photoUrl: extractedPhoto);
+              }
               if (!context.mounted) return onlineProfile;
               final confirmed = await _showReviewImportDialog(context, onlineProfile, fileName);
               if (confirmed == true) return onlineProfile;
@@ -95,7 +106,10 @@ class CvDocumentParserService {
         return null;
       }
 
-      final parsed = parseCvText(extractedText, baseProfile, fileName);
+      var parsed = parseCvText(extractedText, baseProfile, fileName);
+      if (extractedPhoto != null && (parsed.photoUrl.isEmpty || parsed.photoUrl.contains('unsplash.com'))) {
+        parsed = parsed.copyWith(photoUrl: extractedPhoto);
+      }
 
       if (!context.mounted) return parsed;
 
@@ -145,6 +159,62 @@ class CvDocumentParserService {
     } catch (_) {
       return '';
     }
+  }
+
+  /// Extracts embedded profile photo JPEG/PNG images from PDF XObject streams
+  static String? _extractPhotoFromPdf(Uint8List bytes) {
+    try {
+      final len = bytes.length;
+      Uint8List? bestJpeg;
+      int bestScore = -1;
+
+      // Scan for JPEG streams (SOI marker: 0xFF, 0xD8, 0xFF)
+      for (int i = 0; i < len - 4; i++) {
+        if (bytes[i] == 0xFF && bytes[i + 1] == 0xD8 && bytes[i + 2] == 0xFF) {
+          final start = i;
+          int end = -1;
+          final searchLimit = (start + 6000000 < len) ? start + 6000000 : len;
+          for (int j = start + 30; j < searchLimit - 1; j++) {
+            if (bytes[j] == 0xFF && bytes[j + 1] == 0xD9) {
+              end = j + 2;
+            }
+          }
+          if (end > start + 2500) {
+            final slice = bytes.sublist(start, end);
+            try {
+              final decoded = img.decodeImage(slice);
+              if (decoded != null && decoded.width >= 50 && decoded.height >= 50) {
+                final ratio = decoded.width / decoded.height;
+                // Typical portrait / square photo aspect ratio (0.5 to 2.0)
+                if (ratio >= 0.5 && ratio <= 2.0) {
+                  int score = 1000;
+                  if (ratio >= 0.7 && ratio <= 1.35) score += 500;
+                  if (decoded.width >= 100 && decoded.width <= 1600) score += 300;
+                  score += (slice.length ~/ 1024).clamp(0, 500);
+
+                  if (score > bestScore) {
+                    bestScore = score;
+                    bestJpeg = slice;
+                  }
+                }
+              }
+            } catch (_) {
+              if (bestJpeg == null && slice.length > 5000 && slice.length < 2500000) {
+                bestJpeg = slice;
+              }
+            }
+            i = end - 1;
+          }
+        }
+      }
+
+      if (bestJpeg != null) {
+        return 'data:image/jpeg;base64,${base64Encode(bestJpeg)}';
+      }
+    } catch (e) {
+      debugPrint('[CvDocumentParserService] Error extrayendo foto de PDF: $e');
+    }
+    return null;
   }
 
   /// Extracts readable text strings from a PDF document, decompressing FlateDecode streams
@@ -545,22 +615,22 @@ class CvDocumentParserService {
         .where((l) => l.isNotEmpty && l != '-- 1 of 1 --')
         .toList();
 
-    // Check if baseProfile was just an unedited placeholder template
+    // Fresh extraction for the imported document without carrying over previous learner's data
     final bool isPlaceholderBase = baseProfile.fullName.trim() == 'NUEVO APRENDIZ / ALUMNO' ||
         baseProfile.fullName.trim() == 'NOMBRE Y APELLIDOS' ||
         baseProfile.fullName.trim().isEmpty;
 
-    String fullName = isPlaceholderBase ? '' : baseProfile.fullName;
-    String jobTitle = (isPlaceholderBase || baseProfile.jobTitle == 'OPERARIO/A EN FORMACIÓN') ? '' : baseProfile.jobTitle;
-    String email = (isPlaceholderBase || baseProfile.email == 'alumno@correo.es') ? '' : baseProfile.email;
-    String phone = (isPlaceholderBase || baseProfile.phone.contains('000 000')) ? '' : baseProfile.phone;
-    String location = (isPlaceholderBase || baseProfile.location == 'Las Palmas, Gran Canaria') ? '' : baseProfile.location;
-    String availability = baseProfile.availability;
-    String drivingLicense = baseProfile.drivingLicense;
-    String summary = (isPlaceholderBase || baseProfile.summary.startsWith('Persona responsable y motivada')) ? '' : baseProfile.summary;
-    List<CvExperience> experiences = isPlaceholderBase ? [] : List.from(baseProfile.experiences);
-    List<CvEducation> educations = isPlaceholderBase ? [] : List.from(baseProfile.educations);
-    List<CvSkillItem> skillItems = isPlaceholderBase ? [] : List.from(baseProfile.skillItems);
+    String fullName = '';
+    String jobTitle = '';
+    String email = '';
+    String phone = '';
+    String location = '';
+    String availability = '';
+    String drivingLicense = '';
+    String summary = '';
+    List<CvExperience> experiences = [];
+    List<CvEducation> educations = [];
+    List<CvSkillItem> skillItems = [];
 
     // 1. Email Regex
     final emailRegex = RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}');
@@ -950,7 +1020,7 @@ class CvDocumentParserService {
 
     final finalFullName = fullName.trim().isNotEmpty
         ? fullName.trim()
-        : (isPlaceholderBase ? 'Candidato / Profesional' : baseProfile.fullName);
+        : (nameFromFilename.isNotEmpty ? nameFromFilename : (isPlaceholderBase ? 'Candidato / Profesional' : baseProfile.fullName));
 
     final finalJobTitle = jobTitle.trim().isNotEmpty
         ? jobTitle.trim()
@@ -959,16 +1029,16 @@ class CvDocumentParserService {
     return baseProfile.copyWith(
       fullName: finalFullName,
       jobTitle: finalJobTitle,
-      email: email,
-      phone: phone,
-      location: location,
-      availability: availability,
-      drivingLicense: drivingLicense,
-      summary: summary,
-      experiences: experiences,
-      educations: educations,
-      skillItems: skillItems,
-       skills: skillItems.map((s) => s.name).toList(),
+      email: email.isNotEmpty ? email : (isPlaceholderBase ? '' : baseProfile.email),
+      phone: phone.isNotEmpty ? phone : (isPlaceholderBase ? '' : baseProfile.phone),
+      location: location.isNotEmpty ? location : (isPlaceholderBase ? '' : baseProfile.location),
+      availability: availability.isNotEmpty ? availability : baseProfile.availability,
+      drivingLicense: drivingLicense.isNotEmpty ? drivingLicense : baseProfile.drivingLicense,
+      summary: summary.isNotEmpty ? summary : (isPlaceholderBase ? '' : baseProfile.summary),
+      experiences: experiences.isNotEmpty ? experiences : (isPlaceholderBase ? [] : baseProfile.experiences),
+      educations: educations.isNotEmpty ? educations : (isPlaceholderBase ? [] : baseProfile.educations),
+      skillItems: skillItems.isNotEmpty ? skillItems : (isPlaceholderBase ? [] : baseProfile.skillItems),
+      skills: (skillItems.isNotEmpty ? skillItems : baseProfile.skillItems).map((s) => s.name).toList(),
     );
   }
 
@@ -1043,6 +1113,8 @@ class CvDocumentParserService {
                     _buildPreviewRow(Icons.email_outlined, 'Email:', parsed.email.isNotEmpty ? parsed.email : '(No detectado)'),
                     _buildPreviewRow(Icons.phone_outlined, 'Teléfono:', parsed.phone.isNotEmpty ? parsed.phone : '(No detectado)'),
                     _buildPreviewRow(Icons.location_on_outlined, 'Ubicación:', parsed.location.isNotEmpty ? parsed.location : '(No detectado)'),
+                    if (parsed.photoUrl.isNotEmpty && !parsed.photoUrl.contains('unsplash.com'))
+                      _buildPreviewRow(Icons.account_box_outlined, 'Fotografía:', 'Foto de perfil detectada e incorporada'),
                     if (parsed.availability.isNotEmpty)
                       _buildPreviewRow(Icons.schedule_outlined, 'Disponibilidad:', parsed.availability),
                     if (parsed.drivingLicense.isNotEmpty)

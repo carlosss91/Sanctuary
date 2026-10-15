@@ -1059,10 +1059,20 @@ class _HubScreenState extends State<HubScreen> {
                       const SizedBox(height: 14),
 
                       // Category Pills & Search Field
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
+                      if (isMobile)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextField(
+                              decoration: const InputDecoration(
+                                hintText: 'Buscar enlaces...',
+                                prefixIcon: Icon(Icons.search, size: 18),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                              onChanged: (val) => setState(() => _searchQuery = val),
+                            ),
+                            const SizedBox(height: 10),
+                            SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
                                 children: _categories.map((cat) {
@@ -1084,21 +1094,49 @@ class _HubScreenState extends State<HubScreen> {
                                 }).toList(),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 14),
-                          SizedBox(
-                            width: 220,
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                hintText: 'Buscar enlaces...',
-                                prefixIcon: Icon(Icons.search, size: 18),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ],
+                        )
+                      else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: _categories.map((cat) {
+                                    final isSelected = _selectedCategory == cat;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: ChoiceChip(
+                                        label: Text(cat),
+                                        selected: isSelected,
+                                        selectedColor: AppTheme.emerald.withOpacity(0.2),
+                                        side: BorderSide(
+                                          color: isSelected ? AppTheme.emerald : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                                        ),
+                                        onSelected: (val) {
+                                          if (val) setState(() => _selectedCategory = cat);
+                                        },
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                               ),
-                              onChanged: (val) => setState(() => _searchQuery = val),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 14),
+                            SizedBox(
+                              width: 220,
+                              child: TextField(
+                                decoration: const InputDecoration(
+                                  hintText: 'Buscar enlaces...',
+                                  prefixIcon: Icon(Icons.search, size: 18),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                onChanged: (val) => setState(() => _searchQuery = val),
+                              ),
+                            ),
+                          ],
+                        ),
 
                       const SizedBox(height: 16),
 

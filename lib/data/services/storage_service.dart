@@ -513,4 +513,23 @@ class StorageService {
   Future<void> clearChatMessages() async {
     await _prefs.remove(_keyChatMessages);
   }
+
+  // --- PDF Signer Local Cache ---
+  static const String _keySignerDocs = 'sanctuary_signer_docs';
+
+  Map<String, dynamic> getSignerDocumentJson(String docId) {
+    try {
+      final raw = _prefs.getString('$_keySignerDocs:$docId');
+      if (raw != null && raw.isNotEmpty) {
+        return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Future<void> saveSignerDocumentJson(String docId, Map<String, dynamic> docJson) async {
+    try {
+      await _prefs.setString('$_keySignerDocs:$docId', jsonEncode(docJson));
+    } catch (_) {}
+  }
 }
