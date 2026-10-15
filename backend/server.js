@@ -254,12 +254,21 @@ function getDefaultEmailTemplates() {
       ctaText: 'Explorar la Plataforma',
       footerNote: 'Sanctuary Suite © 2026 · Portal Docente, CV Maker interactivo & Digital Signer',
     },
+    ai_sentinel: {
+      theme: 'dark',
+      animated: true,
+      subject: 'Alerta AI Sentinel: Nuevas Convocatorias Oficiales · Sanctuary 🪐',
+      title: 'AI Sentinel: Vigilancia Oficial Automatizada',
+      body: 'El motor inteligente AI Sentinel ha detectado nuevas convocatorias, resoluciones y publicaciones oficiales docentes en el BOC y BOE con alta relevancia para tu perfil:',
+      ctaText: 'Ver Convocatorias en el Hub',
+      footerNote: 'Este boletín es generado de forma automatizada por el motor AI Sentinel con asistencia de Google Gemini Pro.\nPuedes ajustar la frecuencia de escaneo y los filtros geográficos desde el panel docente de Sanctuary.',
+    },
   };
 }
 
 async function getEmailTemplates() {
   const ldb = getLocalDb();
-  if (ldb.email_templates && ldb.email_templates.activation) {
+  if (ldb.email_templates && ldb.email_templates.activation && ldb.email_templates.ai_sentinel) {
     return ldb.email_templates;
   }
   try {
@@ -270,12 +279,12 @@ async function getEmailTemplates() {
       return ldb.email_templates;
     }
   } catch (_) {}
-  ldb.email_templates = getDefaultEmailTemplates();
+  ldb.email_templates = { ...getDefaultEmailTemplates(), ...(ldb.email_templates || {}) };
   saveLocalDb(ldb);
   return ldb.email_templates;
 }
 
-// Gorgeous HTML email generator featuring Cosmic stars, shooting comets, dark/light themes, and animations
+// Gorgeous HTML email generator featuring seamless Full-Canvas Cosmic Starfield, Shooting Comets, and Dark/Light Celestial Themes
 function buildSanctuaryEmailHtml({
   templateType = 'activation',
   theme = 'dark',
@@ -294,6 +303,7 @@ function buildSanctuaryEmailHtml({
   const isDark = theme !== 'light';
   const isSuspension = templateType === 'suspension';
   const isAnnouncement = templateType === 'announcement';
+  const isAiSentinel = templateType === 'ai_sentinel';
   const displayName = fullName || username || 'Usuario';
 
   // Fallback defaults if title or body not supplied
@@ -303,7 +313,7 @@ function buildSanctuaryEmailHtml({
   const finalCta = ctaText !== undefined && ctaText !== null ? ctaText : defs.ctaText;
   const finalFooter = footerNote !== undefined && footerNote !== null ? footerNote : defs.footerNote;
 
-  // Solid & gradient button attributes tailored per template to guarantee contrast across all mail clients
+  // Solid & gradient button attributes tailored per template to guarantee high contrast across all mail clients
   let btnSolidColor = '#10B981';
   let btnGradient = 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
   let btnBorderColor = '#059669';
@@ -328,16 +338,18 @@ function buildSanctuaryEmailHtml({
     primaryAccent = '#0891B2';
     accentGradient = 'linear-gradient(90deg, #06B6D4 0%, #3B82F6 50%, #8B5CF6 100%)';
     emblemIcon = '📢';
+  } else if (isAiSentinel) {
+    btnSolidColor = '#7C3AED';
+    btnGradient = 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)';
+    btnBorderColor = '#5B21B6';
+    btnShadow = 'rgba(124, 58, 237, 0.4)';
+    primaryAccent = '#8B5CF6';
+    accentGradient = 'linear-gradient(90deg, #8B5CF6 0%, #3B82F6 50%, #06B6D4 100%)';
+    emblemIcon = '🛰️';
   }
 
-  // Official Sanctuary logo and cosmic assets (hosted on raw GitHub for reliable universal delivery)
+  // Official Sanctuary logo
   const logoUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/icon-192.png';
-  const bannerGifUrl = isDark
-    ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-banner-dark.gif'
-    : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-banner-light.gif';
-  const sideGifUrl = isDark
-    ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-side-dark.gif'
-    : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-side-light.gif';
 
   // Atmospheric background colors: rich cosmic void in dark mode, radiant celestial twilight in light mode
   const outerBg = isDark ? '#05080E' : '#D6E4F0';
@@ -349,6 +361,39 @@ function buildSanctuaryEmailHtml({
   const footerBg = isDark ? '#070C16' : '#F8FAFC';
   const footerBorder = isDark ? '#1E293B' : '#E2E8F0';
   const codeBoxBg = isDark ? '#080E1A' : '#F1F5F9';
+
+  // Extract or synthesize official notices for AI Sentinel template
+  let sentinelNotices = [];
+  if (isAiSentinel) {
+    if (extraInfo && Array.isArray(extraInfo.notices)) {
+      sentinelNotices = extraInfo.notices;
+    } else if (Array.isArray(extraInfo)) {
+      sentinelNotices = extraInfo;
+    } else {
+      sentinelNotices = [
+        {
+          source: 'BOC',
+          island: 'Canarias',
+          bulletinNumber: 'BOC Nº 198',
+          date: '15/10/2026',
+          title: 'Consejería de Educación: Convocatoria extraordinaria para la ampliación de listas de empleo del Cuerpo de Profesores de Enseñanza Secundaria y EOI.',
+          summary: 'Apertura del plazo de presentación de solicitudes telemáticas para especialidades de Informática, Matemáticas e Inglés con baremación exprés y habilitación docente.',
+          aiAnalysis: '🤖 Análisis Gemini: Alta prioridad para docentes interinos en Canarias. Plazo de 10 días hábiles para adjuntar méritos y certificación oficial.',
+          url: 'https://www.gobiernodecanarias.org/boc/',
+        },
+        {
+          source: 'BOE',
+          island: 'Estatal',
+          bulletinNumber: 'BOE Nº 248',
+          date: '14/10/2026',
+          title: 'Ministerio de Educación: Concurso general de traslados y comisiones de servicios en el exterior para docentes 2026/2027.',
+          summary: 'Publicación de bases de la convocatoria general para funcionarios docentes de carrera de todos los cuerpos y especialidades.',
+          aiAnalysis: '🤖 Análisis Gemini: Relevante para funcionarios docentes interesados en movilidad autonómica o plazas docentes en el exterior.',
+          url: 'https://www.boe.es/',
+        },
+      ];
+    }
+  }
 
   // Process placeholders
   const parsedBody = (finalBody || '')
@@ -377,94 +422,117 @@ function buildSanctuaryEmailHtml({
     }
     ${animated ? `
     @keyframes twinklePulse {
-      0%, 100% { opacity: 0.35; transform: scale(0.85); }
-      50% { opacity: 1; transform: scale(1.25); }
+      0%, 100% { opacity: 0.25; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.35); }
     }
-    .star-t1 { display: inline-block; animation: twinklePulse 2.8s ease-in-out infinite !important; }
-    .star-t2 { display: inline-block; animation: twinklePulse 4.2s ease-in-out infinite 1.2s !important; }
-    .star-t3 { display: inline-block; animation: twinklePulse 3.4s ease-in-out infinite 2s !important; }
+    @keyframes cometSweep1 {
+      0% { transform: translate(-100px, -40px) rotate(-22deg); opacity: 0; }
+      15% { opacity: 1; }
+      75% { opacity: 1; }
+      100% { transform: translate(780px, 320px) rotate(-22deg); opacity: 0; }
+    }
+    @keyframes cometSweep2 {
+      0% { transform: translate(750px, 40px) rotate(158deg); opacity: 0; }
+      15% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { transform: translate(-120px, 400px) rotate(158deg); opacity: 0; }
+    }
+    @keyframes cometSweep3 {
+      0% { transform: translate(-80px, 80px) rotate(-14deg); opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translate(820px, 240px) rotate(-14deg); opacity: 0; }
+    }
+    .star-t1 { display: inline-block; animation: twinklePulse 2.4s ease-in-out infinite !important; }
+    .star-t2 { display: inline-block; animation: twinklePulse 3.8s ease-in-out infinite 0.9s !important; }
+    .star-t3 { display: inline-block; animation: twinklePulse 4.6s ease-in-out infinite 1.8s !important; }
+    .star-t4 { display: inline-block; animation: twinklePulse 3.1s ease-in-out infinite 0.4s !important; }
+    .star-t5 { display: inline-block; animation: twinklePulse 5.2s ease-in-out infinite 2.5s !important; }
+    .comet-anim-1 { display: inline-block; animation: cometSweep1 6.5s linear infinite !important; }
+    .comet-anim-2 { display: inline-block; animation: cometSweep2 8.5s linear infinite 3s !important; }
+    .comet-anim-3 { display: inline-block; animation: cometSweep3 7.2s linear infinite 1.5s !important; }
     ` : ''}
   </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
-  <!-- Outer Atmospheric Container -->
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};width:100%;padding:28px 4px;margin:0;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, ${isDark ? '#0F1E36' : '#E0EDF8'} 0%, ${isDark ? '#070D19' : '#D4E3F1'} 45%, ${isDark ? '#03050A' : '#BFD3E6'} 100%);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
+  <!-- Outer Atmospheric Seamless Starfield Container -->
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, ${isDark ? '#0F1E36' : '#E0EDF8'} 0%, ${isDark ? '#070D19' : '#D4E3F1'} 45%, ${isDark ? '#03050A' : '#BFD3E6'} 100%);width:100%;padding:24px 4px 38px 4px;margin:0;">
     <tr bgcolor="${outerBg}">
       <td align="center" bgcolor="${outerBg}" style="background-color:${outerBg};">
 
-        <!-- 3-Column Cosmic Atmospheric Canopy Wrapper -->
+        <!-- Top Open Celestial Canopy (Borderless, Flowing Cosmic Sky with Shooting Comets & Star Clusters) -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto 16px auto;">
+          <tr>
+            <td align="left" width="30%" valign="bottom" style="padding:10px 14px;">
+              <div class="comet-anim-1" style="display:inline-block;white-space:nowrap;">
+                <span style="font-size:16px;color:#FFFFFF;text-shadow:0 0 10px #38BDF8;">☄</span>
+                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to right, #38BDF8, transparent);vertical-align:middle;border-radius:2px;"></span>
+              </div>
+              <br>
+              <span class="star-t3" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};margin-left:18px;">⋆</span>
+              <span class="star-t1" style="font-size:15px;color:${isDark ? '#F59E0B' : '#D97706'};margin-left:14px;">✦</span>
+            </td>
+            <td align="center" width="40%" valign="middle" style="padding:6px 0;text-align:center;">
+              <div style="line-height:22px;letter-spacing:12px;white-space:nowrap;">
+                <span class="star-t1" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};text-shadow:0 0 8px ${isDark ? '#F59E0B' : '#D97706'};">✦</span>
+                <span class="star-t2" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
+                <span class="star-t3" style="font-size:18px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span>
+                <span class="star-t4" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
+                <span class="star-t1" style="font-size:15px;color:${primaryAccent};text-shadow:0 0 8px ${primaryAccent};">✦</span>
+                <span class="star-t5" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
+                <span class="star-t2" style="font-size:19px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span>
+              </div>
+            </td>
+            <td align="right" width="30%" valign="bottom" style="padding:10px 14px;text-align:right;">
+              <div class="comet-anim-2" style="display:inline-block;white-space:nowrap;">
+                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to left, #F59E0B, transparent);vertical-align:middle;border-radius:2px;"></span>
+                <span style="font-size:16px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 10px #F59E0B;">☄</span>
+              </div>
+              <br>
+              <span class="star-t2" style="font-size:16px;color:${isDark ? '#10B981' : '#059669'};margin-right:16px;">✦</span>
+              <span class="star-t4" style="font-size:10px;color:${isDark ? '#FFFFFF' : '#0284C7'};margin-right:20px;">★</span>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Main Celestial Wrapper with Full-Length Star Gutters and Elevated Floating Central Card -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto;">
           <tr>
 
-            <!-- Left Atmospheric Star Canopy Column -->
-            <td class="side-sky-col" width="90" align="center" valign="middle" style="width:90px;padding:8px 4px;vertical-align:middle;text-align:center;">
-              ${animated ? `
-              <img src="${sideGifUrl}" width="65" height="460" style="display:block;width:65px;height:auto;opacity:0.9;margin:0 auto;border-radius:12px;" alt="✦">
-              ` : `
-              <div style="line-height:42px;font-size:16px;text-align:center;">
-                <span class="star-t1" style="color:${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
+            <!-- Left Celestial Gutter (Deep Cosmos filled with Twinkling Constellations along Card Height) -->
+            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;">
+              <div style="line-height:44px;font-size:16px;text-align:center;">
+                <span class="star-t1" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};text-shadow:0 0 6px ${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
                 <span class="star-t2" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t3" style="font-size:18px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
-                <span class="star-t1" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
-                <span class="star-t2" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span><br>
-                <span class="star-t3" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t1" style="font-size:19px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span><br>
-                <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
-                <span class="star-t3" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
+                <span class="star-t3" style="font-size:19px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
+                <span class="star-t4" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
+                <span class="star-t1" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span><br>
+                <span class="star-t5" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
+                <span class="star-t2" style="font-size:18px;color:${isDark ? '#A78BFA' : '#7C3AED'};text-shadow:0 0 6px rgba(167,139,250,0.6);">✧</span><br>
+                <span class="star-t3" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
+                <span class="star-t4" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
                 <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t2" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span>
+                <span class="star-t2" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
+                <span class="star-t5" style="font-size:10px;color:${isDark ? '#10B981' : '#059669'};">⋆</span><br>
+                <span class="star-t3" style="font-size:15px;color:${isDark ? '#38BDF8' : '#0284C7'};">✦</span><br>
+                <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
               </div>
-              `}
             </td>
 
-            <!-- Center Content Column (560px) -->
-            <td width="570" align="center" valign="top" style="max-width:570px;padding:0 6px;">
-
-              <!-- Top Cosmic Animated Banner with Shooting Comets & Stars (Motion in Gmail & Outlook) -->
-              ${animated ? `
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:550px;margin:0 auto 12px auto;">
-                <tr>
-                  <td align="center">
-                    <img src="${bannerGifUrl}" width="550" height="75" style="display:block;width:100%;max-width:550px;height:auto;border-radius:18px;border:1px solid ${isDark ? 'rgba(56,189,248,0.22)' : 'rgba(2,132,199,0.2)'};box-shadow:0 0 24px ${isDark ? 'rgba(16,185,129,0.18)' : 'rgba(2,132,199,0.14)'};" alt="Sanctuary Cosmic Sky">
-                  </td>
-                </tr>
-              </table>
-              ` : `
-              <!-- Top Cosmic Sky with Glowing Stars and Shooting Comets (Static Bulletproof HTML) -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:550px;margin:0 auto 12px auto;">
-                <tr>
-                  <td align="left" width="30%" style="vertical-align:middle;padding:4px 6px;">
-                    <div style="display:inline-block;white-space:nowrap;">
-                      <span style="font-size:16px;color:${isDark ? '#FFFFFF' : '#0284C7'};vertical-align:middle;">☄</span><span style="display:inline-block;width:45px;height:2px;background-color:${isDark ? '#38BDF8' : '#0284C7'};vertical-align:middle;border-radius:2px;opacity:0.85;"></span>
-                    </div>
-                  </td>
-                  <td align="center" width="40%" style="vertical-align:middle;padding:4px 0;white-space:nowrap;">
-                    <span style="font-size:15px;color:${isDark ? '#F59E0B' : '#D97706'};margin:0 4px;">✦</span>
-                    <span style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};margin:0 3px;">★</span>
-                    <span style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};margin:0 4px;">✧</span>
-                    <span style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};margin:0 3px;">⋆</span>
-                    <span style="font-size:14px;color:${isDark ? '#10B981' : '#059669'};margin:0 4px;">✦</span>
-                  </td>
-                  <td align="right" width="30%" style="vertical-align:middle;padding:4px 6px;">
-                    <div style="display:inline-block;white-space:nowrap;">
-                      <span style="display:inline-block;width:45px;height:2px;background-color:${isDark ? '#F59E0B' : '#D97706'};vertical-align:middle;border-radius:2px;opacity:0.85;"></span><span style="font-size:16px;color:${isDark ? '#FDE68A' : '#D97706'};vertical-align:middle;">☄</span>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-              `}
+            <!-- Center Content Column (Card) -->
+            <td width="580" align="center" valign="top" style="max-width:580px;padding:0 4px;">
 
               <!-- Main Card Container -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:550px;background:${cardBg};background-color:${cardBg};border-radius:24px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:560px;background:${cardBg};background-color:${cardBg};border-radius:24px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;">
                 
-                <!-- Top Accent Bar -->
+                <!-- Top Accent Iridescent Bar -->
                 <tr>
                   <td style="height:4px;background-color:${primaryAccent};background:${accentGradient};"></td>
                 </tr>
 
-                <!-- Header with Official Planetary Logo & Cosmic Accents -->
+                <!-- Header with Official Logo & Cosmic Emblems -->
                 <tr>
-                  <td align="center" style="padding:34px 28px 18px 28px;">
+                  <td align="center" style="padding:32px 28px 16px 28px;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                       <tr>
                         <td align="right" style="vertical-align:middle;padding-right:16px;">
@@ -473,21 +541,23 @@ function buildSanctuaryEmailHtml({
                           <span class="star-t3" style="font-size:11px;color:${isDark ? '#38BDF8' : '#0284C7'};">★</span>
                         </td>
                         <td align="center" style="vertical-align:middle;">
-                          <!-- Official Sanctuary Logo -->
-                          <div style="width:72px;height:72px;border-radius:22px;background:radial-gradient(circle at 35% 35%, ${isSuspension ? '#EF4444' : (isAnnouncement ? '#06B6D4' : '#10B981')}, ${isSuspension ? '#7F1D1D' : (isAnnouncement ? '#0E7490' : '#064E3B')});box-shadow:0 0 28px ${isSuspension ? 'rgba(239,68,68,0.5)' : (isAnnouncement ? 'rgba(6,182,212,0.5)' : 'rgba(16,185,129,0.5)')};padding:2px;display:inline-block;box-sizing:border-box;">
+                          <!-- Sanctuary Emblem Badge -->
+                          <div style="width:72px;height:72px;border-radius:22px;background:radial-gradient(circle at 35% 35%, ${isSuspension ? '#EF4444' : (isAnnouncement ? '#06B6D4' : (isAiSentinel ? '#8B5CF6' : '#10B981'))}, ${isSuspension ? '#7F1D1D' : (isAnnouncement ? '#0E7490' : (isAiSentinel ? '#4C1D95' : '#064E3B'))});box-shadow:0 0 28px ${isSuspension ? 'rgba(239,68,68,0.5)' : (isAnnouncement ? 'rgba(6,182,212,0.5)' : (isAiSentinel ? 'rgba(139,92,246,0.5)' : 'rgba(16,185,129,0.5)'))};padding:2px;display:inline-block;box-sizing:border-box;">
                             <img src="${logoUrl}" width="68" height="68" alt="Sanctuary Logo" style="display:block;width:68px;height:68px;border-radius:20px;margin:0 auto;border:0;">
                           </div>
                         </td>
                         <td align="left" style="vertical-align:middle;padding-left:16px;">
                           <span class="star-t2" style="font-size:19px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 6px ${isDark ? '#FDE68A' : '#D97706'};">✧</span>
                           <br>
-                          <span class="star-t1" style="font-size:12px;color:${isDark ? '#10B981' : '#059669'};">✦</span>
+                          <span class="star-t1" style="font-size:12px;color:${primaryAccent};">✦</span>
                         </td>
                       </tr>
                       <tr>
                         <td colspan="3" align="center" style="padding-top:14px;">
                           <span style="font-size:22px;font-weight:900;letter-spacing:3px;color:${textColor};text-transform:uppercase;">SANCTUARY</span>
-                          <div style="font-size:11px;font-weight:700;letter-spacing:1.8px;color:${primaryAccent};margin-top:4px;">PLATFORM · DIGITAL SUITE</div>
+                          <div style="font-size:10.5px;font-weight:700;letter-spacing:1.8px;color:${primaryAccent};margin-top:4px;">
+                            ${isAiSentinel ? '🛰️ AI SENTINEL · VIGILANCIA OFICIAL' : 'PLATFORM · DIGITAL SUITE'}
+                          </div>
                         </td>
                       </tr>
                     </table>
@@ -508,13 +578,38 @@ function buildSanctuaryEmailHtml({
                       <div class="pin-number" style="font-size:32px;font-weight:900;letter-spacing:8px;color:${primaryAccent};margin-top:6px;font-family:monospace;">${code}</div>
                     </div>` : ''}
 
-                    ${extraInfo ? `
+                    ${isAiSentinel && sentinelNotices.length > 0 ? `
+                    <!-- AI Sentinel Official Notices List -->
+                    <div style="margin:24px 0;">
+                      ${sentinelNotices.map(n => `
+                      <div style="background-color:${isDark ? '#0F172A' : '#F8FAFC'};border:1px solid ${isDark ? '#1E293B' : '#E2E8F0'};border-radius:14px;padding:16px;margin-bottom:14px;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+                        <div style="margin-bottom:8px;">
+                          <span style="background-color:${n.source === 'BOC' ? 'rgba(16,185,129,0.18)' : 'rgba(59,130,246,0.18)'};color:${n.source === 'BOC' ? '#10B981' : '#3B82F6'};font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid ${n.source === 'BOC' ? 'rgba(16,185,129,0.4)' : 'rgba(59,130,246,0.4)'};">${n.source}</span>
+                          <span style="background-color:rgba(139,92,246,0.18);color:#A78BFA;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;margin-left:6px;border:1px solid rgba(139,92,246,0.35);">📍 ${n.island || 'General'}</span>
+                          <span style="color:${subtextColor};font-size:11px;margin-left:8px;font-weight:600;">${n.date || ''} · ${n.bulletinNumber || ''}</span>
+                        </div>
+                        <h3 style="margin:0 0 6px 0;font-size:14px;font-weight:800;color:${textColor};line-height:1.4;">${n.title}</h3>
+                        <p style="margin:0 0 10px 0;font-size:12.5px;color:${subtextColor};line-height:1.5;">${n.summary}</p>
+                        ${n.aiAnalysis ? `
+                        <div style="background-color:${isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)'};border-left:3px solid #8B5CF6;border-radius:6px;padding:9px 12px;margin:10px 0;color:${isDark ? '#C4B5FD' : '#6D28D9'};font-size:12px;line-height:1.45;">
+                          ${n.aiAnalysis}
+                        </div>` : ''}
+                        <div style="margin-top:12px;text-align:right;">
+                          <a href="${n.url || '#'}" target="_blank" style="display:inline-block;background-color:${primaryAccent};color:#FFFFFF;text-decoration:none;font-size:11.5px;font-weight:bold;padding:7px 14px;border-radius:8px;">
+                            Ver Convocatoria Oficial →
+                          </a>
+                        </div>
+                      </div>
+                      `).join('')}
+                    </div>` : ''}
+
+                    ${extraInfo && !isAiSentinel ? `
                     <div style="background-color:${codeBoxBg};border:1px solid ${cardBorder};border-radius:14px;padding:14px 18px;margin:18px 0;font-size:13px;line-height:1.5;color:${subtextColor};text-align:center;">
                       ${extraInfo}
                     </div>` : ''}
 
                     ${finalCta && ctaLink ? `
-                    <!-- Bulletproof CTA Button with Guaranteed Solid Fallback and High Contrast -->
+                    <!-- Bulletproof CTA Button with High Contrast & Guaranteed Solid Fallback -->
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin:26px auto 16px auto;border-collapse:separate;">
                       <tr>
                         <td align="center" bgcolor="${btnSolidColor}" style="border-radius:14px;background-color:${btnSolidColor} !important;background:${btnGradient};padding:0;text-align:center;box-shadow:0 8px 24px ${btnShadow};">
@@ -552,54 +647,54 @@ function buildSanctuaryEmailHtml({
                 </tr>
               </table>
 
-              <!-- Bottom Cosmic Starscape Banner -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:550px;margin:14px auto 0 auto;">
-                <tr>
-                  <td align="left" width="25%" style="vertical-align:middle;padding:4px 6px;">
-                    <span class="star-t2" style="font-size:13px;color:${isDark ? '#F59E0B' : '#D97706'};margin-right:4px;">✦</span>
-                    <span class="star-t1" style="font-size:10px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-                    <span class="star-t3" style="font-size:15px;color:${isDark ? '#FDE68A' : '#D97706'};margin-left:4px;">✧</span>
-                  </td>
-                  <td align="center" width="50%" style="vertical-align:middle;padding:4px 0;letter-spacing:10px;white-space:nowrap;">
-                    <span class="star-t1" style="font-size:11px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
-                    <span class="star-t3" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span>
-                    <span class="star-t2" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 8px ${isDark ? '#FDE68A' : '#D97706'};">✧</span>
-                    <span class="star-t1" style="font-size:11px;color:${isDark ? '#F59E0B' : '#D97706'};">★</span>
-                    <span class="star-t3" style="font-size:14px;color:${isDark ? '#FFFFFF' : '#0284C7'};">✦</span>
-                    <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
-                  </td>
-                  <td align="right" width="25%" style="vertical-align:middle;padding:4px 6px;">
-                    <!-- Reverse Comet in lower sky -->
-                    <div style="display:inline-block;white-space:nowrap;">
-                      <span style="display:inline-block;width:35px;height:2px;background-color:${isDark ? '#10B981' : '#059669'};vertical-align:middle;border-radius:2px;opacity:0.8;"></span><span style="font-size:14px;color:${isDark ? '#FFFFFF' : '#059669'};vertical-align:middle;">☄</span>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-
             </td>
 
-            <!-- Right Atmospheric Star Canopy Column -->
-            <td class="side-sky-col" width="90" align="center" valign="middle" style="width:90px;padding:8px 4px;vertical-align:middle;text-align:center;">
-              ${animated ? `
-              <img src="${sideGifUrl}" width="65" height="460" style="display:block;width:65px;height:auto;opacity:0.9;margin:0 auto;border-radius:12px;" alt="✦">
-              ` : `
-              <div style="line-height:42px;font-size:16px;text-align:center;">
+            <!-- Right Celestial Gutter (Deep Cosmos filled with Twinkling Constellations along Card Height) -->
+            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;">
+              <div style="line-height:44px;font-size:16px;text-align:center;">
                 <span class="star-t2" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
                 <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t3" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span><br>
+                <span class="star-t3" style="font-size:15px;color:${primaryAccent};">✦</span><br>
                 <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
                 <span class="star-t1" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span><br>
-                <span class="star-t3" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
+                <span class="star-t5" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
                 <span class="star-t2" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
                 <span class="star-t1" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
                 <span class="star-t3" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
-                <span class="star-t2" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t1" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span>
+                <span class="star-t4" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
+                <span class="star-t1" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span><br>
+                <span class="star-t5" style="font-size:10px;color:${isDark ? '#FDE68A' : '#B45309'};">⋆</span><br>
+                <span class="star-t2" style="font-size:16px;color:${isDark ? '#38BDF8' : '#0284C7'};">✧</span><br>
+                <span class="star-t3" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
               </div>
-              `}
             </td>
 
+          </tr>
+        </table>
+
+        <!-- Bottom Cosmic Starscape Horizon (Borderless, Crossing Comets & Star Dust) -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:18px auto 0 auto;">
+          <tr>
+            <td align="left" width="30%" valign="top" style="padding:8px 14px;">
+              <span class="star-t1" style="font-size:14px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span>
+              <span class="star-t3" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};margin-left:14px;">★</span>
+              <span class="star-t5" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};margin-left:12px;">✧</span>
+            </td>
+            <td align="center" width="40%" valign="middle" style="letter-spacing:12px;white-space:nowrap;padding:8px 0;text-align:center;">
+              <div class="comet-anim-3" style="display:inline-block;white-space:nowrap;">
+                <span style="display:inline-block;width:55px;height:2px;background:linear-gradient(to right, #10B981, transparent);vertical-align:middle;border-radius:2px;"></span>
+                <span style="font-size:15px;color:#10B981;">☄</span>
+              </div>
+              <span class="star-t2" style="font-size:12px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
+              <span class="star-t4" style="font-size:16px;color:${primaryAccent};">✦</span>
+              <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
+              <span class="star-t3" style="font-size:17px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span>
+            </td>
+            <td align="right" width="30%" valign="top" style="padding:8px 14px;text-align:right;">
+              <span class="star-t4" style="font-size:15px;color:${primaryAccent};margin-right:12px;">✦</span>
+              <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};margin-right:14px;">⋆</span>
+              <span class="star-t1" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
+            </td>
           </tr>
         </table>
 
@@ -3655,10 +3750,28 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
     const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
     if (config.emailNotifications && config.targetEmail && brandNewAlerts.length > 0) {
       try {
+        const templates = await getEmailTemplates();
+        const sentinelTpl = templates.ai_sentinel || getDefaultEmailTemplates().ai_sentinel;
+        const mailSubject = (sentinelTpl.subject || `🪐 Alerta AI Sentinel: ${brandNewAlerts.length} Nueva(s) Convocatoria(s) (${placeTitle})`)
+          .replace(/\{place\}/g, placeTitle)
+          .replace(/\{count\}/g, String(brandNewAlerts.length));
+        const emailHtml = buildSanctuaryEmailHtml({
+          templateType: 'ai_sentinel',
+          theme: sentinelTpl.theme || 'dark',
+          animated: sentinelTpl.animated !== false,
+          subject: mailSubject,
+          title: sentinelTpl.title || `Vigilancia Oficial Automatizada (${placeTitle})`,
+          body: sentinelTpl.body || `El motor inteligente AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) o publicación(es) relevante(s) para ${placeTitle}:`,
+          ctaText: sentinelTpl.ctaText || 'Ver Convocatorias en el Hub',
+          ctaLink: 'https://carlosss91.github.io/Sanctuary/',
+          footerNote: sentinelTpl.footerNote,
+          extraInfo: { notices: brandNewAlerts, placeTitle },
+        });
+
         await sendMailNotification({
           to: config.targetEmail,
-          subject: `🪐 Alerta AI Sentinel: ${brandNewAlerts.length} Nueva(s) Convocatoria(s) (${placeTitle})`,
-          html: aiWatchdogService.buildAiSentinelEmailHtml(brandNewAlerts, config),
+          subject: mailSubject,
+          html: emailHtml,
           text: `AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) para ${placeTitle}. Revisa el Hub en Sanctuary Suite.`,
         });
         brandNewAlerts.forEach(n => { n.isEmailSent = true; });

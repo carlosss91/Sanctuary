@@ -192,12 +192,19 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
         _bodyCtrl.text = 'Hola {name},\n\nTe notificamos que el acceso a tu cuenta en Sanctuary Suite (@{username}) ha sido restringido por un administrador del sistema por motivos de moderación o seguridad.';
         _ctaTextCtrl.text = 'Contactar con Soporte';
         _footerCtrl.text = 'Si consideras que esta medida es un error o deseas solicitar una revisión, puedes responder directamente a este correo.';
-      } else {
+      } else if (_selectedTemplate == 'announcement') {
         _subjectCtrl.text = 'Novedades y Anuncios · Sanctuary Suite 🪐';
         _titleCtrl.text = 'Comunicado Oficial de la Plataforma';
         _bodyCtrl.text = 'Estimado/a {name},\n\nNos complace compartir contigo las últimas novedades, actualizaciones docentes y herramientas añadidas al ecosistema Sanctuary Suite (CV Maker, Firmador PDF y Descargador de Presentaciones).';
         _ctaTextCtrl.text = 'Explorar la Plataforma';
         _footerCtrl.text = 'Sanctuary Suite © 2026 · Portal Docente, CV Maker interactivo & Digital Signer';
+      } else {
+        // ai_sentinel
+        _subjectCtrl.text = 'Alerta AI Sentinel: Nuevas Convocatorias Oficiales · Sanctuary 🪐';
+        _titleCtrl.text = 'AI Sentinel: Vigilancia Oficial Automatizada';
+        _bodyCtrl.text = 'El motor inteligente AI Sentinel ha detectado nuevas convocatorias, resoluciones y publicaciones oficiales docentes en el BOC y BOE con alta relevancia para tu perfil:';
+        _ctaTextCtrl.text = 'Ver Convocatorias en el Hub';
+        _footerCtrl.text = 'Este boletín es generado de forma automatizada por el motor AI Sentinel con asistencia de Google Gemini Pro.\nPuedes ajustar la frecuencia de escaneo y los filtros geográficos desde el panel docente de Sanctuary.';
       }
       _currentTheme = 'dark';
       _currentAnimated = true;
@@ -346,6 +353,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       {'key': 'activation', 'label': 'Activación de Cuenta', 'icon': Icons.verified_user_outlined, 'color': const Color(0xFF10B981)},
       {'key': 'suspension', 'label': 'Suspensión / Baneo', 'icon': Icons.gavel_rounded, 'color': const Color(0xFFEF4444)},
       {'key': 'announcement', 'label': 'Boletín / Noticia', 'icon': Icons.campaign_rounded, 'color': const Color(0xFF06B6D4)},
+      {'key': 'ai_sentinel', 'label': 'AI Sentinel (Convocatorias)', 'icon': Icons.radar_rounded, 'color': const Color(0xFF8B5CF6)},
     ];
 
     return Wrap(
@@ -577,6 +585,10 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                       _buildVariableChip('{name}', isDark),
                       _buildVariableChip('{username}', isDark),
                       if (_selectedTemplate == 'activation') _buildVariableChip('{code}', isDark),
+                      if (_selectedTemplate == 'ai_sentinel') ...[
+                        _buildVariableChip('{place}', isDark),
+                        _buildVariableChip('{count}', isDark),
+                      ],
                     ],
                   ),
                 ],
@@ -756,6 +768,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     final previewIsDark = _currentTheme == 'dark';
     final isSuspension = _selectedTemplate == 'suspension';
     final isAnnouncement = _selectedTemplate == 'announcement';
+    final isAiSentinel = _selectedTemplate == 'ai_sentinel';
 
     // Theme tokens for preview
     final previewBg = previewIsDark ? const Color(0xFF05080E) : const Color(0xFFD6E4F0);
@@ -765,7 +778,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     final subtextColor = previewIsDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     final primaryAccent = isSuspension
         ? const Color(0xFFEF4444)
-        : (isAnnouncement ? const Color(0xFF0891B2) : const Color(0xFF10B981));
+        : (isAnnouncement
+            ? const Color(0xFF0891B2)
+            : (isAiSentinel ? const Color(0xFF8B5CF6) : const Color(0xFF10B981)));
     final codeBoxBg = previewIsDark ? const Color(0xFF080E1A) : const Color(0xFFF1F5F9);
 
     final titleText = _titleCtrl.text.isNotEmpty ? _titleCtrl.text : 'Título del Correo';
@@ -774,6 +789,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
             .replaceAll('{name}', 'Carlos Santana')
             .replaceAll('{username}', 'carlos_test')
             .replaceAll('{code}', '849201')
+            .replaceAll('{place}', 'Canarias')
+            .replaceAll('{count}', '2')
         : 'Cuerpo del mensaje...';
     final ctaText = _ctaTextCtrl.text.isNotEmpty ? _ctaTextCtrl.text : 'Botón de Acción';
     final footerText = _footerCtrl.text.isNotEmpty ? _footerCtrl.text : '';
@@ -844,7 +861,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                 ),
                 child: Stack(
                   children: [
-                    // Celestial Background Canvas with Stars & Comets
+                    // Celestial Background Canvas with Stars & Comets Across the Entire Window
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
@@ -853,6 +870,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                             progress: _currentAnimated ? _animController.value : 0.0,
                             isDark: previewIsDark,
                             isSuspension: isSuspension,
+                            isAiSentinel: isAiSentinel,
                             isAnimated: _currentAnimated,
                           ),
                         ),
@@ -861,7 +879,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
 
                     // Centered Email Card
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
                       child: Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 420),
@@ -890,7 +908,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                         ? const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFF59E0B)])
                                         : (isAnnouncement
                                             ? const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)])
-                                            : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF3B82F6)])),
+                                            : (isAiSentinel
+                                                ? const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF3B82F6), Color(0xFF06B6D4)])
+                                                : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF3B82F6)]))),
                                   ),
                                 ),
 
@@ -909,7 +929,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                                 ? [const Color(0xFFEF4444), const Color(0xFF7F1D1D)]
                                                 : (isAnnouncement
                                                     ? [const Color(0xFF06B6D4), const Color(0xFF0E7490)]
-                                                    : [const Color(0xFF10B981), const Color(0xFF064E3B)]),
+                                                    : (isAiSentinel
+                                                        ? [const Color(0xFF8B5CF6), const Color(0xFF4C1D95)]
+                                                        : [const Color(0xFF10B981), const Color(0xFF064E3B)])),
                                           ),
                                           borderRadius: BorderRadius.circular(16),
                                           boxShadow: [
@@ -929,7 +951,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                             fit: BoxFit.cover,
                                             errorBuilder: (_, __, ___) => Center(
                                               child: Text(
-                                                isSuspension ? '⚠️' : (isAnnouncement ? '📢' : '🪐'),
+                                                isSuspension ? '⚠️' : (isAnnouncement ? '📢' : (isAiSentinel ? '🛰️' : '🪐')),
                                                 style: const TextStyle(fontSize: 26),
                                               ),
                                             ),
@@ -947,7 +969,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                         ),
                                       ),
                                       Text(
-                                        'PLATFORM · DIGITAL SUITE',
+                                        isAiSentinel ? '🛰️ AI SENTINEL · VIGILANCIA OFICIAL' : 'PLATFORM · DIGITAL SUITE',
                                         style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
@@ -1022,6 +1044,73 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                         ),
                                       ],
 
+                                      // AI Sentinel Convocatorias Sample List
+                                      if (isAiSentinel) ...[
+                                        const SizedBox(height: 14),
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: previewIsDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: cardBorder),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF10B981).withOpacity(0.18),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                                                    ),
+                                                    child: const Text('BOC', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF8B5CF6).withOpacity(0.18),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                                                    ),
+                                                    child: const Text('📍 Canarias', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFA78BFA))),
+                                                  ),
+                                                  const Spacer(),
+                                                  Text('BOC Nº 198 · 15/10/2026', style: TextStyle(fontSize: 9, color: subtextColor)),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                'Consejería de Educación: Convocatoria extraordinaria listas de empleo secundaria.',
+                                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textColor),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Apertura del plazo para especialidades docentes con baremación exprés y habilitación.',
+                                                style: TextStyle(fontSize: 10, height: 1.4, color: subtextColor),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: const Border(left: BorderSide(color: Color(0xFF8B5CF6), width: 3)),
+                                                ),
+                                                child: const Text(
+                                                  '🤖 Análisis Gemini: Alta prioridad para interinos. Plazo de 10 días hábiles.',
+                                                  style: TextStyle(fontSize: 9.5, color: Color(0xFFA78BFA)),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
+
                                       // CTA Button
                                       const SizedBox(height: 18),
                                       Container(
@@ -1032,7 +1121,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                               ? const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)])
                                               : (isAnnouncement
                                                   ? const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0891B2)])
-                                                  : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)])),
+                                                  : (isAiSentinel
+                                                      ? const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)])
+                                                      : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]))),
                                           borderRadius: BorderRadius.circular(10),
                                           boxShadow: [
                                             BoxShadow(
@@ -1105,19 +1196,55 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 }
 
-// Custom Painter for the Interactive Cosmic Email Preview Canvas
+// Custom Painter for the Interactive Cosmic Email Preview Canvas with Full-Canvas Starfield & Shooting Comets
 class CosmicEmailPreviewPainter extends CustomPainter {
   final double progress;
   final bool isDark;
   final bool isSuspension;
+  final bool isAiSentinel;
   final bool isAnimated;
 
   CosmicEmailPreviewPainter({
     required this.progress,
     required this.isDark,
     required this.isSuspension,
+    this.isAiSentinel = false,
     required this.isAnimated,
   });
+
+  // Pre-calculated deterministic celestial distribution spanning all quadrants
+  static final List<Offset> _denseStars = [
+    // Top Sky
+    const Offset(0.04, 0.04), const Offset(0.12, 0.07), const Offset(0.19, 0.03),
+    const Offset(0.27, 0.09), const Offset(0.34, 0.04), const Offset(0.42, 0.08),
+    const Offset(0.50, 0.03), const Offset(0.58, 0.07), const Offset(0.66, 0.04),
+    const Offset(0.74, 0.09), const Offset(0.81, 0.03), const Offset(0.89, 0.07),
+    const Offset(0.96, 0.05), const Offset(0.08, 0.13), const Offset(0.23, 0.15),
+    const Offset(0.38, 0.12), const Offset(0.62, 0.14), const Offset(0.77, 0.12),
+    const Offset(0.92, 0.14),
+
+    // Left Flank
+    const Offset(0.03, 0.22), const Offset(0.09, 0.26), const Offset(0.04, 0.32),
+    const Offset(0.11, 0.38), const Offset(0.02, 0.44), const Offset(0.08, 0.49),
+    const Offset(0.03, 0.55), const Offset(0.10, 0.60), const Offset(0.04, 0.66),
+    const Offset(0.09, 0.72), const Offset(0.02, 0.77), const Offset(0.08, 0.82),
+    const Offset(0.04, 0.88), const Offset(0.11, 0.93),
+
+    // Right Flank
+    const Offset(0.96, 0.22), const Offset(0.91, 0.26), const Offset(0.97, 0.32),
+    const Offset(0.90, 0.38), const Offset(0.98, 0.44), const Offset(0.92, 0.49),
+    const Offset(0.97, 0.55), const Offset(0.90, 0.60), const Offset(0.96, 0.66),
+    const Offset(0.91, 0.72), const Offset(0.98, 0.77), const Offset(0.92, 0.82),
+    const Offset(0.96, 0.88), const Offset(0.89, 0.93),
+
+    // Bottom Sky
+    const Offset(0.05, 0.96), const Offset(0.14, 0.97), const Offset(0.22, 0.95),
+    const Offset(0.31, 0.98), const Offset(0.40, 0.95), const Offset(0.48, 0.97),
+    const Offset(0.55, 0.95), const Offset(0.64, 0.98), const Offset(0.72, 0.95),
+    const Offset(0.80, 0.97), const Offset(0.88, 0.95), const Offset(0.95, 0.97),
+    const Offset(0.18, 0.91), const Offset(0.35, 0.92), const Offset(0.65, 0.92),
+    const Offset(0.82, 0.91),
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1127,113 +1254,151 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     final aura1Paint = Paint()
       ..shader = RadialGradient(
         colors: isDark
-            ? [const Color(0xFF10B981).withOpacity(0.18), Colors.transparent]
-            : [const Color(0xFF10B981).withOpacity(0.10), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.15, size.height * 0.18), radius: 130));
-    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.18), 130, aura1Paint);
+            ? [const Color(0xFF10B981).withOpacity(0.15), Colors.transparent]
+            : [const Color(0xFF10B981).withOpacity(0.08), Colors.transparent],
+      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.15, size.height * 0.15), radius: 140));
+    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.15), 140, aura1Paint);
 
     final aura2Paint = Paint()
       ..shader = RadialGradient(
         colors: isDark
-            ? [const Color(0xFF06B6D4).withOpacity(0.18), Colors.transparent]
-            : [const Color(0xFF06B6D4).withOpacity(0.10), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.85, size.height * 0.25), radius: 150));
-    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.25), 150, aura2Paint);
+            ? [(isAiSentinel ? const Color(0xFF8B5CF6) : const Color(0xFF06B6D4)).withOpacity(0.16), Colors.transparent]
+            : [(isAiSentinel ? const Color(0xFF8B5CF6) : const Color(0xFF06B6D4)).withOpacity(0.08), Colors.transparent],
+      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.85, size.height * 0.20), radius: 150));
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.20), 150, aura2Paint);
 
-    // 2. Fixed & Twinkling Stars
-    final starPoints = [
-      const Offset(0.08, 0.08),
-      const Offset(0.22, 0.05),
-      const Offset(0.78, 0.06),
-      const Offset(0.92, 0.10),
-      const Offset(0.05, 0.35),
-      const Offset(0.95, 0.40),
-      const Offset(0.06, 0.65),
-      const Offset(0.94, 0.70),
-      const Offset(0.12, 0.90),
-      const Offset(0.85, 0.92),
-      const Offset(0.50, 0.03),
-      const Offset(0.50, 0.97),
-    ];
+    final aura3Paint = Paint()
+      ..shader = RadialGradient(
+        colors: isDark
+            ? [const Color(0xFF3B82F6).withOpacity(0.12), Colors.transparent]
+            : [const Color(0xFF3B82F6).withOpacity(0.06), Colors.transparent],
+      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.50, size.height * 0.90), radius: 160));
+    canvas.drawCircle(Offset(size.width * 0.50, size.height * 0.90), 160, aura3Paint);
 
-    for (int i = 0; i < starPoints.length; i++) {
-      final p = starPoints[i];
+    // 2. Dense Celestial Starfield Across the Whole Canvas
+    for (int i = 0; i < _denseStars.length; i++) {
+      final p = _denseStars[i];
       final pos = Offset(p.dx * size.width, p.dy * size.height);
       final double twinkle = isAnimated
-          ? (0.4 + 0.6 * math.sin(progress * math.pi * 2 + i * 1.3).abs())
-          : 0.8;
+          ? (0.35 + 0.65 * math.sin(progress * math.pi * 2 + i * 1.35).abs())
+          : 0.85;
 
       Color starColor;
-      if (i % 3 == 0) {
+      final mod = i % 5;
+      if (mod == 0) {
         starColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706); // Amber
-      } else if (i % 3 == 1) {
-        starColor = isDark ? Colors.white : const Color(0xFF0284C7); // White / Blue
+      } else if (mod == 1) {
+        starColor = isDark ? Colors.white : const Color(0xFF0284C7); // Diamond
+      } else if (mod == 2) {
+        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7); // Sapphire
+      } else if (mod == 3) {
+        starColor = isDark ? const Color(0xFF10B981) : const Color(0xFF059669); // Emerald
       } else {
-        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF059669); // Sapphire / Emerald
+        starColor = isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED); // Violet
+      }
+
+      final radius = (i % 3 == 0) ? 2.4 : ((i % 2 == 0) ? 1.8 : 1.2);
+
+      // Subtle halo for prominent stars
+      if (radius > 2.0) {
+        final haloPaint = Paint()..color = starColor.withOpacity(twinkle * (isDark ? 0.35 : 0.2));
+        canvas.drawCircle(pos, radius * 2.2, haloPaint);
       }
 
       final starPaint = Paint()..color = starColor.withOpacity(twinkle.clamp(0.2, 1.0));
-      final radius = (i % 2 == 0) ? 2.2 : 1.5;
       canvas.drawCircle(pos, radius, starPaint);
     }
 
-    // 3. Shooting Comets
+    // 3. Dynamic Shooting Comets (Full-Screen Diagonal Trajectories)
     if (isAnimated) {
-      // Comet 1: Left to Right across top space
+      // Comet 1: Sweeps across the upper sky
       final c1Progress = (progress * 1.5) % 1.0;
-      if (c1Progress < 0.6) {
-        final norm = c1Progress / 0.6;
-        final startX = -40.0 + norm * (size.width + 100);
-        final startY = 20.0 + norm * (size.height * 0.5);
-        final endX = startX - 60;
-        final endY = startY - 35;
+      if (c1Progress < 0.65) {
+        final norm = c1Progress / 0.65;
+        final startX = -40.0 + norm * (size.width + 120);
+        final startY = 15.0 + norm * (size.height * 0.40);
+        final endX = startX - 65;
+        final endY = startY - 26;
 
         final cometPaint = Paint()
           ..shader = uiGradient(
             from: Offset(startX, startY),
             to: Offset(endX, endY),
-            colors: [Colors.white, const Color(0xFF10B981).withOpacity(0.8), Colors.transparent],
+            colors: [Colors.white, const Color(0xFF38BDF8).withOpacity(0.85), Colors.transparent],
           )
           ..strokeWidth = 2.4
           ..strokeCap = StrokeCap.round;
 
         canvas.drawLine(Offset(startX, startY), Offset(endX, endY), cometPaint);
-        canvas.drawCircle(Offset(startX, startY), 3.0, Paint()..color = Colors.white);
+        canvas.drawCircle(Offset(startX, startY), 3.2, Paint()..color = Colors.white);
       }
 
-      // Comet 2: Right to Left across bottom space
-      final c2Progress = ((progress + 0.5) * 1.2) % 1.0;
-      if (c2Progress < 0.55) {
-        final norm = c2Progress / 0.55;
-        final startX = size.width + 40 - norm * (size.width + 100);
-        final startY = size.height * 0.45 + norm * (size.height * 0.45);
-        final endX = startX + 55;
-        final endY = startY - 30;
+      // Comet 2: Sweeps across the lower sky
+      final c2Progress = ((progress + 0.48) * 1.25) % 1.0;
+      if (c2Progress < 0.60) {
+        final norm = c2Progress / 0.60;
+        final startX = size.width + 40 - norm * (size.width + 120);
+        final startY = size.height * 0.55 + norm * (size.height * 0.38);
+        final endX = startX + 60;
+        final endY = startY - 25;
 
         final comet2Paint = Paint()
           ..shader = uiGradient(
             from: Offset(startX, startY),
             to: Offset(endX, endY),
-            colors: [const Color(0xFFFDE68A), const Color(0xFFEF4444).withOpacity(0.7), Colors.transparent],
+            colors: [const Color(0xFFFDE68A), const Color(0xFFF59E0B).withOpacity(0.8), Colors.transparent],
+          )
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round;
+
+        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet2Paint);
+        canvas.drawCircle(Offset(startX, startY), 2.8, Paint()..color = const Color(0xFFFDE68A));
+      }
+
+      // Comet 3: Fast sweep across the topmost horizon
+      final c3Progress = ((progress + 0.22) * 1.8) % 1.0;
+      if (c3Progress < 0.55) {
+        final norm = c3Progress / 0.55;
+        final startX = size.width * 0.05 + norm * (size.width * 0.90);
+        final startY = 8.0 + norm * 45.0;
+        final endX = startX - 48;
+        final endY = startY - 14;
+
+        final comet3Paint = Paint()
+          ..shader = uiGradient(
+            from: Offset(startX, startY),
+            to: Offset(endX, endY),
+            colors: [Colors.white, (isAiSentinel ? const Color(0xFFA78BFA) : const Color(0xFF10B981)).withOpacity(0.8), Colors.transparent],
           )
           ..strokeWidth = 2.0
           ..strokeCap = StrokeCap.round;
 
-        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet2Paint);
-        canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = const Color(0xFFFDE68A));
+        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet3Paint);
+        canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = Colors.white);
       }
     } else {
       // Static decorative comets
       final comet1 = Paint()
         ..shader = uiGradient(
-          from: Offset(size.width * 0.22, size.height * 0.12),
-          to: Offset(size.width * 0.14, size.height * 0.06),
-          colors: [Colors.white, const Color(0xFF10B981).withOpacity(0.75), Colors.transparent],
+          from: Offset(size.width * 0.26, size.height * 0.09),
+          to: Offset(size.width * 0.16, size.height * 0.04),
+          colors: [Colors.white, const Color(0xFF38BDF8).withOpacity(0.75), Colors.transparent],
         )
         ..strokeWidth = 2.2
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(size.width * 0.22, size.height * 0.12), Offset(size.width * 0.14, size.height * 0.06), comet1);
-      canvas.drawCircle(Offset(size.width * 0.22, size.height * 0.12), 2.8, Paint()..color = Colors.white);
+      canvas.drawLine(Offset(size.width * 0.26, size.height * 0.09), Offset(size.width * 0.16, size.height * 0.04), comet1);
+      canvas.drawCircle(Offset(size.width * 0.26, size.height * 0.09), 2.8, Paint()..color = Colors.white);
+
+      final comet2 = Paint()
+        ..shader = uiGradient(
+          from: Offset(size.width * 0.74, size.height * 0.93),
+          to: Offset(size.width * 0.84, size.height * 0.88),
+          colors: [const Color(0xFFFDE68A), const Color(0xFFF59E0B).withOpacity(0.75), Colors.transparent],
+        )
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(size.width * 0.74, size.height * 0.93), Offset(size.width * 0.84, size.height * 0.88), comet2);
+      canvas.drawCircle(Offset(size.width * 0.74, size.height * 0.93), 2.6, Paint()..color = const Color(0xFFFDE68A));
     }
   }
 
@@ -1246,6 +1411,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     return oldDelegate.progress != progress ||
         oldDelegate.isDark != isDark ||
         oldDelegate.isSuspension != isSuspension ||
+        oldDelegate.isAiSentinel != isAiSentinel ||
         oldDelegate.isAnimated != isAnimated;
   }
 }

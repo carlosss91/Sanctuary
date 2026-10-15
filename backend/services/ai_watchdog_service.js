@@ -386,28 +386,32 @@ function filterNotices(notices, config) {
 /**
  * Generates celestial HTML email for new alerts
  */
-function buildAiSentinelEmailHtml(newNotices, config) {
+function buildAiSentinelEmailHtml(newNotices, config = {}) {
   const outerBg = '#05080E';
   const cardBg = '#0C1322';
   const cardBorder = 'rgba(30, 41, 59, 0.9)';
+  const textColor = '#F8FAFC';
+  const subtextColor = '#94A3B8';
+  const primaryAccent = '#8B5CF6';
   const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
+  const logoUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/icon-192.png';
 
   const itemsHtml = newNotices.map(n => {
     return `
-      <div style="background-color:#0F172A;border:1px solid #1E293B;border-radius:14px;padding:16px;margin-bottom:14px;text-align:left;">
+      <div style="background-color:#0F172A;border:1px solid #1E293B;border-radius:14px;padding:16px;margin-bottom:14px;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
         <div style="margin-bottom:8px;">
-          <span style="background-color:rgba(16,185,129,0.18);color:#10B981;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid rgba(16,185,129,0.4);">${n.source}</span>
-          <span style="background-color:rgba(139,92,246,0.18);color:#A78BFA;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;margin-left:6px;">📍 ${n.island}</span>
-          <span style="color:#94A3B8;font-size:11px;margin-left:8px;">${n.date} · ${n.bulletinNumber}</span>
+          <span style="background-color:${n.source === 'BOC' ? 'rgba(16,185,129,0.18)' : 'rgba(59,130,246,0.18)'};color:${n.source === 'BOC' ? '#10B981' : '#3B82F6'};font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid ${n.source === 'BOC' ? 'rgba(16,185,129,0.4)' : 'rgba(59,130,246,0.4)'};">${n.source}</span>
+          <span style="background-color:rgba(139,92,246,0.18);color:#A78BFA;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;margin-left:6px;border:1px solid rgba(139,92,246,0.35);">📍 ${n.island || 'General'}</span>
+          <span style="color:#94A3B8;font-size:11px;margin-left:8px;font-weight:600;">${n.date || ''} · ${n.bulletinNumber || ''}</span>
         </div>
-        <h3 style="margin:0 0 6px 0;font-size:14px;font-weight:800;color:#F8FAFC;line-height:1.35;">${n.title}</h3>
-        <p style="margin:0 0 8px 0;font-size:12.5px;color:#94A3B8;line-height:1.45;">${n.summary}</p>
+        <h3 style="margin:0 0 6px 0;font-size:14px;font-weight:800;color:#F8FAFC;line-height:1.4;">${n.title}</h3>
+        <p style="margin:0 0 10px 0;font-size:12.5px;color:#94A3B8;line-height:1.5;">${n.summary}</p>
         ${n.aiAnalysis ? `
-        <div style="background-color:rgba(6,182,212,0.10);border:1px solid rgba(6,182,212,0.3);border-radius:8px;padding:10px;margin:8px 0;color:#22D3EE;font-size:12px;line-height:1.4;">
+        <div style="background-color:rgba(139,92,246,0.12);border-left:3px solid #8B5CF6;border-radius:6px;padding:9px 12px;margin:10px 0;color:#C4B5FD;font-size:12px;line-height:1.45;">
           ${n.aiAnalysis}
         </div>` : ''}
-        <div style="margin-top:10px;text-align:right;">
-          <a href="${n.url}" target="_blank" style="display:inline-block;background-color:#10B981;color:#FFFFFF;text-decoration:none;font-size:11.5px;font-weight:bold;padding:7px 14px;border-radius:8px;">
+        <div style="margin-top:12px;text-align:right;">
+          <a href="${n.url || '#'}" target="_blank" style="display:inline-block;background-color:#8B5CF6;color:#FFFFFF;text-decoration:none;font-size:11.5px;font-weight:bold;padding:7px 14px;border-radius:8px;">
             Ver en ${n.source} Oficial →
           </a>
         </div>
@@ -419,34 +423,133 @@ function buildAiSentinelEmailHtml(newNotices, config) {
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alerta AI Sentinel · Convocatorias Oficiales</title>
+  <style>
+    @media only screen and (max-width: 680px) {
+      .main-table { padding: 12px 4px !important; }
+      .side-sky-col { display: none !important; width: 0 !important; }
+      .email-card { width: 100% !important; border-radius: 18px !important; }
+    }
+    @keyframes twinklePulse {
+      0%, 100% { opacity: 0.25; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.35); }
+    }
+    @keyframes cometSweep1 {
+      0% { transform: translate(-100px, -40px) rotate(-22deg); opacity: 0; }
+      15% { opacity: 1; }
+      75% { opacity: 1; }
+      100% { transform: translate(780px, 320px) rotate(-22deg); opacity: 0; }
+    }
+    @keyframes cometSweep2 {
+      0% { transform: translate(750px, 40px) rotate(158deg); opacity: 0; }
+      15% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { transform: translate(-120px, 400px) rotate(158deg); opacity: 0; }
+    }
+    .star-t1 { display: inline-block; animation: twinklePulse 2.4s ease-in-out infinite !important; }
+    .star-t2 { display: inline-block; animation: twinklePulse 3.8s ease-in-out infinite 0.9s !important; }
+    .star-t3 { display: inline-block; animation: twinklePulse 4.6s ease-in-out infinite 1.8s !important; }
+    .star-t4 { display: inline-block; animation: twinklePulse 3.1s ease-in-out infinite 0.4s !important; }
+    .comet-anim-1 { display: inline-block; animation: cometSweep1 6.5s linear infinite !important; }
+    .comet-anim-2 { display: inline-block; animation: cometSweep2 8.5s linear infinite 3s !important; }
+  </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;color:#F8FAFC;">
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" style="padding:24px 8px;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, #0F1E36 0%, #070D19 45%, #03050A 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;color:${textColor};">
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, #0F1E36 0%, #070D19 45%, #03050A 100%);width:100%;padding:24px 4px 38px 4px;margin:0;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background-color:${cardBg};border:1px solid ${cardBorder};border-radius:20px;padding:24px;box-shadow:0 20px 45px rgba(0,0,0,0.6);">
+
+        <!-- Top Open Canopy -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto 16px auto;">
           <tr>
-            <td align="center" style="padding-bottom:16px;border-bottom:1px solid #1E293B;">
-              <div style="font-size:32px;">🪐</div>
-              <h1 style="margin:8px 0 4px 0;font-size:20px;font-weight:900;color:#F8FAFC;letter-spacing:1px;">SANCTUARY · AI SENTINEL</h1>
-              <p style="margin:0;font-size:12px;color:#10B981;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;">Vigilancia Oficial Automatizada (${placeTitle})</p>
+            <td align="left" width="30%" valign="bottom" style="padding:10px 14px;">
+              <div class="comet-anim-1" style="display:inline-block;white-space:nowrap;">
+                <span style="font-size:16px;color:#FFFFFF;text-shadow:0 0 10px #38BDF8;">☄</span>
+                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to right, #38BDF8, transparent);vertical-align:middle;border-radius:2px;"></span>
+              </div>
             </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 0;">
-              <p style="margin:0 0 16px 0;font-size:13.5px;color:#CBD5E1;line-height:1.5;">
-                Hola, el sistema de vigilancia <strong>AI Sentinel</strong> ha detectado <strong>${newNotices.length} nueva(s) convocatoria(s) o publicación(es)</strong> relevante(s) para <strong>${placeTitle}</strong>:
-              </p>
-              ${itemsHtml}
+            <td align="center" width="40%" valign="middle" style="letter-spacing:12px;white-space:nowrap;">
+              <span class="star-t1" style="font-size:16px;color:#F59E0B;">✦</span>
+              <span class="star-t2" style="font-size:11px;color:#FFFFFF;">★</span>
+              <span class="star-t3" style="font-size:18px;color:#FDE68A;">✧</span>
+              <span class="star-t4" style="font-size:15px;color:#8B5CF6;">✦</span>
+              <span class="star-t1" style="font-size:12px;color:#FFFFFF;">★</span>
             </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding-top:16px;border-top:1px solid #1E293B;font-size:11px;color:#64748B;">
-              Sanctuary Suite © 2026 · AI Sentinel & Official Automation
+            <td align="right" width="30%" valign="bottom" style="padding:10px 14px;text-align:right;">
+              <div class="comet-anim-2" style="display:inline-block;white-space:nowrap;">
+                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to left, #F59E0B, transparent);vertical-align:middle;border-radius:2px;"></span>
+                <span style="font-size:16px;color:#FDE68A;">☄</span>
+              </div>
             </td>
           </tr>
         </table>
+
+        <!-- Main Wrapper -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto;">
+          <tr>
+            <!-- Left Side Stars -->
+            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;line-height:44px;">
+              <span class="star-t1" style="font-size:16px;color:#F59E0B;">✦</span><br>
+              <span class="star-t2" style="font-size:11px;color:#FFFFFF;">★</span><br>
+              <span class="star-t3" style="font-size:18px;color:#FDE68A;">✧</span><br>
+              <span class="star-t4" style="font-size:10px;color:#38BDF8;">⋆</span><br>
+              <span class="star-t1" style="font-size:15px;color:#8B5CF6;">✦</span><br>
+              <span class="star-t2" style="font-size:11px;color:#FFFFFF;">★</span><br>
+              <span class="star-t3" style="font-size:16px;color:#FDE68A;">✧</span>
+            </td>
+
+            <!-- Center Card -->
+            <td width="580" align="center" valign="top" style="max-width:580px;padding:0 4px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:560px;background-color:${cardBg};border:1px solid ${cardBorder};border-radius:24px;box-shadow:0 24px 50px rgba(0,0,0,0.65);overflow:hidden;">
+                <tr>
+                  <td style="height:4px;background:linear-gradient(90deg, #8B5CF6 0%, #3B82F6 50%, #06B6D4 100%);"></td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:32px 28px 16px 28px;">
+                    <div style="width:72px;height:72px;border-radius:22px;background:radial-gradient(circle at 35% 35%, #8B5CF6, #4C1D95);box-shadow:0 0 28px rgba(139,92,246,0.5);padding:2px;display:inline-block;box-sizing:border-box;">
+                      <img src="${logoUrl}" width="68" height="68" alt="Sanctuary Logo" style="display:block;width:68px;height:68px;border-radius:20px;margin:0 auto;border:0;">
+                    </div>
+                    <div style="font-size:22px;font-weight:900;letter-spacing:3px;color:${textColor};margin-top:14px;text-transform:uppercase;">SANCTUARY</div>
+                    <div style="font-size:11px;font-weight:700;letter-spacing:1.8px;color:${primaryAccent};margin-top:4px;">🛰️ AI SENTINEL · VIGILANCIA OFICIAL</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 36px 32px 36px;">
+                    <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:800;color:${textColor};text-align:center;">Vigilancia Oficial Automatizada (${placeTitle})</h1>
+                    <p style="margin:0 0 16px 0;font-size:13.5px;color:${subtextColor};line-height:1.55;text-align:center;">
+                      Hola, el sistema de vigilancia <strong>AI Sentinel</strong> ha detectado <strong>${newNotices.length} nueva(s) convocatoria(s) o publicación(es)</strong> relevante(s) para <strong>${placeTitle}</strong>:
+                    </p>
+                    ${itemsHtml}
+                    <div style="margin-top:24px;text-align:center;">
+                      <a href="https://carlosss91.github.io/Sanctuary/" target="_blank" style="display:inline-block;background:linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);color:#FFFFFF;font-size:14px;font-weight:800;text-decoration:none;padding:14px 32px;border-radius:12px;box-shadow:0 8px 24px rgba(139,92,246,0.4);">
+                        Ver Convocatorias en el Hub
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:22px 28px;background-color:#070C16;border-top:1px solid #1E293B;text-align:center;font-size:11px;color:${subtextColor};">
+                    Sanctuary Suite © 2026 · Diseñado con precisión cósmica<br>
+                    AI Sentinel & Official Automation Engine
+                  </td>
+                </tr>
+              </table>
+            </td>
+
+            <!-- Right Side Stars -->
+            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;line-height:44px;">
+              <span class="star-t2" style="font-size:17px;color:#FDE68A;">✧</span><br>
+              <span class="star-t1" style="font-size:11px;color:#FFFFFF;">★</span><br>
+              <span class="star-t3" style="font-size:15px;color:#8B5CF6;">✦</span><br>
+              <span class="star-t4" style="font-size:10px;color:#38BDF8;">⋆</span><br>
+              <span class="star-t1" style="font-size:18px;color:#FDE68A;">✧</span><br>
+              <span class="star-t2" style="font-size:12px;color:#FFFFFF;">★</span><br>
+              <span class="star-t3" style="font-size:16px;color:#F59E0B;">✦</span>
+            </td>
+          </tr>
+        </table>
+
       </td>
     </tr>
   </table>

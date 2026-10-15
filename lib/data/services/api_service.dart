@@ -1144,6 +1144,15 @@ class ApiService {
           'ctaText': 'Explorar la Plataforma',
           'footerNote': 'Sanctuary Suite © 2026 · Portal Docente, CV Maker interactivo & Digital Signer',
         },
+        'ai_sentinel': {
+          'theme': 'dark',
+          'animated': true,
+          'subject': 'Alerta AI Sentinel: Nuevas Convocatorias Oficiales · Sanctuary 🪐',
+          'title': 'AI Sentinel: Vigilancia Oficial Automatizada',
+          'body': 'El motor inteligente AI Sentinel ha detectado nuevas convocatorias, resoluciones y publicaciones oficiales docentes en el BOC y BOE con alta relevancia para tu perfil:',
+          'ctaText': 'Ver Convocatorias en el Hub',
+          'footerNote': 'Este boletín es generado de forma automatizada por el motor AI Sentinel con asistencia de Google Gemini Pro.\nPuedes ajustar la frecuencia de escaneo y los filtros geográficos desde el panel docente de Sanctuary.',
+        },
       }
     };
   }
