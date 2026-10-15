@@ -53,9 +53,12 @@ app.set('trust proxy', 1);
 const port = process.env.PORT || 8088;
 const connectionString = process.env.DATABASE_URL || 'postgres://sanctuary_user:sanctuary_secret@localhost:5438/sanctuary_db';
 
+const isLocalDb = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 const pool = new Pool({
   connectionString,
-  connectionTimeoutMillis: 1000,
+  connectionTimeoutMillis: isLocalDb ? 1500 : 10000,
+  ssl: isLocalDb ? false : { rejectUnauthorized: false },
 });
 
 pool.on('error', (err) => {
