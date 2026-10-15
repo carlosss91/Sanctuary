@@ -55,16 +55,34 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
 
   static const List<Map<String, String>> _availableGeminiModels = [
     {
+      'id': 'gemini-3.8-flash',
+      'name': 'Gemini 3.8 Flash',
+      'badge': '3.8 Flagship',
+      'desc': 'Última generación - Máxima velocidad multimodal y precisión',
+    },
+    {
+      'id': 'gemini-3.1-pro',
+      'name': 'Gemini 3.1 Pro',
+      'badge': '3.1 Pro',
+      'desc': 'Última generación - Razonamiento profundo y análisis complejo',
+    },
+    {
+      'id': 'gemini-3.5-flash-lite',
+      'name': 'Gemini 3.5 Flash-Lite',
+      'badge': '3.5 Lite',
+      'desc': 'Alta eficiencia, velocidad ultrarrápida y mínimo consumo',
+    },
+    {
       'id': 'gemini-2.5-pro',
       'name': 'Gemini 2.5 Pro',
-      'badge': 'Última Gen',
+      'badge': '2.5 Pro',
       'desc': 'Máximo razonamiento & documentos densos',
     },
     {
       'id': 'gemini-2.5-flash',
       'name': 'Gemini 2.5 Flash',
-      'badge': 'Ultra Rápido',
-      'desc': 'Última generación con alta velocidad y precisión',
+      'badge': '2.5 Flash',
+      'desc': 'Alta velocidad y precisión de generación 2.5',
     },
     {
       'id': 'gemini-2.0-flash',
@@ -117,6 +135,8 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   late bool _enablePlaceFilter;
   late String _selectedModel;
   bool _isCustomModel = false;
+  late List<Map<String, String>> _modelsList;
+  bool _isLoadingModels = false;
   late String _selectedFrequency;
   late bool _notifyEmail;
 
@@ -124,6 +144,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _modelsList = List<Map<String, String>>.from(_availableGeminiModels);
     _apiKeyCtrl = TextEditingController();
     _customModelCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
@@ -146,7 +167,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     _enablePlaceFilter = cfg.enablePlaceFilter;
     _selectedModel = cfg.geminiModel;
 
-    if (_availableGeminiModels.any((m) => m['id'] == _selectedModel)) {
+    if (_modelsList.any((m) => m['id'] == _selectedModel)) {
       _isCustomModel = false;
       _customModelCtrl.clear();
     } else {
@@ -166,7 +187,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     setState(() => _isSaving = true);
     final place = _placeCtrl.text.trim().isNotEmpty ? _placeCtrl.text.trim() : 'Lanzarote';
     final chosenModel = _isCustomModel
-        ? (_customModelCtrl.text.trim().isNotEmpty ? _customModelCtrl.text.trim() : 'gemini-1.5-flash')
+        ? (_customModelCtrl.text.trim().isNotEmpty ? _customModelCtrl.text.trim() : 'gemini-3.8-flash')
         : _selectedModel;
 
     final updated = _config.copyWith(
@@ -194,6 +215,43 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     }
   }
 
+  Future<void> _fetchModelsFromGoogle() async {
+    final key = _apiKeyCtrl.text.trim();
+    if (key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Introduce primero tu API Key de Gemini para sincronizar los modelos de tu cuenta')),
+      );
+      return;
+    }
+    setState(() => _isLoadingModels = true);
+    final remoteModels = await widget.apiService.fetchAvailableGeminiModels(key);
+    if (mounted) {
+      setState(() {
+        _isLoadingModels = false;
+        if (remoteModels.isNotEmpty) {
+          final existingIds = _modelsList.map((m) => m['id']).toSet();
+          for (final m in remoteModels) {
+            if (!existingIds.contains(m['id'])) {
+              _modelsList.insert(0, m);
+            }
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Sincronizados ${remoteModels.length} modelos disponibles en tu cuenta de Google'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('ℹ️ No se pudieron listar modelos remotos. Comprueba que tu API Key sea válida.'),
+            ),
+          );
+        }
+      });
+    }
+  }
+
   Future<void> _testGeminiConnection() async {
     final key = _apiKeyCtrl.text.trim();
     if (key.isEmpty) {
@@ -201,7 +259,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
       return;
     }
     final modelToTest = _isCustomModel
-        ? (_customModelCtrl.text.trim().isNotEmpty ? _customModelCtrl.text.trim() : 'gemini-1.5-flash')
+        ? (_customModelCtrl.text.trim().isNotEmpty ? _customModelCtrl.text.trim() : 'gemini-3.8-flash')
         : _selectedModel;
 
     setState(() {
@@ -1052,6 +1110,22 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
                 style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
               ),
             ),
+            const Spacer(),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: _isLoadingModels
+                  ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.emerald))
+                  : const Icon(Icons.sync_rounded, size: 14, color: AppTheme.emerald),
+              label: Text(
+                _isLoadingModels ? 'Sincronizando...' : 'Sincronizar con mi cuenta',
+                style: const TextStyle(fontSize: 11, color: AppTheme.emerald),
+              ),
+              onPressed: _isLoadingModels ? null : _fetchModelsFromGoogle,
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -1067,8 +1141,8 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
           ),
           borderRadius: BorderRadius.circular(12),
           items: [
-            ..._availableGeminiModels.map((m) {
-              final isLatest = m['badge'] == 'Última Gen' || m['badge'] == 'Ultra Rápido';
+            ..._modelsList.map((m) {
+              final isTop = m['badge'] == '3.8 Flagship' || m['badge'] == '3.1 Pro' || m['badge'] == '2.5 Pro';
               return DropdownMenuItem<String>(
                 value: m['id'],
                 child: Row(
@@ -1094,7 +1168,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
                       margin: const EdgeInsets.only(left: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: isLatest
+                        color: isTop
                             ? const Color(0xFF8B5CF6).withOpacity(0.18)
                             : AppTheme.emerald.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
@@ -1104,7 +1178,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.bold,
-                          color: isLatest ? const Color(0xFFA78BFA) : AppTheme.emerald,
+                          color: isTop ? const Color(0xFFA78BFA) : AppTheme.emerald,
                         ),
                       ),
                     ),
@@ -1148,7 +1222,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
             controller: _customModelCtrl,
             decoration: InputDecoration(
               labelText: 'Identificador del modelo Gemini',
-              hintText: 'ej. gemini-2.5-pro, gemini-3.8-flash, etc.',
+              hintText: 'ej. gemini-3.8-flash, gemini-3.1-pro, etc.',
               prefixIcon: const Icon(Icons.psychology_rounded, size: 18),
               isDense: true,
               helperText: 'Escribe el nombre del modelo tal como aparece en Google AI Studio',
@@ -1164,11 +1238,12 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
           spacing: 6,
           runSpacing: 4,
           children: [
+            _buildModelQuickChip('Gemini 3.8 Flash', 'gemini-3.8-flash', isDark),
+            _buildModelQuickChip('Gemini 3.1 Pro', 'gemini-3.1-pro', isDark),
+            _buildModelQuickChip('Gemini 3.5 Flash-Lite', 'gemini-3.5-flash-lite', isDark),
             _buildModelQuickChip('Gemini 2.5 Pro', 'gemini-2.5-pro', isDark),
             _buildModelQuickChip('Gemini 2.5 Flash', 'gemini-2.5-flash', isDark),
-            _buildModelQuickChip('Gemini 2.0 Flash', 'gemini-2.0-flash', isDark),
             _buildModelQuickChip('Gemini 1.5 Flash', 'gemini-1.5-flash', isDark),
-            _buildModelQuickChip('Gemini 1.5 Pro', 'gemini-1.5-pro', isDark),
           ],
         ),
 

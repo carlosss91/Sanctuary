@@ -1316,6 +1316,34 @@ class ApiService {
       return {'success': false, 'message': 'Error al conectar con el servidor: $e'};
     }
   }
+
+  Future<List<Map<String, String>>> fetchAvailableGeminiModels(String apiKey) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/ai-watchdog/list-models'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'apiKey': apiKey}),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['models'] != null) {
+          final list = (data['models'] as List<dynamic>)
+              .map((e) => {
+                    'id': (e['id'] ?? '').toString(),
+                    'name': (e['name'] ?? '').toString(),
+                    'desc': (e['desc'] ?? '').toString(),
+                    'badge': (e['badge'] ?? 'IA').toString(),
+                  })
+              .where((m) => m['id']!.isNotEmpty)
+              .toList();
+          return list;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching models from backend: $e');
+    }
+    return [];
+  }
 }
 
 

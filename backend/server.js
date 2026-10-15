@@ -3785,6 +3785,59 @@ app.post('/api/ai-watchdog/send-test-email', async (req, res) => {
   }
 });
 
+app.post('/api/ai-watchdog/list-models', async (req, res) => {
+  try {
+    const { apiKey } = req.body || {};
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Se requiere una API Key para consultar los modelos disponibles.' });
+    }
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey.trim())}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+
+    const apiRes = await fetch(endpoint, { signal: controller.signal }).finally(() => clearTimeout(timeout));
+    if (!apiRes.ok) {
+      const errBody = await apiRes.json().catch(() => ({}));
+      return res.json({
+        success: false,
+        message: errBody.error?.message || `Error HTTP ${apiRes.status}: ${apiRes.statusText}`,
+      });
+    }
+
+    const data = await apiRes.json();
+    const models = (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent') && m.name.includes('gemini'))
+      .map(m => {
+        const id = m.name.replace(/^models\//, '');
+        let badge = 'IA';
+        if (id.includes('3.8')) badge = '3.8 Flash';
+        else if (id.includes('3.1')) badge = '3.1 Pro';
+        else if (id.includes('3.5')) badge = '3.5 Lite';
+        else if (id.includes('2.5')) badge = '2.5 Gen';
+        else if (id.includes('2.0')) badge = '2.0';
+        else if (id.includes('pro')) badge = 'Pro';
+        else if (id.includes('flash')) badge = 'Flash';
+
+        return {
+          id,
+          name: m.displayName || id,
+          desc: m.description || '',
+          badge,
+        };
+      });
+
+    res.json({
+      success: true,
+      models,
+    });
+  } catch (err) {
+    res.json({
+      success: false,
+      message: `Error al listar modelos de Google: ${err.message}`,
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`✨ Sanctuary API running on port ${port}`);
 });
