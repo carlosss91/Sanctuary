@@ -14,6 +14,8 @@ function getDefaultConfig(targetEmail = '') {
     emailNotifications: true,
     targetEmail: targetEmail || process.env.NOTIFICATION_EMAIL || '',
     checkFrequency: 'daily',
+    enablePlaceFilter: true,
+    targetPlace: 'Lanzarote',
     targetIsland: 'Lanzarote',
     keywords: [
       'vivienda protegida',
@@ -26,7 +28,41 @@ function getDefaultConfig(targetEmail = '') {
       'ayudas alquiler',
       'rehabilitación',
     ],
-    activeSources: ['BOC', 'BOE', 'GobCan Vivienda', 'ICV'],
+    sources: [
+      {
+        id: 'boc',
+        name: 'BOC · Boletín Oficial de Canarias',
+        url: 'https://www.gobiernodecanarias.org/boc/',
+        description: 'Monitorea convocatorias del Gobierno de Canarias y cabildos',
+        enabled: true,
+        isCustom: false,
+      },
+      {
+        id: 'boe',
+        name: 'BOE · Boletín Oficial del Estado',
+        url: 'https://www.boe.es/diario_boe/',
+        description: 'Planes estatales, subvenciones, empleo y ayudas públicas',
+        enabled: true,
+        isCustom: false,
+      },
+      {
+        id: 'gobcan_vivienda',
+        name: 'Gobierno de Canarias (Consejería de Vivienda)',
+        url: 'https://www.gobiernodecanarias.org/vivienda/',
+        description: 'Portal oficial de vivienda pública y convocatorias autonómicas',
+        enabled: true,
+        isCustom: false,
+      },
+      {
+        id: 'icv',
+        name: 'Instituto Canario de la Vivienda (ICV)',
+        url: 'https://www.gobiernodecanarias.org/icv/',
+        description: 'Convocatorias de VPO, alquiler y programas públicos',
+        enabled: true,
+        isCustom: false,
+      },
+    ],
+    activeSources: ['boc', 'boe', 'gobcan_vivienda', 'icv'],
     lastScanDate: null,
     lastScanStatus: 'Pendiente de primer escaneo',
   };
@@ -166,6 +202,69 @@ async function fetchLiveOfficialBulletins() {
 }
 
 /**
+ * Scrapes and fetches any user-defined custom sources via direct URLs
+ */
+async function fetchCustomSources(sources = [], keywords = [], targetPlace = '') {
+  const customItems = [];
+  const activeCustom = (sources || []).filter(s => s && s.isCustom && s.enabled && s.url && s.url.startsWith('http'));
+
+  for (const src of activeCustom) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(src.url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Sanctuary-Sentinel/1.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml,text/plain,application/json;q=0.9,*/*;q=0.8',
+        },
+      });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const text = await res.text();
+        const lowerText = text.toLowerCase();
+
+        // Check if any keyword matches
+        const matchedKeywords = (keywords || []).filter(kw => kw.trim().length > 0 && lowerText.includes(kw.toLowerCase().trim()));
+
+        // Extract title from html if available
+        const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const pageTitle = titleMatch ? titleMatch[1].trim() : src.name;
+
+        // Try extracting headings
+        const h1Match = text.match(/<h[12][^>]*>([^<]+)<\/h[12]>/i);
+        const heading = h1Match ? h1Match[1].trim() : '';
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        const matchInfo = matchedKeywords.length > 0
+          ? `Coincidencias detectadas con: ${matchedKeywords.slice(0, 4).join(', ')}.`
+          : 'Boletín y portal oficial actualizado.';
+
+        customItems.push({
+          id: 'custom-' + src.id + '-' + dateStr,
+          title: heading ? `${src.name}: ${heading}` : `${src.name} · ${pageTitle}`,
+          source: src.name,
+          date: dateStr,
+          bulletinNumber: 'URL Oficial',
+          summary: `${matchInfo} Enlace directo al portal monitorizado por AI Sentinel.`,
+          url: src.url,
+          island: targetPlace || 'General',
+          relevance: 'Alta (Fuente Personalizada)',
+          isRead: false,
+          isEmailSent: false,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.warn(`[AI Sentinel] No se pudo acceder a la URL personalizada "${src.url}":`, err.message);
+    }
+  }
+
+  return customItems;
+}
+
+/**
  * Calls Google Gemini REST API to analyze notice text and extract key metadata
  */
 async function analyzeWithGemini(notice, config) {
@@ -176,15 +275,18 @@ async function analyzeWithGemini(notice, config) {
   try {
     const model = config.geminiModel || 'gemini-1.5-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
+    const placeContext = (config.enablePlaceFilter !== false && (config.targetPlace || config.targetIsland))
+        ? `Lugar / Ámbito prioritario: "${config.targetPlace || config.targetIsland}"`
+        : 'Ámbito: General / Sin restricción geográfica';
 
-    const prompt = `Actúa como un experto analista jurídico y asesor de vivienda en Canarias. Analiza este anuncio oficial publicado en ${notice.source}:
+    const prompt = `Actúa como un experto analista oficial y asesor. Analiza esta publicación oficial de ${notice.source}:
 Título: "${notice.title}"
 Detalle: "${notice.summary}"
-Isla objetivo: "${config.targetIsland}"
+${placeContext}
 
 Por favor responde en ESPAÑOL, en exactamente 2 oraciones concisas y directas:
-1) Quién puede solicitarlo, requisitos principales y si aplica específicamente a ${config.targetIsland}.
-2) Plazos de solicitud límite y cuantía/beneficio de la ayuda o VPO.
+1) Quién puede solicitarlo, requisitos principales y objeto de la convocatoria.
+2) Plazos de solicitud límite y cuantía o beneficios de la ayuda o publicación.
 Inicia tu respuesta con "🤖 Resumen IA: "`;
 
     const controller = new AbortController();
@@ -223,17 +325,32 @@ Inicia tu respuesta con "🤖 Resumen IA: "`;
 }
 
 /**
- * Filter notices based on keywords and island priority
+ * Filter notices based on keywords, active sources and optional place filter
  */
 function filterNotices(notices, config) {
   const keywords = (config.keywords || []).map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
-  const targetIsland = (config.targetIsland || 'Lanzarote').toLowerCase();
+  const enablePlace = config.enablePlaceFilter !== false;
+  const targetPlace = (config.targetPlace || config.targetIsland || 'Lanzarote').toLowerCase().trim();
+
+  // Active sources filter: check sources objects or activeSources string list
+  const activeSourcesSet = new Set();
+  if (Array.isArray(config.sources) && config.sources.length > 0) {
+    config.sources.forEach(s => {
+      if (s.enabled) {
+        activeSourcesSet.add(s.id.toLowerCase());
+        activeSourcesSet.add(s.name.toLowerCase());
+      }
+    });
+  } else if (Array.isArray(config.activeSources)) {
+    config.activeSources.forEach(s => activeSourcesSet.add(s.toLowerCase()));
+  }
 
   return notices.filter(n => {
     // Check if source is active
-    if (config.activeSources && config.activeSources.length > 0) {
-      const matchSource = config.activeSources.some(src => n.source.toLowerCase().includes(src.toLowerCase()));
-      if (!matchSource) return false;
+    if (activeSourcesSet.size > 0) {
+      const srcLower = n.source.toLowerCase();
+      const isAllowed = [...activeSourcesSet].some(s => srcLower.includes(s) || s.includes(srcLower));
+      if (!isAllowed) return false;
     }
 
     const textToMatch = `${n.title} ${n.summary} ${n.island || ''}`.toLowerCase();
@@ -247,26 +364,33 @@ function filterNotices(notices, config) {
     return true;
   }).map(n => {
     const textToMatch = `${n.title} ${n.summary} ${n.island || ''}`.toLowerCase();
-    const isTargetIsland = textToMatch.includes(targetIsland) || textToMatch.includes('arrecife');
+    const isTargetPlace = enablePlace && (
+      textToMatch.includes(targetPlace) ||
+      (targetPlace.includes('lanzarote') && textToMatch.includes('arrecife'))
+    );
+
+    const placeLabel = config.targetPlace || config.targetIsland || 'Lanzarote';
 
     return {
       ...n,
-      relevance: isTargetIsland ? `Alta (${config.targetIsland})` : 'Media',
-      island: isTargetIsland ? config.targetIsland : (n.island || 'Canarias'),
+      relevance: !enablePlace
+        ? 'Alta (Ámbito Global)'
+        : (isTargetPlace ? `Alta (${placeLabel})` : 'Media'),
+      island: !enablePlace
+        ? (n.island || 'Global')
+        : (isTargetPlace ? placeLabel : (n.island || 'Canarias')),
     };
   });
 }
 
 /**
- * Generates celestial HTML email for new housing alerts
+ * Generates celestial HTML email for new alerts
  */
 function buildAiSentinelEmailHtml(newNotices, config) {
-  const isDark = true;
   const outerBg = '#05080E';
   const cardBg = '#0C1322';
   const cardBorder = 'rgba(30, 41, 59, 0.9)';
-  const emerald = '#10B981';
-  const purple = '#8B5CF6';
+  const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
 
   const itemsHtml = newNotices.map(n => {
     return `
@@ -295,7 +419,7 @@ function buildAiSentinelEmailHtml(newNotices, config) {
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Alerta AI Sentinel · Convocatorias de Vivienda</title>
+  <title>Alerta AI Sentinel · Convocatorias Oficiales</title>
 </head>
 <body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;color:#F8FAFC;">
   <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" style="padding:24px 8px;">
@@ -306,21 +430,20 @@ function buildAiSentinelEmailHtml(newNotices, config) {
             <td align="center" style="padding-bottom:16px;border-bottom:1px solid #1E293B;">
               <div style="font-size:32px;">🪐</div>
               <h1 style="margin:8px 0 4px 0;font-size:20px;font-weight:900;color:#F8FAFC;letter-spacing:1px;">SANCTUARY · AI SENTINEL</h1>
-              <p style="margin:0;font-size:12px;color:#10B981;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;">Vigilancia Oficial de Vivienda Protegida (${config.targetIsland})</p>
+              <p style="margin:0;font-size:12px;color:#10B981;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;">Vigilancia Oficial Automatizada (${placeTitle})</p>
             </td>
           </tr>
           <tr>
             <td style="padding:20px 0;">
               <p style="margin:0 0 16px 0;font-size:13.5px;color:#CBD5E1;line-height:1.5;">
-                Hola, el sistema de vigilancia <strong>AI Sentinel</strong> ha detectado <strong>${newNotices.length} nueva(s) convocatoria(s) o publicación(es)</strong> relevante(s) sobre vivienda en los boletines oficiales para <strong>${config.targetIsland}</strong>:
+                Hola, el sistema de vigilancia <strong>AI Sentinel</strong> ha detectado <strong>${newNotices.length} nueva(s) convocatoria(s) o publicación(es)</strong> relevante(s) para <strong>${placeTitle}</strong>:
               </p>
               ${itemsHtml}
             </td>
           </tr>
           <tr>
             <td align="center" style="padding-top:16px;border-top:1px solid #1E293B;font-size:11px;color:#64748B;">
-              Sanctuary Suite © 2026 · AI Sentinel & Housing Automation<br>
-              Monitoriza: BOC Canarias · BOE Estado · GobCan Vivienda · ICV
+              Sanctuary Suite © 2026 · AI Sentinel & Official Automation
             </td>
           </tr>
         </table>
@@ -335,6 +458,7 @@ module.exports = {
   getDefaultConfig,
   getBaselineNotices,
   fetchLiveOfficialBulletins,
+  fetchCustomSources,
   analyzeWithGemini,
   filterNotices,
   buildAiSentinelEmailHtml,

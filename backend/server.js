@@ -3617,14 +3617,15 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
     const dbConfig = await getAiWatchdogConfigFromDb();
     const config = { ...dbConfig, ...incomingConfig };
 
-    // 1. Fetch live notices and combine with baseline notices
+    // 1. Fetch live notices, custom sources, and combine with baseline notices
     const liveNotices = await aiWatchdogService.fetchLiveOfficialBulletins();
+    const customNotices = await aiWatchdogService.fetchCustomSources(config.sources, config.keywords, config.targetPlace);
     const baselineNotices = aiWatchdogService.getBaselineNotices();
     const existingNotifs = await getAiWatchdogNotificationsFromDb();
 
     const knownKeys = new Set(existingNotifs.map(n => n.title.toLowerCase().trim()));
 
-    const candidatePool = [...baselineNotices, ...liveNotices];
+    const candidatePool = [...customNotices, ...baselineNotices, ...liveNotices];
     const filtered = aiWatchdogService.filterNotices(candidatePool, config);
 
     const updatedNotifs = [...existingNotifs];
@@ -3651,13 +3652,14 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
     }
 
     // 2. Dispatch email alerts if new notices were found and email is enabled
+    const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
     if (config.emailNotifications && config.targetEmail && brandNewAlerts.length > 0) {
       try {
         await sendMailNotification({
           to: config.targetEmail,
-          subject: `🪐 Alerta AI Sentinel: ${brandNewAlerts.length} Nueva(s) Convocatoria(s) de Vivienda en ${config.targetIsland}`,
+          subject: `🪐 Alerta AI Sentinel: ${brandNewAlerts.length} Nueva(s) Convocatoria(s) (${placeTitle})`,
           html: aiWatchdogService.buildAiSentinelEmailHtml(brandNewAlerts, config),
-          text: `AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) de vivienda para ${config.targetIsland}. Revisa el Hub en Sanctuary Suite.`,
+          text: `AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) para ${placeTitle}. Revisa el Hub en Sanctuary Suite.`,
         });
         brandNewAlerts.forEach(n => { n.isEmailSent = true; });
       } catch (mailErr) {

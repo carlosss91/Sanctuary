@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/ai_automation_model.dart';
 import '../../../data/models/user_model.dart';
@@ -52,23 +53,16 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   late TextEditingController _apiKeyCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _newKeywordCtrl;
+  late TextEditingController _placeCtrl;
+  late TextEditingController _newSourceNameCtrl;
+  late TextEditingController _newSourceUrlCtrl;
+
   late List<String> _keywords;
-  late List<String> _activeSources;
-  late String _selectedIsland;
+  late List<AiWatchdogSource> _sources;
+  late bool _enablePlaceFilter;
   late String _selectedModel;
   late String _selectedFrequency;
   late bool _notifyEmail;
-
-  final List<String> _availableIslands = [
-    'Lanzarote',
-    'Gran Canaria',
-    'Tenerife',
-    'Fuerteventura',
-    'La Palma',
-    'La Gomera',
-    'El Hierro',
-    'Todas las Islas',
-  ];
 
   @override
   void initState() {
@@ -77,6 +71,9 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     _apiKeyCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
     _newKeywordCtrl = TextEditingController();
+    _placeCtrl = TextEditingController();
+    _newSourceNameCtrl = TextEditingController();
+    _newSourceUrlCtrl = TextEditingController();
     _loadConfig();
   }
 
@@ -86,9 +83,10 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     _config = cfg;
     _apiKeyCtrl.text = cfg.geminiApiKey;
     _emailCtrl.text = cfg.targetEmail.isNotEmpty ? cfg.targetEmail : (widget.currentUser.email ?? '');
+    _placeCtrl.text = cfg.targetPlace;
     _keywords = List<String>.from(cfg.keywords);
-    _activeSources = List<String>.from(cfg.activeSources);
-    _selectedIsland = cfg.islandFilter;
+    _sources = List<AiWatchdogSource>.from(cfg.sources);
+    _enablePlaceFilter = cfg.enablePlaceFilter;
     _selectedModel = cfg.geminiModel;
     _selectedFrequency = cfg.checkFrequency;
     _notifyEmail = cfg.notifyEmail;
@@ -100,15 +98,17 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
+    final place = _placeCtrl.text.trim().isNotEmpty ? _placeCtrl.text.trim() : 'Lanzarote';
     final updated = _config.copyWith(
       geminiApiKey: _apiKeyCtrl.text.trim(),
       geminiModel: _selectedModel,
       notifyEmail: _notifyEmail,
       targetEmail: _emailCtrl.text.trim(),
       checkFrequency: _selectedFrequency,
-      islandFilter: _selectedIsland,
+      enablePlaceFilter: _enablePlaceFilter,
+      targetPlace: place,
       keywords: _keywords,
-      activeSources: _activeSources,
+      sources: _sources,
     );
     await widget.apiService.saveAiWatchdogConfig(updated);
     if (mounted) {
@@ -162,6 +162,9 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     _apiKeyCtrl.dispose();
     _emailCtrl.dispose();
     _newKeywordCtrl.dispose();
+    _placeCtrl.dispose();
+    _newSourceNameCtrl.dispose();
+    _newSourceUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -335,88 +338,386 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text(
-          'Fuentes Oficiales Activas',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        ),
-        const SizedBox(height: 10),
-        _buildSourceSwitch(
-          id: 'boc',
-          title: 'BOC · Boletín Oficial de Canarias',
-          subtitle: 'Monitorea convocatorias del Gobierno de Canarias y cabildos',
-          isDark: isDark,
-        ),
-        _buildSourceSwitch(
-          id: 'boe',
-          title: 'BOE · Boletín Oficial del Estado',
-          subtitle: 'Planes estatales de vivienda, subvenciones y ayudas públicas',
-          isDark: isDark,
-        ),
-        _buildSourceSwitch(
-          id: 'gobcan_vivienda',
-          title: 'Gobierno de Canarias (Consejería de Vivienda)',
-          subtitle: 'Portal oficial de vivienda pública y registro de demandantes',
-          isDark: isDark,
-        ),
-        _buildSourceSwitch(
-          id: 'icv',
-          title: 'Instituto Canario de la Vivienda (ICV)',
-          subtitle: 'Convocatorias de VPO, alquiler y adquisiciones protegidas',
-          isDark: isDark,
-        ),
-        const SizedBox(height: 20),
-        const Divider(),
-        const SizedBox(height: 14),
-
-        // Isla Prioritaria
+        // 1. Fuentes Oficiales y URLs específicas
         Row(
           children: [
-            const Icon(Icons.location_on_outlined, size: 18, color: AppTheme.emerald),
+            const Icon(Icons.travel_explore_rounded, size: 18, color: AppTheme.emerald),
             const SizedBox(width: 8),
-            const Text(
-              'Isla Prioritaria de Seguimiento:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const Spacer(),
-            DropdownButton<String>(
-              value: _selectedIsland,
-              underline: const SizedBox.shrink(),
-              borderRadius: BorderRadius.circular(12),
-              items: _availableIslands.map((island) {
-                return DropdownMenuItem<String>(
-                  value: island,
-                  child: Text(
-                    island,
-                    style: TextStyle(
-                      fontWeight: island == 'Lanzarote' ? FontWeight.bold : FontWeight.normal,
-                      color: island == 'Lanzarote' ? AppTheme.emerald : null,
-                    ),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fuentes Oficiales & URLs de Seguimiento',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedIsland = val);
-              },
+                  Text(
+                    'Activa o desactiva fuentes con el switch de la derecha o añade más URLs específicas.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 12),
 
-        const SizedBox(height: 18),
-        const Text(
-          'Palabras Clave de Detección (Vivienda & Subvenciones):',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        // Sources list
+        ..._sources.map((src) {
+          final isBuiltIn = !src.isCustom;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B).withOpacity(0.6) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: src.enabled
+                    ? AppTheme.emerald.withOpacity(0.35)
+                    : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: src.enabled
+                        ? AppTheme.emerald.withOpacity(0.15)
+                        : Colors.grey.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isBuiltIn ? Icons.verified_rounded : Icons.link_rounded,
+                    size: 16,
+                    color: src.enabled ? AppTheme.emerald : Colors.grey,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        src.name,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: src.enabled ? null : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      InkWell(
+                        onTap: () {
+                          if (src.url.isNotEmpty) {
+                            launchUrl(Uri.parse(src.url), mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                src.url.isNotEmpty ? src.url : src.description,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF06B6D4),
+                                  decoration: TextDecoration.underline,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.open_in_new, size: 10, color: Color(0xFF06B6D4)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (src.isCustom) ...[
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                    tooltip: 'Eliminar fuente personalizada',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: () {
+                      setState(() => _sources.remove(src));
+                    },
+                  ),
+                ],
+                Switch(
+                  value: src.enabled,
+                  activeColor: AppTheme.emerald,
+                  onChanged: (val) {
+                    setState(() {
+                      final idx = _sources.indexOf(src);
+                      if (idx != -1) {
+                        _sources[idx] = src.copyWith(enabled: val);
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+        }),
+
+        const SizedBox(height: 10),
+
+        // Add custom source card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.add_link_rounded, size: 16, color: AppTheme.emerald),
+                  SizedBox(width: 6),
+                  Text(
+                    'Añadir Fuente / Portal Web Específico',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: TextField(
+                      controller: _newSourceNameCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Nombre (ej. Cabildo de Lanzarote)',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 6,
+                    child: TextField(
+                      controller: _newSourceUrlCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'URL (ej. https://sede.cabildodelanzarote.com)',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final name = _newSourceNameCtrl.text.trim();
+                      final url = _newSourceUrlCtrl.text.trim();
+                      if (name.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Escribe un nombre para la fuente')),
+                        );
+                        return;
+                      }
+                      if (url.isEmpty || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('La URL debe comenzar con http:// o https://')),
+                        );
+                        return;
+                      }
+                      setState(() {
+                        _sources.add(
+                          AiWatchdogSource(
+                            id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                            name: name,
+                            url: url,
+                            description: 'Fuente personalizada añadida',
+                            enabled: true,
+                            isCustom: true,
+                          ),
+                        );
+                        _newSourceNameCtrl.clear();
+                        _newSourceUrlCtrl.clear();
+                      });
+                    },
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Añadir', style: TextStyle(fontSize: 11.5)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 22),
+        const Divider(),
+        const SizedBox(height: 14),
+
+        // 2. Lugar / Ámbito de Seguimiento (con toggle para activar/desactivar y selector limpio sin cortes)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _enablePlaceFilter
+                  ? AppTheme.emerald.withOpacity(0.35)
+                  : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.location_on_rounded, size: 18, color: AppTheme.emerald),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Lugar / Ámbito de Seguimiento',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          'Activa para filtrar por municipio, isla o provincia. Desactívalo para seguimiento global.',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _enablePlaceFilter,
+                    activeColor: AppTheme.emerald,
+                    onChanged: (val) {
+                      setState(() => _enablePlaceFilter = val);
+                    },
+                  ),
+                ],
+              ),
+              if (_enablePlaceFilter) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _placeCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Lugar o Ámbito (ej. Lanzarote, Arrecife, Canarias, Madrid...)',
+                    labelStyle: const TextStyle(fontSize: 12),
+                    prefixIcon: const Icon(Icons.place_outlined, size: 18, color: AppTheme.emerald),
+                    suffixIcon: _placeCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () {
+                              setState(() => _placeCtrl.clear());
+                            },
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 8),
+                const Text('Sugerencias rápidas:', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    'Lanzarote',
+                    'Gran Canaria',
+                    'Tenerife',
+                    'Fuerteventura',
+                    'La Palma',
+                    'Arrecife',
+                    'Canarias',
+                    'Madrid',
+                  ].map((sugg) {
+                    final isSel = _placeCtrl.text.trim().toLowerCase() == sugg.toLowerCase();
+                    return ActionChip(
+                      label: Text(sugg, style: TextStyle(fontSize: 10.5, color: isSel ? Colors.white : null)),
+                      backgroundColor: isSel ? AppTheme.emerald : (isDark ? AppTheme.darkInput : AppTheme.lightInput),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      onPressed: () {
+                        setState(() {
+                          _placeCtrl.text = sugg;
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 22),
+        const Divider(),
+        const SizedBox(height: 14),
+
+        // 3. Palabras Clave de Detección (Generalizadas para cualquier materia)
+        Row(
+          children: [
+            const Icon(Icons.tag_rounded, size: 18, color: AppTheme.emerald),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Palabras Clave de Detección',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  Text(
+                    'Personaliza los términos según la materia: vivienda, empleo público, subvenciones, etc.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
 
+        // Quick Preset packs
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _buildKeywordPresetChip('+ Vivienda & VPO', ['vivienda protegida', 'vpo', 'alquiler', 'ayudas alquiler', 'vivienda social'], isDark),
+            _buildKeywordPresetChip('+ Empleo Público', ['oposiciones', 'empleo público', 'bolsa de empleo', 'convocatoria personal', 'auxiliar'], isDark),
+            _buildKeywordPresetChip('+ Becas & Ayudas', ['becas', 'subvención', 'ayudas', 'financiación'], isDark),
+            _buildKeywordPresetChip('+ Licitaciones', ['licitación', 'adjudicación', 'contrato público'], isDark),
+          ],
+        ),
+        const SizedBox(height: 10),
+
         // Keywords Chips
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           children: _keywords.map((kw) {
             return Chip(
               label: Text(kw, style: const TextStyle(fontSize: 11)),
               backgroundColor: isDark ? AppTheme.darkInput : AppTheme.lightInput,
-              deleteIcon: const Icon(Icons.close, size: 14),
+              deleteIcon: const Icon(Icons.close, size: 13),
               onDeleted: () {
                 setState(() => _keywords.remove(kw));
               },
@@ -431,7 +732,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
               child: TextField(
                 controller: _newKeywordCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Añadir palabra clave (ej. alquiler joven, hipoteca)',
+                  hintText: 'Añadir palabra clave (ej. alquiler joven, administrativo, beca)',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -466,25 +767,18 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     );
   }
 
-  Widget _buildSourceSwitch({
-    required String id,
-    required String title,
-    required String subtitle,
-    required bool isDark,
-  }) {
-    final isActive = _activeSources.contains(id);
-    return SwitchListTile(
-      value: isActive,
-      activeColor: AppTheme.emerald,
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      onChanged: (val) {
+  Widget _buildKeywordPresetChip(String label, List<String> terms, bool isDark) {
+    return ActionChip(
+      avatar: const Icon(Icons.add, size: 13, color: AppTheme.emerald),
+      label: Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+      backgroundColor: AppTheme.emerald.withOpacity(0.12),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      onPressed: () {
         setState(() {
-          if (val) {
-            _activeSources.add(id);
-          } else {
-            _activeSources.remove(id);
+          for (final t in terms) {
+            if (!_keywords.contains(t.toLowerCase())) {
+              _keywords.add(t.toLowerCase());
+            }
           }
         });
       },

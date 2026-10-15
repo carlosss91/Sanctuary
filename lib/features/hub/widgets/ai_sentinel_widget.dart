@@ -238,10 +238,14 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.location_on_rounded, size: 10, color: Color(0xFFA78BFA)),
+                                      Icon(
+                                        _config.enablePlaceFilter ? Icons.location_on_rounded : Icons.public_rounded,
+                                        size: 10,
+                                        color: const Color(0xFFA78BFA),
+                                      ),
                                       const SizedBox(width: 3),
                                       Text(
-                                        _config.targetIsland.toUpperCase(),
+                                        _config.enablePlaceFilter ? _config.targetPlace.toUpperCase() : 'ÁMBITO GLOBAL',
                                         style: const TextStyle(
                                           color: Color(0xFFA78BFA),
                                           fontSize: 9.5,
@@ -269,7 +273,7 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Vigilancia oficial de vivienda pública & ayudas (BOC · BOE · GobCan · ICV)',
+                              'Vigilancia oficial automatizada (${_config.sources.where((s) => s.enabled).length} fuentes activas · ${_config.keywords.length} filtros)',
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
@@ -380,6 +384,46 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                     ),
                   ),
 
+                  // Active Sources Row
+                  if (_config.sources.any((s) => s.enabled)) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: _config.sources.where((s) => s.enabled).map((source) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                source.isCustom ? Icons.link_rounded : Icons.account_balance_rounded,
+                                size: 10,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                source.name,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
                   const SizedBox(height: 14),
 
                   // ==========================================================
@@ -398,7 +442,6 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-                          style: BorderStyle.solid,
                         ),
                       ),
                       child: Column(
@@ -406,14 +449,16 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                         children: [
                           Icon(Icons.shield_outlined, size: 36, color: Colors.grey.withOpacity(0.6)),
                           const SizedBox(height: 10),
-                          const Text(
-                            'No hay convocatorias pendientes registradas para Lanzarote',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          Text(
+                            _config.enablePlaceFilter
+                                ? 'No hay convocatorias pendientes registradas para ${_config.targetPlace}'
+                                : 'No hay convocatorias pendientes registradas',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Pulsa "Escanear Ahora" para consultar en directo los boletines de hoy del BOC, BOE e Instituto Canario de la Vivienda.',
+                            'Pulsa "Escanear Ahora" para consultar en directo las fuentes y boletines oficiales configurados.',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
