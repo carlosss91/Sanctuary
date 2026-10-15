@@ -348,8 +348,12 @@ function buildSanctuaryEmailHtml({
     emblemIcon = '🛰️';
   }
 
-  // Official Sanctuary logo
-  const logoUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/icon-192.png';
+  // Official Sanctuary logo and Animated Cosmic Assets
+  const assetBaseUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets';
+  const logoUrl = `${assetBaseUrl}/icon-192.png`;
+  const skyGifUrl = animated ? `${assetBaseUrl}/${isDark ? 'cosmic-sky-dark.gif' : 'cosmic-sky-light.gif'}` : '';
+  const bannerGifUrl = animated ? `${assetBaseUrl}/${isDark ? 'cosmic-banner-dark.gif' : 'cosmic-banner-light.gif'}` : '';
+  const sideGifUrl = animated ? `${assetBaseUrl}/${isDark ? 'cosmic-side-dark.gif' : 'cosmic-side-light.gif'}` : '';
 
   // Atmospheric background colors: rich cosmic void in dark mode, radiant celestial twilight in light mode
   const outerBg = isDark ? '#05080E' : '#D6E4F0';
@@ -414,113 +418,53 @@ function buildSanctuaryEmailHtml({
   <title>${subject}</title>
   <style>
     @media only screen and (max-width: 680px) {
-      .main-table { padding: 12px 4px !important; }
+      .main-table { padding: 8px 0 !important; }
       .side-sky-col { display: none !important; width: 0 !important; max-width: 0 !important; overflow: hidden !important; }
-      .email-card { width: 100% !important; border-radius: 18px !important; }
-      .email-body { padding: 24px 16px !important; }
+      .email-card { width: 95% !important; max-width: 95% !important; border-radius: 18px !important; }
+      .email-body { padding: 22px 14px !important; }
       .pin-number { font-size: 26px !important; letter-spacing: 6px !important; }
     }
     ${animated ? `
     @keyframes twinklePulse {
-      0%, 100% { opacity: 0.25; transform: scale(0.85); }
-      50% { opacity: 1; transform: scale(1.35); }
-    }
-    @keyframes cometSweep1 {
-      0% { transform: translate(-100px, -40px) rotate(-22deg); opacity: 0; }
-      15% { opacity: 1; }
-      75% { opacity: 1; }
-      100% { transform: translate(780px, 320px) rotate(-22deg); opacity: 0; }
-    }
-    @keyframes cometSweep2 {
-      0% { transform: translate(750px, 40px) rotate(158deg); opacity: 0; }
-      15% { opacity: 1; }
-      70% { opacity: 1; }
-      100% { transform: translate(-120px, 400px) rotate(158deg); opacity: 0; }
-    }
-    @keyframes cometSweep3 {
-      0% { transform: translate(-80px, 80px) rotate(-14deg); opacity: 0; }
-      20% { opacity: 1; }
-      80% { opacity: 1; }
-      100% { transform: translate(820px, 240px) rotate(-14deg); opacity: 0; }
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.3); }
     }
     .star-t1 { display: inline-block; animation: twinklePulse 2.4s ease-in-out infinite !important; }
     .star-t2 { display: inline-block; animation: twinklePulse 3.8s ease-in-out infinite 0.9s !important; }
     .star-t3 { display: inline-block; animation: twinklePulse 4.6s ease-in-out infinite 1.8s !important; }
-    .star-t4 { display: inline-block; animation: twinklePulse 3.1s ease-in-out infinite 0.4s !important; }
-    .star-t5 { display: inline-block; animation: twinklePulse 5.2s ease-in-out infinite 2.5s !important; }
-    .comet-anim-1 { display: inline-block; animation: cometSweep1 6.5s linear infinite !important; }
-    .comet-anim-2 { display: inline-block; animation: cometSweep2 8.5s linear infinite 3s !important; }
-    .comet-anim-3 { display: inline-block; animation: cometSweep3 7.2s linear infinite 1.5s !important; }
     ` : ''}
   </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, ${isDark ? '#0F1E36' : '#E0EDF8'} 0%, ${isDark ? '#070D19' : '#D4E3F1'} 45%, ${isDark ? '#03050A' : '#BFD3E6'} 100%);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
-  <!-- Outer Atmospheric Seamless Starfield Container -->
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, ${isDark ? '#0F1E36' : '#E0EDF8'} 0%, ${isDark ? '#070D19' : '#D4E3F1'} 45%, ${isDark ? '#03050A' : '#BFD3E6'} 100%);width:100%;padding:24px 4px 38px 4px;margin:0;">
-    <tr bgcolor="${outerBg}">
-      <td align="center" bgcolor="${outerBg}" style="background-color:${outerBg};">
+<body bgcolor="${outerBg}" ${skyGifUrl ? `background="${skyGifUrl}"` : ''} style="margin:0;padding:0;background-color:${outerBg};${skyGifUrl ? `background-image:url('${skyGifUrl}');background-repeat:repeat;background-position:center top;` : ''}font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
+  <!-- Outer Atmospheric Seamless Full-Canvas Starfield Container (Tiles across 100% of any screen width) -->
+  <table role="presentation" width="100%" bgcolor="${outerBg}" ${skyGifUrl ? `background="${skyGifUrl}"` : ''} cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};${skyGifUrl ? `background-image:url('${skyGifUrl}');background-repeat:repeat;background-position:center top;` : ''}width:100%;min-height:100vh;padding:22px 0 38px 0;margin:0;border-collapse:collapse;">
+    <tr>
+      <td align="center" valign="top" bgcolor="${outerBg}" ${skyGifUrl ? `background="${skyGifUrl}"` : ''} style="background-color:${outerBg};${skyGifUrl ? `background-image:url('${skyGifUrl}');background-repeat:repeat;` : ''}padding:0;">
 
-        <!-- Top Open Celestial Canopy (Borderless, Flowing Cosmic Sky with Shooting Comets & Star Clusters) -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto 16px auto;">
-          <tr>
-            <td align="left" width="30%" valign="bottom" style="padding:10px 14px;">
-              <div class="comet-anim-1" style="display:inline-block;white-space:nowrap;">
-                <span style="font-size:16px;color:#FFFFFF;text-shadow:0 0 10px #38BDF8;">☄</span>
-                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to right, #38BDF8, transparent);vertical-align:middle;border-radius:2px;"></span>
-              </div>
-              <br>
-              <span class="star-t3" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};margin-left:18px;">⋆</span>
-              <span class="star-t1" style="font-size:15px;color:${isDark ? '#F59E0B' : '#D97706'};margin-left:14px;">✦</span>
-            </td>
-            <td align="center" width="40%" valign="middle" style="padding:6px 0;text-align:center;">
-              <div style="line-height:22px;letter-spacing:12px;white-space:nowrap;">
-                <span class="star-t1" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};text-shadow:0 0 8px ${isDark ? '#F59E0B' : '#D97706'};">✦</span>
-                <span class="star-t2" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-                <span class="star-t3" style="font-size:18px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span>
-                <span class="star-t4" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
-                <span class="star-t1" style="font-size:15px;color:${primaryAccent};text-shadow:0 0 8px ${primaryAccent};">✦</span>
-                <span class="star-t5" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-                <span class="star-t2" style="font-size:19px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span>
-              </div>
-            </td>
-            <td align="right" width="30%" valign="bottom" style="padding:10px 14px;text-align:right;">
-              <div class="comet-anim-2" style="display:inline-block;white-space:nowrap;">
-                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to left, #F59E0B, transparent);vertical-align:middle;border-radius:2px;"></span>
-                <span style="font-size:16px;color:${isDark ? '#FDE68A' : '#D97706'};text-shadow:0 0 10px #F59E0B;">☄</span>
-              </div>
-              <br>
-              <span class="star-t2" style="font-size:16px;color:${isDark ? '#10B981' : '#059669'};margin-right:16px;">✦</span>
-              <span class="star-t4" style="font-size:10px;color:${isDark ? '#FFFFFF' : '#0284C7'};margin-right:20px;">★</span>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Main Celestial Wrapper with Full-Length Star Gutters and Elevated Floating Central Card -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto;">
+        <!-- Main Celestial 3-Column Layout: 100% Monitor Coverage with Animated Lateral Wings -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="width:100%;margin:0 auto;border-collapse:collapse;">
           <tr>
 
-            <!-- Left Celestial Gutter (Deep Cosmos filled with Twinkling Constellations along Card Height) -->
-            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;">
-              <div style="line-height:44px;font-size:16px;text-align:center;">
-                <span class="star-t1" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};text-shadow:0 0 6px ${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
-                <span class="star-t2" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t3" style="font-size:19px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
-                <span class="star-t4" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
-                <span class="star-t1" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span><br>
-                <span class="star-t5" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t2" style="font-size:18px;color:${isDark ? '#A78BFA' : '#7C3AED'};text-shadow:0 0 6px rgba(167,139,250,0.6);">✧</span><br>
-                <span class="star-t3" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
-                <span class="star-t4" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
-                <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t2" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
-                <span class="star-t5" style="font-size:10px;color:${isDark ? '#10B981' : '#059669'};">⋆</span><br>
-                <span class="star-t3" style="font-size:15px;color:${isDark ? '#38BDF8' : '#0284C7'};">✦</span><br>
-                <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-              </div>
+            <!-- Left Lateral Cosmic Wing: Stretches across the left side of widescreen monitors -->
+            <td class="side-sky-col" align="right" valign="middle" style="padding:0 14px 0 0;vertical-align:middle;">
+              ${animated ? `
+              <div style="display:inline-block;text-align:right;">
+                <img src="${sideGifUrl}" width="110" height="650" alt="" style="display:block;width:110px;height:650px;border:0;opacity:0.92;vertical-align:middle;">
+              </div>` : ''}
             </td>
 
-            <!-- Center Content Column (Card) -->
-            <td width="580" align="center" valign="top" style="max-width:580px;padding:0 4px;">
+            <!-- Center Content Column: Constrained to 580px for perfect readability -->
+            <td width="580" align="center" valign="top" style="width:580px;max-width:580px;padding:0 6px;">
+
+              ${animated ? `
+              <!-- Top Animated Borderless Canopy (Shooting comets & glowing star clusters) -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:560px;margin:0 auto 12px auto;">
+                <tr>
+                  <td align="center" style="padding:0;line-height:0;">
+                    <img src="${bannerGifUrl}" width="550" height="90" alt="Cosmic Sky" style="display:block;width:100%;max-width:550px;height:auto;border:0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.35);">
+                  </td>
+                </tr>
+              </table>` : ''}
 
               <!-- Main Card Container -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:560px;background:${cardBg};background-color:${cardBg};border-radius:24px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;">
@@ -647,54 +591,26 @@ function buildSanctuaryEmailHtml({
                 </tr>
               </table>
 
+              ${animated ? `
+              <!-- Bottom Animated Borderless Canopy (Cosmic Horizon with crossing comets) -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:560px;margin:14px auto 0 auto;">
+                <tr>
+                  <td align="center" style="padding:0;line-height:0;">
+                    <img src="${bannerGifUrl}" width="550" height="90" alt="Cosmic Horizon" style="display:block;width:100%;max-width:550px;height:auto;border:0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.35);transform:scaleY(-1);">
+                  </td>
+                </tr>
+              </table>` : ''}
+
             </td>
 
-            <!-- Right Celestial Gutter (Deep Cosmos filled with Twinkling Constellations along Card Height) -->
-            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;">
-              <div style="line-height:44px;font-size:16px;text-align:center;">
-                <span class="star-t2" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
-                <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t3" style="font-size:15px;color:${primaryAccent};">✦</span><br>
-                <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
-                <span class="star-t1" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span><br>
-                <span class="star-t5" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t2" style="font-size:16px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span><br>
-                <span class="star-t1" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span><br>
-                <span class="star-t3" style="font-size:17px;color:${isDark ? '#FDE68A' : '#B45309'};">✧</span><br>
-                <span class="star-t4" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span><br>
-                <span class="star-t1" style="font-size:15px;color:${isDark ? '#10B981' : '#059669'};">✦</span><br>
-                <span class="star-t5" style="font-size:10px;color:${isDark ? '#FDE68A' : '#B45309'};">⋆</span><br>
-                <span class="star-t2" style="font-size:16px;color:${isDark ? '#38BDF8' : '#0284C7'};">✧</span><br>
-                <span class="star-t3" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-              </div>
+            <!-- Right Lateral Cosmic Wing: Stretches across the right side of widescreen monitors -->
+            <td class="side-sky-col" align="left" valign="middle" style="padding:0 0 0 14px;vertical-align:middle;">
+              ${animated ? `
+              <div style="display:inline-block;text-align:left;">
+                <img src="${sideGifUrl}" width="110" height="650" alt="" style="display:block;width:110px;height:650px;border:0;opacity:0.92;vertical-align:middle;">
+              </div>` : ''}
             </td>
 
-          </tr>
-        </table>
-
-        <!-- Bottom Cosmic Starscape Horizon (Borderless, Crossing Comets & Star Dust) -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:18px auto 0 auto;">
-          <tr>
-            <td align="left" width="30%" valign="top" style="padding:8px 14px;">
-              <span class="star-t1" style="font-size:14px;color:${isDark ? '#F59E0B' : '#D97706'};">✦</span>
-              <span class="star-t3" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};margin-left:14px;">★</span>
-              <span class="star-t5" style="font-size:18px;color:${isDark ? '#FDE68A' : '#D97706'};margin-left:12px;">✧</span>
-            </td>
-            <td align="center" width="40%" valign="middle" style="letter-spacing:12px;white-space:nowrap;padding:8px 0;text-align:center;">
-              <div class="comet-anim-3" style="display:inline-block;white-space:nowrap;">
-                <span style="display:inline-block;width:55px;height:2px;background:linear-gradient(to right, #10B981, transparent);vertical-align:middle;border-radius:2px;"></span>
-                <span style="font-size:15px;color:#10B981;">☄</span>
-              </div>
-              <span class="star-t2" style="font-size:12px;color:${isDark ? '#38BDF8' : '#0284C7'};">⋆</span>
-              <span class="star-t4" style="font-size:16px;color:${primaryAccent};">✦</span>
-              <span class="star-t1" style="font-size:11px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-              <span class="star-t3" style="font-size:17px;color:${isDark ? '#FDE68A' : '#D97706'};">✧</span>
-            </td>
-            <td align="right" width="30%" valign="top" style="padding:8px 14px;text-align:right;">
-              <span class="star-t4" style="font-size:15px;color:${primaryAccent};margin-right:12px;">✦</span>
-              <span class="star-t2" style="font-size:10px;color:${isDark ? '#38BDF8' : '#0284C7'};margin-right:14px;">⋆</span>
-              <span class="star-t1" style="font-size:12px;color:${isDark ? '#FFFFFF' : '#0284C7'};">★</span>
-            </td>
           </tr>
         </table>
 
