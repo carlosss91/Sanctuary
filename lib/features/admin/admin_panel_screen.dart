@@ -1601,7 +1601,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               ),
                               Text(
                                 isPostgres
-                                    ? 'Conexión activa con PostgreSQL (Cloud Render / Docker local)'
+                                    ? 'Conexión activa con PostgreSQL (Neon Cloud / Docker local)'
                                     : 'Operando en modo de respaldo local offline (Local JSON Storage)',
                                 style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
