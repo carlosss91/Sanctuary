@@ -23,27 +23,16 @@ class AiSentinelWidget extends StatefulWidget {
   State<AiSentinelWidget> createState() => _AiSentinelWidgetState();
 }
 
-class _AiSentinelWidgetState extends State<AiSentinelWidget> with SingleTickerProviderStateMixin {
+class _AiSentinelWidgetState extends State<AiSentinelWidget> {
   late AiWatchdogConfig _config;
   List<AiWatchdogNotification> _notifications = [];
   bool _isLoading = true;
   bool _isScanning = false;
-  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
     _initData();
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
   }
 
   Future<void> _initData() async {
@@ -199,44 +188,26 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> with SingleTickerPr
                   // ==========================================================
                   Row(
                     children: [
-                      // Animated Radar Icon
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          AnimatedBuilder(
-                            animation: _pulseController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 44 + (_pulseController.value * 6),
-                                height: 44 + (_pulseController.value * 6),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppTheme.emerald.withOpacity(0.15 * (1 - _pulseController.value)),
-                                ),
-                              );
-                            },
+                      // Radar Icon (Static, without oscillating pulse)
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF059669), Color(0xFF047857)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF059669), Color(0xFF047857)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(13),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.emerald.withOpacity(0.35),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
+                          borderRadius: BorderRadius.circular(13),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.emerald.withOpacity(0.30),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                            child: const Icon(Icons.radar_rounded, color: Colors.white, size: 22),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: const Icon(Icons.radar_rounded, color: Colors.white, size: 22),
                       ),
                       const SizedBox(width: 12),
 
