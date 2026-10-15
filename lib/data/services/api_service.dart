@@ -1281,6 +1281,22 @@ class ApiService {
     } catch (_) {}
     return true;
   }
+
+  Future<Map<String, dynamic>> testGeminiApiKey(String apiKey, String model) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/ai-watchdog/test-gemini'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'apiKey': apiKey, 'model': model}),
+      ).timeout(const Duration(seconds: 12));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'HTTP ${res.statusCode}: ${res.body}'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
 }
 
 

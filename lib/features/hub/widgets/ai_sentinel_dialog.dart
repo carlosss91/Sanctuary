@@ -49,8 +49,61 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   bool _isSaving = false;
   bool _isTestingAi = false;
   String? _testAiResult;
+  bool _obscureApiKey = true;
+
+  static const List<Map<String, String>> _availableGeminiModels = [
+    {
+      'id': 'gemini-2.5-pro',
+      'name': 'Gemini 2.5 Pro',
+      'badge': 'Última Gen',
+      'desc': 'Máximo razonamiento & documentos densos',
+    },
+    {
+      'id': 'gemini-2.5-flash',
+      'name': 'Gemini 2.5 Flash',
+      'badge': 'Ultra Rápido',
+      'desc': 'Última generación con alta velocidad y precisión',
+    },
+    {
+      'id': 'gemini-2.0-flash',
+      'name': 'Gemini 2.0 Flash',
+      'badge': '2.0 Multimodal',
+      'desc': 'Baja latencia y gran fluidez para alertas',
+    },
+    {
+      'id': 'gemini-2.0-flash-lite',
+      'name': 'Gemini 2.0 Flash Lite',
+      'badge': 'Económico',
+      'desc': 'Alta velocidad con consumo mínimo de cuota',
+    },
+    {
+      'id': 'gemini-2.0-pro-exp-02-05',
+      'name': 'Gemini 2.0 Pro Experimental',
+      'badge': 'Exp 2.0',
+      'desc': 'Capacidad avanzada experimental',
+    },
+    {
+      'id': 'gemini-1.5-flash',
+      'name': 'Gemini 1.5 Flash',
+      'badge': 'Recomendado',
+      'desc': 'Equilibrio contrastado de velocidad y fiabilidad',
+    },
+    {
+      'id': 'gemini-1.5-flash-8b',
+      'name': 'Gemini 1.5 Flash-8B',
+      'badge': 'Ultraligero',
+      'desc': 'Rápida extracción y bajo consumo',
+    },
+    {
+      'id': 'gemini-1.5-pro',
+      'name': 'Gemini 1.5 Pro',
+      'badge': '2M Tokens',
+      'desc': 'Ventana ultra-grande para boletines extensos',
+    },
+  ];
 
   late TextEditingController _apiKeyCtrl;
+  late TextEditingController _customModelCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _newKeywordCtrl;
   late TextEditingController _placeCtrl;
@@ -61,6 +114,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   late List<AiWatchdogSource> _sources;
   late bool _enablePlaceFilter;
   late String _selectedModel;
+  bool _isCustomModel = false;
   late String _selectedFrequency;
   late bool _notifyEmail;
 
@@ -69,6 +123,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _apiKeyCtrl = TextEditingController();
+    _customModelCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
     _newKeywordCtrl = TextEditingController();
     _placeCtrl = TextEditingController();
@@ -88,6 +143,15 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
     _sources = List<AiWatchdogSource>.from(cfg.sources);
     _enablePlaceFilter = cfg.enablePlaceFilter;
     _selectedModel = cfg.geminiModel;
+
+    if (_availableGeminiModels.any((m) => m['id'] == _selectedModel)) {
+      _isCustomModel = false;
+      _customModelCtrl.clear();
+    } else {
+      _isCustomModel = true;
+      _customModelCtrl.text = _selectedModel;
+    }
+
     _selectedFrequency = cfg.checkFrequency;
     _notifyEmail = cfg.notifyEmail;
 
@@ -99,9 +163,13 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   Future<void> _save() async {
     setState(() => _isSaving = true);
     final place = _placeCtrl.text.trim().isNotEmpty ? _placeCtrl.text.trim() : 'Lanzarote';
+    final chosenModel = _isCustomModel
+        ? (_customModelCtrl.text.trim().isNotEmpty ? _customModelCtrl.text.trim() : 'gemini-1.5-flash')
+        : _selectedModel;
+
     final updated = _config.copyWith(
       geminiApiKey: _apiKeyCtrl.text.trim(),
-      geminiModel: _selectedModel,
+      geminiModel: chosenModel,
       notifyEmail: _notifyEmail,
       targetEmail: _emailCtrl.text.trim(),
       checkFrequency: _selectedFrequency,
@@ -130,27 +198,32 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
       setState(() => _testAiResult = '⚠️ Introduce una API Key de Gemini para realizar la prueba.');
       return;
     }
+    final modelToTest = _isCustomModel
+        ? (_customModelCtrl.text.trim().isNotEmpty ? _customModelCtrl.text.trim() : 'gemini-1.5-flash')
+        : _selectedModel;
+
     setState(() {
       _isTestingAi = true;
       _testAiResult = null;
     });
 
     try {
-      // Direct health test with Gemini API
-      final res = await widget.apiService.runAiWatchdogScan();
+      final res = await widget.apiService.testGeminiApiKey(key, modelToTest);
       if (mounted) {
         setState(() {
           _isTestingAi = false;
-          _testAiResult = res['geminiTested'] == true
-              ? '✅ Conexión con Gemini verificada correctamente.'
-              : '✅ Conexión establecida. El motor de análisis está listo.';
+          if (res['success'] == true) {
+            _testAiResult = res['message'] ?? '✅ Conexión con $modelToTest verificada exitosamente.';
+          } else {
+            _testAiResult = '❌ ${res['message'] ?? 'Error desconocido al probar Gemini'}';
+          }
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isTestingAi = false;
-          _testAiResult = 'Error al probar: $e';
+          _testAiResult = '❌ Error al probar conexión: $e';
         });
       }
     }
@@ -160,6 +233,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   void dispose() {
     _tabController.dispose();
     _apiKeyCtrl.dispose();
+    _customModelCtrl.dispose();
     _emailCtrl.dispose();
     _newKeywordCtrl.dispose();
     _placeCtrl.dispose();
@@ -813,68 +887,267 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
         ),
         const SizedBox(height: 18),
 
-        const Text('Google Gemini API Key:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _apiKeyCtrl,
-          obscureText: true,
-          decoration: InputDecoration(
-            hintText: 'AIzaSy...',
-            prefixIcon: const Icon(Icons.key_rounded, size: 18),
-            isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Model Selector
         Row(
           children: [
-            const Text('Modelo de IA:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const Text('Google Gemini API Key:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const Spacer(),
-            DropdownButton<String>(
-              value: _selectedModel,
-              underline: const SizedBox.shrink(),
-              borderRadius: BorderRadius.circular(12),
-              items: const [
-                DropdownMenuItem(value: 'gemini-1.5-flash', child: Text('Gemini 1.5 Flash (Rápido y Óptimo)')),
-                DropdownMenuItem(value: 'gemini-1.5-pro', child: Text('Gemini 1.5 Pro (Análisis Exhaustivo)')),
-                DropdownMenuItem(value: 'gemini-2.0-flash', child: Text('Gemini 2.0 Flash')),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedModel = val);
-              },
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.open_in_new_rounded, size: 13, color: AppTheme.emerald),
+              label: const Text('Obtener clave en Google AI Studio', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
+              onPressed: () => launchUrl(Uri.parse('https://aistudio.google.com/app/apikey'), mode: LaunchMode.externalApplication),
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _apiKeyCtrl,
+          obscureText: _obscureApiKey,
+          decoration: InputDecoration(
+            hintText: 'AIzaSy...',
+            prefixIcon: const Icon(Icons.key_rounded, size: 18),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_apiKeyCtrl.text.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Borrar clave',
+                    icon: const Icon(Icons.clear_rounded, size: 16),
+                    onPressed: () => setState(() => _apiKeyCtrl.clear()),
+                  ),
+                IconButton(
+                  tooltip: _obscureApiKey ? 'Mostrar clave API' : 'Ocultar clave API',
+                  icon: Icon(
+                    _obscureApiKey ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    size: 19,
+                    color: _obscureApiKey ? Colors.grey : AppTheme.emerald,
+                  ),
+                  onPressed: () => setState(() => _obscureApiKey = !_obscureApiKey),
+                ),
+              ],
+            ),
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
 
-        const SizedBox(height: 14),
+        // Model Selector Header
+        Row(
+          children: [
+            const Text('Modelo de IA (Gemini):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+              ),
+              child: Text(
+                _isCustomModel
+                    ? (_customModelCtrl.text.isNotEmpty ? _customModelCtrl.text : 'Personalizado')
+                    : _selectedModel,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        // Model Dropdown
+        DropdownButtonFormField<String>(
+          value: _isCustomModel ? '__custom__' : _selectedModel,
+          isExpanded: true,
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          borderRadius: BorderRadius.circular(12),
+          items: [
+            ..._availableGeminiModels.map((m) {
+              final isLatest = m['badge'] == 'Última Gen' || m['badge'] == 'Ultra Rápido';
+              return DropdownMenuItem<String>(
+                value: m['id'],
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            m['name']!,
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            m['desc']!,
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.only(left: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isLatest
+                            ? const Color(0xFF8B5CF6).withOpacity(0.18)
+                            : AppTheme.emerald.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        m['badge']!,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: isLatest ? const Color(0xFFA78BFA) : AppTheme.emerald,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const DropdownMenuItem<String>(
+              value: '__custom__',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note_rounded, size: 16, color: AppTheme.emerald),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '✏️ Personalizado (Escribir cualquier otro modelo...)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            if (val == null) return;
+            setState(() {
+              if (val == '__custom__') {
+                _isCustomModel = true;
+              } else {
+                _isCustomModel = false;
+                _selectedModel = val;
+              }
+            });
+          },
+        ),
+
+        // Custom Model Field
+        if (_isCustomModel) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _customModelCtrl,
+            decoration: InputDecoration(
+              labelText: 'Identificador del modelo Gemini',
+              hintText: 'ej. gemini-2.5-pro, gemini-3.8-flash, etc.',
+              prefixIcon: const Icon(Icons.psychology_rounded, size: 18),
+              isDense: true,
+              helperText: 'Escribe el nombre del modelo tal como aparece en Google AI Studio',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+
+        const SizedBox(height: 8),
+        // Quick access chips
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            _buildModelQuickChip('Gemini 2.5 Pro', 'gemini-2.5-pro', isDark),
+            _buildModelQuickChip('Gemini 2.5 Flash', 'gemini-2.5-flash', isDark),
+            _buildModelQuickChip('Gemini 2.0 Flash', 'gemini-2.0-flash', isDark),
+            _buildModelQuickChip('Gemini 1.5 Flash', 'gemini-1.5-flash', isDark),
+            _buildModelQuickChip('Gemini 1.5 Pro', 'gemini-1.5-pro', isDark),
+          ],
+        ),
+
+        const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: _isTestingAi ? null : _testGeminiConnection,
           icon: _isTestingAi
-              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.speed_rounded, size: 16),
-          label: Text(_isTestingAi ? 'Comprobando conexión...' : 'Probar Conexión con IA'),
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald))
+              : const Icon(Icons.speed_rounded, size: 16, color: AppTheme.emerald),
+          label: Text(
+            _isTestingAi
+                ? 'Comprobando conexión con ${_isCustomModel ? (_customModelCtrl.text.isNotEmpty ? _customModelCtrl.text : 'modelo') : _selectedModel}...'
+                : 'Probar Conexión con IA (${_isCustomModel ? (_customModelCtrl.text.isNotEmpty ? _customModelCtrl.text : 'personalizado') : _selectedModel})',
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.emerald,
+            side: const BorderSide(color: AppTheme.emerald),
+          ),
         ),
 
         if (_testAiResult != null) ...[
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              _testAiResult!,
-              style: TextStyle(
-                fontSize: 12,
-                color: _testAiResult!.startsWith('✅') ? AppTheme.emerald : Colors.amber,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _testAiResult!.startsWith('✅')
+                    ? AppTheme.emerald.withOpacity(0.4)
+                    : Colors.redAccent.withOpacity(0.3),
               ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _testAiResult!.startsWith('✅') ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                  size: 16,
+                  color: _testAiResult!.startsWith('✅') ? AppTheme.emerald : Colors.redAccent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _testAiResult!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _testAiResult!.startsWith('✅')
+                          ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                          : Colors.redAccent,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildModelQuickChip(String label, String modelId, bool isDark) {
+    final isSel = !_isCustomModel && _selectedModel == modelId;
+    return ActionChip(
+      label: Text(label, style: TextStyle(fontSize: 10.5, color: isSel ? Colors.white : null)),
+      backgroundColor: isSel ? AppTheme.emerald : (isDark ? AppTheme.darkInput : AppTheme.lightInput),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      onPressed: () {
+        setState(() {
+          _isCustomModel = false;
+          _selectedModel = modelId;
+          _customModelCtrl.clear();
+        });
+      },
     );
   }
 

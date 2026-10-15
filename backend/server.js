@@ -3684,6 +3684,58 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
   }
 });
 
+app.post('/api/ai-watchdog/test-gemini', async (req, res) => {
+  try {
+    const { apiKey, model } = req.body || {};
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      return res.status(400).json({ success: false, message: 'La clave de API no puede estar vacía' });
+    }
+    const selectedModel = (model && typeof model === 'string' && model.trim() !== '') ? model.trim() : 'gemini-1.5-flash';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+
+    const apiRes = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: 'Responde únicamente con "OK" si estás activo.' }]
+        }],
+        generationConfig: {
+          maxOutputTokens: 15,
+          temperature: 0.1,
+        }
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!apiRes.ok) {
+      const errBody = await apiRes.json().catch(() => ({}));
+      const errMsg = errBody.error?.message || `HTTP ${apiRes.status} ${apiRes.statusText}`;
+      return res.json({
+        success: false,
+        message: `Error de Google Gemini (${selectedModel}): ${errMsg}`,
+      });
+    }
+
+    const data = await apiRes.json();
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'OK';
+
+    res.json({
+      success: true,
+      model: selectedModel,
+      message: `✅ Conexión con ${selectedModel} verificada exitosamente. Respuesta de IA: "${replyText.trim()}"`,
+    });
+  } catch (err) {
+    res.json({
+      success: false,
+      message: `Error al conectar con Gemini: ${err.message}`,
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`✨ Sanctuary API running on port ${port}`);
 });
