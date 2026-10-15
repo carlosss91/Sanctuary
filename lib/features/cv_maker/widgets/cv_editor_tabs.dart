@@ -722,6 +722,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     String? hintText,
     int maxLines = 1,
     bool isDark = false,
+    Key? fieldKey,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,16 +740,12 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
           ),
         ),
         const SizedBox(height: 5),
-        TextFormField(
-          key: ValueKey('${label}_$initialValue'),
+        _StableTextField(
+          key: fieldKey,
           initialValue: initialValue,
           maxLines: maxLines,
-          style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87),
-          decoration: InputDecoration(
-            hintText: hintText,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
+          isDark: isDark,
+          hintText: hintText,
           onChanged: onChanged,
         ),
       ],
@@ -992,8 +989,8 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                   ),
                                   child: Align(
                                     alignment: Alignment.centerLeft,
-                                    child: TextFormField(
-                                      key: ValueKey('skill_name_${i}_${item.name}'),
+                                    child: _StableTextField(
+                                      key: ValueKey('skill_name_$i'),
                                       initialValue: item.name,
                                       textCapitalization: TextCapitalization.characters,
                                       style: TextStyle(
@@ -1103,8 +1100,8 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                                   width: 1,
                                 ),
                               ),
-                              child: TextFormField(
-                                key: ValueKey('skill_desc_${i}_${item.description}'),
+                              child: _StableTextField(
+                                key: ValueKey('skill_desc_$i'),
                                 initialValue: item.description.isNotEmpty
                                     ? item.description
                                     : _getAutoDescription(item.name),
@@ -1194,6 +1191,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       ),
                       const SizedBox(height: 8),
                       _buildLabeledField(
+                        fieldKey: ValueKey('exp_job_$idx'),
                         label: 'Cargo / Puesto Aspirado',
                         initialValue: exp.jobTitle,
                         hintText: 'Ej. OPERARIO/A DE MANTENIMIENTO',
@@ -1210,6 +1208,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                           Expanded(
                             flex: 3,
                             child: _buildLabeledField(
+                              fieldKey: ValueKey('exp_company_$idx'),
                               label: 'Empresa u Organismo',
                               initialValue: exp.company,
                               hintText: 'Ej. Ayuntamiento de Madrid',
@@ -1225,6 +1224,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                           Expanded(
                             flex: 2,
                             child: _buildLabeledField(
+                              fieldKey: ValueKey('exp_period_$idx'),
                               label: 'Período (ej. 2024 - 2025)',
                               initialValue: exp.period,
                               hintText: '2024 - Actualidad',
@@ -1240,6 +1240,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       ),
                       const SizedBox(height: 10),
                       _buildLabeledField(
+                        fieldKey: ValueKey('exp_desc_$idx'),
                         label: 'Tareas, competencias aplicadas y EPIs',
                         initialValue: exp.description,
                         hintText: 'Labores desempeñadas, herramientas utilizadas...',
@@ -1327,6 +1328,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       ),
                       const SizedBox(height: 8),
                       _buildLabeledField(
+                        fieldKey: ValueKey('edu_degree_$idx'),
                         label: 'Titulación / Certificado de Profesionalidad',
                         initialValue: edu.degree,
                         hintText: 'Ej. CERTIFICADO PROFESIONALIDAD NIVEL 1',
@@ -1343,6 +1345,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                           Expanded(
                             flex: 3,
                             child: _buildLabeledField(
+                              fieldKey: ValueKey('edu_inst_$idx'),
                               label: 'Centro o Institución',
                               initialValue: edu.institution,
                               hintText: 'Ej. Centro de Formación Ocupacional',
@@ -1358,6 +1361,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                           Expanded(
                             flex: 2,
                             child: _buildLabeledField(
+                              fieldKey: ValueKey('edu_period_$idx'),
                               label: 'Período',
                               initialValue: edu.period,
                               hintText: 'Ej. 2023 - 2024',
@@ -1373,6 +1377,7 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       ),
                       const SizedBox(height: 10),
                       _buildLabeledField(
+                        fieldKey: ValueKey('edu_details_$idx'),
                         label: 'Detalles o módulos clave',
                         initialValue: edu.details,
                         hintText: 'Módulos formativos, horas cursadas, prácticas...',
@@ -2032,3 +2037,77 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     );
   }
 }
+
+/// A stable text field that manages its own persistent TextEditingController and selection
+/// to completely prevent cursor jumping or losing focus when parent re-renders on keystroke.
+class _StableTextField extends StatefulWidget {
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+  final String? hintText;
+  final int maxLines;
+  final bool isDark;
+  final TextCapitalization textCapitalization;
+  final TextStyle? style;
+  final InputDecoration? decoration;
+
+  const _StableTextField({
+    super.key,
+    required this.initialValue,
+    required this.onChanged,
+    this.hintText,
+    this.maxLines = 1,
+    this.isDark = false,
+    this.textCapitalization = TextCapitalization.none,
+    this.style,
+    this.decoration,
+  });
+
+  @override
+  State<_StableTextField> createState() => _StableTextFieldState();
+}
+
+class _StableTextFieldState extends State<_StableTextField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant _StableTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != _controller.text && widget.initialValue != oldWidget.initialValue) {
+      final oldSelection = _controller.selection;
+      _controller.text = widget.initialValue;
+      if (oldSelection.baseOffset <= widget.initialValue.length && oldSelection.extentOffset <= widget.initialValue.length) {
+        _controller.selection = oldSelection;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      maxLines: widget.maxLines,
+      textCapitalization: widget.textCapitalization,
+      style: widget.style ?? TextStyle(fontSize: 13, color: widget.isDark ? Colors.white : Colors.black87),
+      decoration: widget.decoration ??
+          InputDecoration(
+            hintText: widget.hintText,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+      onChanged: widget.onChanged,
+    );
+  }
+}
+

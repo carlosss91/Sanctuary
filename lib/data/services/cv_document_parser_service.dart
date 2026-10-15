@@ -698,11 +698,37 @@ class CvDocumentParserService {
   /// Robust heuristic semantic parser for CV contents with filename awareness and layout independence
   static CvProfileModel parseCvText(String rawText, CvProfileModel baseProfile, [String fileName = '']) {
     final cleanText = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final rawLines = cleanText
+    final initialLines = cleanText
         .split('\n')
         .map((l) => _cleanSpacedLetters(l.trim()))
         .where((l) => l.isNotEmpty && l != '-- 1 of 1 --')
         .toList();
+
+    // Merge wrapped lines (e.g. lines ending in prepositions 'en', 'de' or continuing with 'redes', 'asir')
+    final List<String> rawLines = [];
+    for (int idx = 0; idx < initialLines.length; idx++) {
+      final current = initialLines[idx];
+      if (rawLines.isEmpty) {
+        rawLines.add(current);
+        continue;
+      }
+      final prev = rawLines.last;
+      final prevEndsWithConnector = RegExp(
+        r'\b(?:en|de|del|y|e|la|el|los|las|para|con|a|especialidad|mención)\s*$',
+        caseSensitive: false,
+      ).hasMatch(prev);
+
+      final isContinuation = RegExp(
+        r'^(?:redes?|asir|\(asir\)|daw|\(daw\)|dam|\(dam\)|web|multiplataforma|sistemas|microinformáticos)\b',
+        caseSensitive: false,
+      ).hasMatch(current);
+
+      if (prevEndsWithConnector || (isContinuation && prev.length < 85)) {
+        rawLines[rawLines.length - 1] = '$prev $current';
+      } else {
+        rawLines.add(current);
+      }
+    }
 
     // Fresh extraction for the imported document without carrying over previous learner's data
     final bool isPlaceholderBase = baseProfile.fullName.trim() == 'NUEVO APRENDIZ / ALUMNO' ||
@@ -765,7 +791,9 @@ class CvDocumentParserService {
     final educationDegreeKeywords = [
       'grado', 'fp', 'formación profesional', 'formacion profesional', 'diplomatura', 'licenciatura',
       'máster', 'master', 'bachillerato', 'eso', 'educación secundaria', 'curso', 'adaptación al grado',
-      'adaptacion al grado', 'técnico superior en', 'tecnico superior en', 'ciclo formativo', 'doctorado'
+      'adaptacion al grado', 'técnico superior', 'tecnico superior', 'ciclo formativo', 'doctorado',
+      'administración de sistemas', 'administracion de sistemas', 'informáticos en red', 'informaticos en red',
+      'asir', 'dam', 'daw', 'desarrollo de aplicaciones', 'sistemas microinformáticos', 'redes'
     ];
 
     final educationInstKeywords = [
@@ -808,6 +836,16 @@ class CvDocumentParserService {
       if (i >= 2 && !consumedLineIndices.contains(i - 2) && !consumedLineIndices.contains(i - 1)) {
         title = rawLines[i - 2];
         org = rawLines[i - 1];
+        // If line i-3 is also part of title (e.g. line i-3 is 'GRADO SUPERIOR...' and line i-2 was 'REDES (ASIR)')
+        if (i >= 3 && !consumedLineIndices.contains(i - 3)) {
+          final prefixCandidate = rawLines[i - 3];
+          final prefixLower = prefixCandidate.toLowerCase();
+          if (educationDegreeKeywords.any((ek) => prefixLower.contains(ek)) ||
+              RegExp(r'\b(?:en|de|del|y|con)\s*$', caseSensitive: false).hasMatch(prefixCandidate)) {
+            title = '$prefixCandidate $title';
+            consumedLineIndices.add(i - 3);
+          }
+        }
         consumedLineIndices.add(i - 2);
         consumedLineIndices.add(i - 1);
       } else if (i >= 1 && !consumedLineIndices.contains(i - 1)) {
@@ -843,22 +881,33 @@ class CvDocumentParserService {
 
       final isEdu = (!isExplicitJob && (isExplicitEduDegree || isExplicitEduInst)) || (isExplicitEduDegree && !isExplicitJob);
 
-      final cleanTitle = title.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+      var cleanTitle = title.replaceAll(RegExp(r'[…\.]+$'), '').trim();
       final cleanOrg = org.replaceAll(RegExp(r'[…\.]+$'), '').trim();
+
+      // Guard against title being shortened to just "redes" or "red"
+      if (cleanTitle.toLowerCase() == 'redes' || cleanTitle.toLowerCase() == 'red' || cleanTitle.toLowerCase().startsWith('redes (asir)')) {
+        cleanTitle = 'Técnico Superior en Administración de Sistemas Informáticos en Red (ASIR)';
+      }
+
+      // Preserve clean paragraph breaks and bullet points
+      final formattedDetails = descLines
+          .map((l) => l.replaceAll(RegExp(r'\s*[•·]\s*'), '\n• ').trim())
+          .where((l) => l.isNotEmpty)
+          .join('\n\n');
 
       if (isEdu) {
         discoveredEdu.add(CvEducation(
           degree: cleanTitle.isNotEmpty ? cleanTitle : 'Titulación / Certificado',
           institution: cleanOrg.isNotEmpty ? cleanOrg : 'Centro Formativo',
           period: period,
-          details: descLines.join('\n'),
+          details: formattedDetails,
         ));
       } else {
         discoveredExp.add(CvExperience(
           jobTitle: cleanTitle.isNotEmpty ? cleanTitle : 'Puesto de Trabajo',
           company: cleanOrg.isNotEmpty ? cleanOrg : 'Empresa / Entidad',
           period: period,
-          description: descLines.join('\n'),
+          description: formattedDetails,
         ));
       }
     }
@@ -929,12 +978,15 @@ class CvDocumentParserService {
 
       if (isProseLine ||
           RegExp(r'profesional|comprometido|trayectoria|busco|metodología|aporto|responsable', caseSensitive: false).hasMatch(l)) {
-        summaryBuffer.writeln(l);
+        if (summaryBuffer.isNotEmpty) {
+          summaryBuffer.write('\n\n');
+        }
+        summaryBuffer.write(l);
         consumedLineIndices.add(i);
       }
     }
     if (summaryBuffer.isNotEmpty) {
-      summary = summaryBuffer.toString().trim();
+      summary = summaryBuffer.toString().replaceAll(RegExp(r'\s*[•·]\s*'), '\n• ').trim();
     }
 
     // 7. Skills / Competencies
@@ -1196,6 +1248,74 @@ class CvDocumentParserService {
                       ),
                     ),
                     const SizedBox(height: 14),
+
+                    // Visual Photo Preview Card in the Modal
+                    if (parsed.photoUrl.isNotEmpty && !parsed.photoUrl.contains('unsplash.com')) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0D1829) : const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 1.2),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 62,
+                              height: 62,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.emerald, width: 2.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.18),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: parsed.photoUrl.startsWith('data:image')
+                                    ? Image.memory(
+                                        base64Decode(parsed.photoUrl.substring(parsed.photoUrl.indexOf(',') + 1)),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey),
+                                      )
+                                    : Image.network(
+                                        parsed.photoUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.grey),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.emerald),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Fotografía Reconocida',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 3),
+                                  Text(
+                                    'La fotografía se ha extraído con éxito y se colocará automáticamente en tu currículum.',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     _buildPreviewRow(Icons.person_outline, 'Nombre:', parsed.fullName.isNotEmpty ? parsed.fullName : '(No detectado)'),
                     _buildPreviewRow(Icons.work_outline, 'Titular:', parsed.jobTitle.isNotEmpty ? parsed.jobTitle : '(No detectado)'),

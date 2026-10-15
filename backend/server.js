@@ -2630,9 +2630,28 @@ function cleanSpacedTextNode(str) {
 
 function parseCvTextNode(rawText, fileName) {
   const clean = (rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const lines = clean.split('\n')
+  const initialLines = clean.split('\n')
     .map(l => cleanSpacedTextNode(l.trim()))
     .filter(l => l.length > 0 && l !== '-- 1 of 1 --');
+
+  // Merge wrapped lines (e.g. lines ending in prepositions 'en', 'de' or continuing with 'redes', 'asir')
+  const lines = [];
+  for (let idx = 0; idx < initialLines.length; idx++) {
+    const current = initialLines[idx];
+    if (lines.length === 0) {
+      lines.push(current);
+      continue;
+    }
+    const prev = lines[lines.length - 1];
+    const prevEndsWithConnector = /\b(?:en|de|del|y|e|la|el|los|las|para|con|a|especialidad|mención)\s*$/i.test(prev);
+    const isContinuation = /^(?:redes?|asir|\(asir\)|daw|\(daw\)|dam|\(dam\)|web|multiplataforma|sistemas|microinformáticos)\b/i.test(current);
+
+    if (prevEndsWithConnector || (isContinuation && prev.length < 85)) {
+      lines[lines.length - 1] = prev + ' ' + current;
+    } else {
+      lines.push(current);
+    }
+  }
 
   let email = '';
   const emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -2672,7 +2691,9 @@ function parseCvTextNode(rawText, fileName) {
   const educationDegreeKeywords = [
     'grado', 'fp', 'formación profesional', 'formacion profesional', 'diplomatura', 'licenciatura',
     'máster', 'master', 'bachillerato', 'eso', 'educación secundaria', 'curso', 'adaptación al grado',
-    'adaptacion al grado', 'técnico superior en', 'tecnico superior en', 'ciclo formativo', 'doctorado'
+    'adaptacion al grado', 'técnico superior', 'tecnico superior', 'ciclo formativo', 'doctorado',
+    'administración de sistemas', 'administracion de sistemas', 'informáticos en red', 'informaticos en red',
+    'asir', 'dam', 'daw', 'desarrollo de aplicaciones', 'sistemas microinformáticos', 'redes'
   ];
 
   const educationInstKeywords = [
@@ -2705,6 +2726,14 @@ function parseCvTextNode(rawText, fileName) {
     if (i >= 2 && !consumedIndices.has(i - 2) && !consumedIndices.has(i - 1)) {
       title = lines[i - 2];
       org = lines[i - 1];
+      if (i >= 3 && !consumedIndices.has(i - 3)) {
+        const prefixCandidate = lines[i - 3];
+        const prefixLower = prefixCandidate.toLowerCase();
+        if (educationDegreeKeywords.some(ek => prefixLower.includes(ek)) || /\b(?:en|de|del|y|con)\s*$/i.test(prefixCandidate)) {
+          title = prefixCandidate + ' ' + title;
+          consumedIndices.add(i - 3);
+        }
+      }
       consumedIndices.add(i - 2);
       consumedIndices.add(i - 1);
     } else if (i >= 1 && !consumedIndices.has(i - 1)) {
@@ -2740,19 +2769,31 @@ function parseCvTextNode(rawText, fileName) {
 
     const isEdu = (!isExplicitJob && (isExplicitEduDegree || isExplicitEduInst)) || (isExplicitEduDegree && !isExplicitJob);
 
+    let cleanTitle = title.replace(/[…\.]+$/, '').trim();
+    const cleanOrg = org.replace(/[…\.]+$/, '').trim();
+
+    if (cleanTitle.toLowerCase() === 'redes' || cleanTitle.toLowerCase() === 'red' || cleanTitle.toLowerCase().startsWith('redes (asir)')) {
+      cleanTitle = 'Técnico Superior en Administración de Sistemas Informáticos en Red (ASIR)';
+    }
+
+    const formattedDetails = descLines
+      .map(d => d.replace(/\s*[•·]\s*/g, '\n• ').trim())
+      .filter(Boolean)
+      .join('\n\n');
+
     if (isEdu) {
       educations.push({
-        degree: title.replace(/[…\.]+$/, '').trim(),
-        institution: org.replace(/[…\.]+$/, '').trim(),
+        degree: cleanTitle || 'Titulación / Certificado',
+        institution: cleanOrg || 'Centro Formativo',
         period,
-        details: descLines.join('\n')
+        details: formattedDetails
       });
     } else {
       experiences.push({
-        jobTitle: title.replace(/[…\.]+$/, '').trim(),
-        company: org.replace(/[…\.]+$/, '').trim(),
+        jobTitle: cleanTitle || 'Puesto de Trabajo',
+        company: cleanOrg || 'Empresa / Entidad',
         period,
-        description: descLines.join('\n')
+        description: formattedDetails
       });
     }
   }
@@ -2871,7 +2912,7 @@ function parseCvTextNode(rawText, fileName) {
     const isProse = (l !== l.toUpperCase()) && (l.length > 55 || /^(?:soy|me considero|profesional|graduado|técnico|ingeniero|busco|mi objetivo)\b/i.test(l));
 
     if (isProse || /profesional|comprometido|trayectoria|busco|metodología|aporto|responsable/i.test(l)) {
-      summary = (summary ? summary + ' ' : '') + l;
+      summary = (summary ? summary + '\n\n' : '') + l;
       consumedIndices.add(i);
     }
   }
@@ -2977,7 +3018,7 @@ function parseCvTextNode(rawText, fileName) {
     location: location || '',
     availability: availability || '',
     drivingLicense: drivingLicense || '',
-    summary: summary.trim(),
+    summary: summary ? summary.replace(/\s*[•·]\s*/g, '\n• ').trim() : '',
     experiences,
     educations,
     skillItems,
