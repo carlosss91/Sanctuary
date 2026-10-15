@@ -49,6 +49,8 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
   bool _isSaving = false;
   bool _isTestingAi = false;
   String? _testAiResult;
+  bool _isSendingTestEmail = false;
+  String? _testEmailResult;
   bool _obscureApiKey = true;
 
   static const List<Map<String, String>> _availableGeminiModels = [
@@ -224,6 +226,46 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
         setState(() {
           _isTestingAi = false;
           _testAiResult = '❌ Error al probar conexión: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _sendTestEmail() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _testEmailResult = '⚠️ Introduce un correo electrónico válido para enviar la prueba.');
+      return;
+    }
+    setState(() {
+      _isSendingTestEmail = true;
+      _testEmailResult = null;
+    });
+
+    final place = _placeCtrl.text.trim().isNotEmpty ? _placeCtrl.text.trim() : 'Lanzarote';
+    final currentCfg = _config.copyWith(
+      targetEmail: email,
+      targetPlace: place,
+      enablePlaceFilter: _enablePlaceFilter,
+    );
+
+    try {
+      final res = await widget.apiService.sendAiWatchdogTestEmail(email, currentCfg);
+      if (mounted) {
+        setState(() {
+          _isSendingTestEmail = false;
+          if (res['success'] == true) {
+            _testEmailResult = res['message'] ?? '✅ Correo de prueba enviado con éxito a $email';
+          } else {
+            _testEmailResult = '❌ ${res['message'] ?? 'Error desconocido al enviar correo'}';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSendingTestEmail = false;
+          _testEmailResult = '❌ Error al enviar prueba: $e';
         });
       }
     }
@@ -426,15 +468,71 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   Text(
-                    'Activa o desactiva fuentes con el switch de la derecha o añade más URLs específicas.',
+                    'Activa, desactiva o elimina cualquier fuente oficial o personalizada.',
                     style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
             ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.restart_alt_rounded, size: 13, color: AppTheme.emerald),
+              label: const Text('Restablecer predeterminadas', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
+              onPressed: () {
+                setState(() {
+                  for (final def in AiWatchdogConfig.defaultSources) {
+                    if (!_sources.any((s) => s.id == def.id)) {
+                      _sources.add(def);
+                    }
+                  }
+                });
+              },
+            ),
           ],
         ),
         const SizedBox(height: 12),
+
+        if (_sources.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B).withOpacity(0.4) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  const Icon(Icons.layers_clear_rounded, size: 30, color: Colors.grey),
+                  const SizedBox(height: 6),
+                  const Text('No hay fuentes configuradas actualmente.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  const Text('Puedes añadir URLs abajo o restaurar las fuentes oficiales estándar.', style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.restore_rounded, size: 14),
+                    label: const Text('Restablecer Boletines Oficiales (BOC, BOE, GobCan)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() {
+                        _sources = List<AiWatchdogSource>.from(AiWatchdogConfig.defaultSources);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
 
         // Sources list
         ..._sources.map((src) {
@@ -510,17 +608,15 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
                     ],
                   ),
                 ),
-                if (src.isCustom) ...[
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
-                    tooltip: 'Eliminar fuente personalizada',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: () {
-                      setState(() => _sources.remove(src));
-                    },
-                  ),
-                ],
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                  tooltip: 'Eliminar fuente (${src.name})',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () {
+                    setState(() => _sources.remove(src));
+                  },
+                ),
                 Switch(
                   value: src.enabled,
                   activeColor: AppTheme.emerald,
@@ -1176,8 +1272,65 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
             isDense: true,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
+          onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
+
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _isSendingTestEmail ? null : _sendTestEmail,
+              icon: _isSendingTestEmail
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.emerald))
+                  : const Icon(Icons.mark_email_read_rounded, size: 16, color: AppTheme.emerald),
+              label: Text(_isSendingTestEmail ? 'Enviando alerta de prueba...' : 'Enviar Alerta de Prueba al Correo'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.emerald,
+                side: const BorderSide(color: AppTheme.emerald),
+              ),
+            ),
+          ],
+        ),
+
+        if (_testEmailResult != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _testEmailResult!.startsWith('✅')
+                    ? AppTheme.emerald.withOpacity(0.4)
+                    : Colors.redAccent.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _testEmailResult!.startsWith('✅') ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                  size: 16,
+                  color: _testEmailResult!.startsWith('✅') ? AppTheme.emerald : Colors.redAccent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _testEmailResult!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _testEmailResult!.startsWith('✅')
+                          ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                          : Colors.redAccent,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
 
         // Frequency Selector
         const Text('Frecuencia de Rastreo Automático:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

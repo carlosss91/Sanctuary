@@ -3736,6 +3736,55 @@ app.post('/api/ai-watchdog/test-gemini', async (req, res) => {
   }
 });
 
+app.post('/api/ai-watchdog/send-test-email', async (req, res) => {
+  try {
+    const { targetEmail, config: incomingConfig } = req.body || {};
+    const dbConfig = await getAiWatchdogConfigFromDb();
+    const config = { ...dbConfig, ...incomingConfig };
+    const emailToSend = (targetEmail && typeof targetEmail === 'string' && targetEmail.trim() !== '')
+      ? targetEmail.trim()
+      : config.targetEmail;
+
+    if (!emailToSend || !emailToSend.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Por favor, introduce un correo electrónico válido.' });
+    }
+
+    const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
+
+    const sampleNotice = {
+      id: `test-${Date.now()}`,
+      title: 'Convocatoria Oficial de Prueba - AI Sentinel Sanctuary',
+      summary: 'Esta es una alerta de comprobación para verificar que el sistema AI Sentinel entrega correctamente los correos electrónicos en tu bandeja de entrada con el diseño celestial de Sanctuary.',
+      source: 'AI Sentinel (Prueba)',
+      island: placeTitle,
+      bulletinNumber: `BOC/BOE Prueba #${new Date().toLocaleDateString('es-ES')}`,
+      date: new Date().toLocaleDateString('es-ES'),
+      url: 'https://sanctuary.canarytek.com',
+      aiAnalysis: '🤖 Resumen IA: Verificación de canal de alertas completada con éxito. Los próximos boletines y convocatorias detectados se enviarán puntualmente a esta dirección.',
+    };
+
+    const emailHtml = aiWatchdogService.buildAiSentinelEmailHtml([sampleNotice], config);
+
+    await sendMailNotification({
+      to: emailToSend,
+      subject: `🪐 [PRUEBA] Alerta AI Sentinel · Configuración Verificada (${placeTitle})`,
+      html: emailHtml,
+      text: `Prueba de alerta AI Sentinel para ${placeTitle}. Tu correo está correctamente vinculado a Sanctuary Suite.`,
+    });
+
+    res.json({
+      success: true,
+      message: `✅ Correo de prueba enviado con éxito a ${emailToSend}. Revisa tu bandeja de entrada o carpeta de spam.`,
+    });
+  } catch (err) {
+    console.error('Error sending test AI Sentinel email:', err);
+    res.status(500).json({
+      success: false,
+      message: `Error al enviar correo de prueba: ${err.message}`,
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`✨ Sanctuary API running on port ${port}`);
 });

@@ -1297,6 +1297,25 @@ class ApiService {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
+
+  Future<Map<String, dynamic>> sendAiWatchdogTestEmail(String targetEmail, AiWatchdogConfig config) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/ai-watchdog/send-test-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'targetEmail': targetEmail,
+          'config': config.toJson(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'HTTP ${res.statusCode}: ${res.body}'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error al conectar con el servidor: $e'};
+    }
+  }
 }
 
 
