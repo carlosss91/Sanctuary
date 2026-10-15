@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/cv_profile_model.dart';
@@ -159,10 +160,12 @@ class _StudentCarouselState extends State<StudentCarousel> {
                             CircleAvatar(
                               radius: 18,
                               backgroundColor: AppTheme.emerald.withOpacity(0.2),
-                              backgroundImage: profile.photoUrl.isNotEmpty && profile.photoUrl.startsWith('http')
-                                  ? NetworkImage(profile.photoUrl)
+                              backgroundImage: profile.photoUrl.isNotEmpty
+                                  ? (profile.photoUrl.startsWith('data:image')
+                                      ? MemoryImage(base64Decode(profile.photoUrl.substring(profile.photoUrl.indexOf(',') + 1)))
+                                      : (profile.photoUrl.startsWith('http') ? NetworkImage(profile.photoUrl) as ImageProvider : null))
                                   : null,
-                              child: profile.photoUrl.isEmpty || !profile.photoUrl.startsWith('http')
+                              child: profile.photoUrl.isEmpty
                                   ? Text(
                                       profile.fullName.isNotEmpty
                                           ? profile.fullName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join()

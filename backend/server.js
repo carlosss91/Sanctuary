@@ -2429,15 +2429,42 @@ app.delete('/api/admin/users/:id', async (req, res) => {
 
 // Admin: System Statistics
 app.get('/api/admin/stats', async (req, res) => {
+  const startPing = Date.now();
+  const pingRes = await safeQuery('SELECT NOW() as now, current_database() as db_name, version() as version');
+  const latencyMs = Date.now() - startPing;
+
   const usersCountRes = await safeQuery('SELECT COUNT(*) as count FROM users');
   const bannedCountRes = await safeQuery('SELECT COUNT(*) as count FROM users WHERE is_banned = TRUE');
   const cvCountRes = await safeQuery('SELECT COUNT(*) as count FROM cv_profiles');
-  const signedCountRes = await safeQuery('SELECT COUNT(*) as count FROM signed_documents');
+  const signedCountRes = await safeQuery('SELECT COUNT(*) as count FROM signer_documents');
 
-  if (usersCountRes) {
+  if (pingRes && usersCountRes) {
+    const connStr = process.env.DATABASE_URL || '';
+    let providerName = 'PostgreSQL';
+    let hostName = 'Cloud PostgreSQL';
+
+    if (connStr.includes('neon.tech')) {
+      providerName = 'Neon Cloud (Serverless AWS London)';
+      const hostMatch = connStr.match(/@([^:/]+)/);
+      hostName = hostMatch ? hostMatch[1] : 'neon.tech';
+    } else if (connStr.includes('render.com')) {
+      providerName = 'Render PostgreSQL Cloud';
+      const hostMatch = connStr.match(/@([^:/]+)/);
+      hostName = hostMatch ? hostMatch[1] : 'render.com';
+    } else if (connStr.includes('localhost') || connStr.includes('127.0.0.1')) {
+      providerName = 'PostgreSQL (Docker Local)';
+      hostName = 'localhost:5438';
+    }
+
     return res.json({
       success: true,
-      database: 'PostgreSQL (Cloud / Docker)',
+      database: providerName,
+      db_connected: true,
+      db_provider: providerName,
+      db_host: hostName,
+      db_name: pingRes.rows[0]?.db_name || 'neondb',
+      db_latency_ms: latencyMs,
+      db_engine: pingRes.rows[0]?.version ? pingRes.rows[0].version.split(' on ')[0] : 'PostgreSQL Cloud',
       total_users: parseInt(usersCountRes.rows[0]?.count || '0', 10),
       total_banned: parseInt(bannedCountRes?.rows[0]?.count || '0', 10),
       total_cvs: parseInt(cvCountRes?.rows[0]?.count || '0', 10),
@@ -2457,6 +2484,12 @@ app.get('/api/admin/stats', async (req, res) => {
   res.json({
     success: true,
     database: 'Almacenamiento Local (Modo Respaldo)',
+    db_connected: false,
+    db_provider: 'Almacenamiento Local JSON',
+    db_host: 'local_db.json',
+    db_name: 'local',
+    db_latency_ms: 0,
+    db_engine: 'JSON File System',
     total_users: totalUsers,
     total_banned: totalBanned,
     total_cvs: totalCvs,
@@ -2765,6 +2798,55 @@ function parseCvTextNode(rawText, fileName) {
     .replace(/ñ/g, 'n')
     .replace(/[^a-z0-9]/g, '');
 
+  const isValidSkillName = (s) => {
+    if (!s) return false;
+    const clean = s.replace(/^[•\-\*\s]+/, '').replace(/[…\.\s]+$/, '').trim();
+    if (clean.length < 3 || clean.length > 40) return false;
+    const lower = clean.toLowerCase();
+
+    // Rechazar gerundios en español (-ando, -iendo) o fragmentos verbales como 'priorizando las'
+    if (/^(?:priorizando|manejando|utilizando|realizando|gestionando|haciendo|colaborando|apoyando|desarrollando|ejecutando|asegurando|coordinando|garantizando|promoviendo|facilitando|organizando|asistiendo|participando|aplicando)\b/i.test(lower)) {
+      return false;
+    }
+
+    // Rechazar fragmentos que terminen en artículos, preposiciones o conjunciones (e.g. 'priorizando las', 'manejo de')
+    if (/\b(?:las|los|la|el|de|del|en|con|por|para|un|una|unos|unas|y|e|o|u|que|a|al|se|su|sus|siempre)\s*$/i.test(lower)) {
+      return false;
+    }
+
+    // Rechazar fragmentos que empiecen con artículos o conjunciones sueltas
+    if (/^(?:las|los|la|el|de|del|en|con|por|para|un|una|y|e|o|u|que|al|se|su)\s+/i.test(lower)) {
+      return false;
+    }
+
+    // Rechazar fragmentos de redacción o prosa
+    if (lower.includes('con destreza') ||
+        lower.includes('del oficio') ||
+        lower.includes('prevención de riesgos y el uso') ||
+        lower.includes('prevencion de riesgos y el uso') ||
+        lower.includes('responsable y') ||
+        lower.includes('disposición para') ||
+        lower.includes('disposicion para') ||
+        lower.includes('vocación práctica') ||
+        lower.includes('vocacion practica')) {
+      return false;
+    }
+
+    // Debe contener al menos 2 letras
+    const letterMatches = clean.match(/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/g);
+    if (!letterMatches || letterMatches.length < 2) return false;
+
+    return true;
+  };
+
+  const cleanSkillTitle = (s) => {
+    let clean = s.replace(/^[•\-\*\s]+/, '').replace(/[…\.\s]+$/, '').trim();
+    if (clean.toUpperCase() === clean && clean.length > 3) {
+      clean = clean.split(' ').map(w => w ? (w[0].toUpperCase() + w.substring(1).toLowerCase()) : '').join(' ');
+    }
+    return clean;
+  };
+
   let summary = '';
   for (let i = 0; i < lines.length; i++) {
     if (consumedIndices.has(i)) continue;
@@ -2825,6 +2907,10 @@ function parseCvTextNode(rawText, fileName) {
     }
 
     if (/[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && l.length >= 3 && l.length <= 40 && !l.includes('@') && !phoneRegex.test(l)) {
+      if (!isValidSkillName(l)) {
+        consumedIndices.add(i);
+        continue;
+      }
       let cleanSkillName = l.replace(/[…\.]+$/, '').trim();
       if (cleanSkillName.startsWith('PUNTUALIDAD Y SERIED')) cleanSkillName = 'PUNTUALIDAD Y SERIEDAD';
       if (cleanSkillName.startsWith('MANEJO DE HERRAMIEN')) cleanSkillName = 'MANEJO DE HERRAMIENTAS';
@@ -2842,15 +2928,15 @@ function parseCvTextNode(rawText, fileName) {
         }
       }
       skillItems.push({
-        name: cleanSkillName,
+        name: cleanSkillTitle(cleanSkillName),
         level: 5,
         description: desc
       });
       consumedIndices.add(i);
     } else if (l.includes('•') || l.includes('|') || (l.includes(',') && l.length <= 60 && !l.endsWith('.'))) {
-      const tokens = l.split(/[,•|]/).map(s => s.trim()).filter(s => s.length >= 2 && s.length <= 35);
+      const tokens = l.split(/[,•|]/).map(s => s.trim()).filter(s => isValidSkillName(s));
       for (const tok of tokens) {
-        skillItems.push({ name: tok, level: 5, description: '' });
+        skillItems.push({ name: cleanSkillTitle(tok), level: 5, description: '' });
       }
       consumedIndices.add(i);
     }
@@ -2946,20 +3032,22 @@ app.post('/api/cv/extract-pdf', async (req, res) => {
       }
     }
 
-    // 3.5 Extract embedded JPEG profile photo if present
+    // 3.5 Extract embedded JPEG profile photo if present (breaking at first valid EOI)
     let photoUrl = '';
     let bestPhotoSize = 0;
     for (let i = 0; i < pdfBuffer.length - 4; i++) {
       if (pdfBuffer[i] === 0xFF && pdfBuffer[i + 1] === 0xD8 && pdfBuffer[i + 2] === 0xFF) {
+        const start = i;
         let end = -1;
-        const limit = Math.min(pdfBuffer.length - 1, i + 6000000);
-        for (let j = i + 20; j < limit; j++) {
+        const limit = Math.min(pdfBuffer.length - 1, start + 5000000);
+        for (let j = start + 100; j < limit; j++) {
           if (pdfBuffer[j] === 0xFF && pdfBuffer[j + 1] === 0xD9) {
             end = j + 2;
+            break; // Stop at the first valid EOI marker
           }
         }
-        if (end > i + 2500) {
-          const slice = pdfBuffer.slice(i, end);
+        if (end > start + 2500) {
+          const slice = pdfBuffer.slice(start, end);
           if (slice.length > bestPhotoSize && slice.length < 5000000) {
             bestPhotoSize = slice.length;
             photoUrl = `data:image/jpeg;base64,${slice.toString('base64')}`;

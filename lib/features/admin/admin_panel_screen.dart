@@ -1548,8 +1548,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   // TAB 2: ESTADO DEL SERVIDOR Y BASE DE DATOS
   // ===========================================================================
   Widget _buildSystemStatusTab(bool isDark) {
-    final dbName = _stats['database'] ?? 'Comprobando...';
-    final isPostgres = dbName.toString().toLowerCase().contains('postgres');
+    final dbName = _stats['db_provider'] ?? _stats['database'] ?? 'Comprobando...';
+    final isPostgres = _stats['db_connected'] == true ||
+        dbName.toString().toLowerCase().contains('postgres') ||
+        dbName.toString().toLowerCase().contains('neon');
+    final dbHost = _stats['db_host'] != null && _stats['db_host'].toString().isNotEmpty ? _stats['db_host'].toString() : 'Desconocido';
+    final latencyMs = _stats['db_latency_ms'] ?? 0;
+    final dbEngine = _stats['db_engine'] ?? 'PostgreSQL (Cloud)';
     final totalCvs = _stats['total_cvs'] ?? 0;
     final uptimeSeconds = _stats['uptime_seconds'] ?? 0;
     final uptimeHours = (uptimeSeconds / 3600).toStringAsFixed(1);
@@ -1601,7 +1606,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               ),
                               Text(
                                 isPostgres
-                                    ? 'Conexión activa con PostgreSQL (Neon Cloud / Docker local)'
+                                    ? 'Conexión activa en tiempo real: $dbHost (Latencia: $latencyMs ms)'
                                     : 'Operando en modo de respaldo local offline (Local JSON Storage)',
                                 style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
@@ -1612,6 +1617,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     ),
                     const Divider(height: 28),
                     _buildInfoRow('Endpoint API Base', widget.apiService.baseUrl, isDark),
+                    _buildInfoRow('Host de Base de Datos', dbHost, isDark),
+                    _buildInfoRow('Motor de Persistencia', dbEngine.toString(), isDark),
+                    _buildInfoRow('Latencia a la Base de Datos', '$latencyMs ms (Medido en vivo)', isDark),
                     _buildInfoRow('Perfiles de CV en Memoria / DB', '$totalCvs perfiles', isDark),
                     _buildInfoRow('Tiempo activo del servidor Node.js', '$uptimeHours horas ($uptimeSeconds seg)', isDark),
                     _buildInfoRow('Versión de Plataforma', 'Sanctuary Suite v2.4 (Enterprise Edition)', isDark),
@@ -1640,16 +1648,32 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       children: [
                         ElevatedButton.icon(
                           onPressed: () async {
+                            final stopwatch = Stopwatch()..start();
                             final healthy = await widget.apiService.checkHealth();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(healthy ? '✔ Conexión con el servidor y DB saludable' : '⚠ El servidor no responde'),
-                                  backgroundColor: healthy ? AppTheme.emerald : Colors.orange,
+                            stopwatch.stop();
+                            if (!mounted) return;
+                            await _loadAllAdminData();
+                            if (!mounted) return;
+                            final lat = _stats['db_latency_ms'] ?? stopwatch.elapsedMilliseconds;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(healthy ? Icons.verified : Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        healthy
+                                            ? '✔ Servidor y Base de Datos ($dbName): $lat ms de latencia (Conexión activa)'
+                                            : '⚠ El servidor no responde o está desconectado',
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              );
-                              _loadAllAdminData();
-                            }
+                                backgroundColor: healthy ? AppTheme.emerald : Colors.orange,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
                           },
                           icon: const Icon(Icons.network_check_rounded, size: 18),
                           label: const Text('Comprobar Latencia'),

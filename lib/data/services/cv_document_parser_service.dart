@@ -44,6 +44,7 @@ class CvDocumentParserService {
       String extractedText = '';
       String? extractedPhoto;
       if (ext == 'docx') {
+        extractedPhoto = _extractPhotoFromDocx(bytes);
         extractedText = _extractTextFromDocx(bytes);
       } else if (ext == 'pdf') {
         // 0. Extract embedded profile photo if present
@@ -161,55 +162,89 @@ class CvDocumentParserService {
     }
   }
 
+  /// Extracts embedded profile photo from Word .docx archives (word/media/*)
+  static String? _extractPhotoFromDocx(Uint8List bytes) {
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes);
+      ArchiveFile? bestFile;
+      int bestSize = 0;
+
+      for (final f in archive.files) {
+        if (!f.isFile) continue;
+        final name = f.name.toLowerCase();
+        if (name.startsWith('word/media/') &&
+            (name.endsWith('.png') || name.endsWith('.jpeg') || name.endsWith('.jpg'))) {
+          final content = f.content as List<int>;
+          if (content.length > bestSize && content.length > 2500) {
+            bestSize = content.length;
+            bestFile = f;
+          }
+        }
+      }
+
+      if (bestFile != null) {
+        final content = Uint8List.fromList(bestFile.content as List<int>);
+        final decoded = img.decodeImage(content);
+        if (decoded != null && decoded.width >= 50 && decoded.height >= 50) {
+          final pngBytes = Uint8List.fromList(img.encodePng(decoded));
+          return 'data:image/png;base64,${base64Encode(pngBytes)}';
+        }
+      }
+    } catch (e) {
+      debugPrint('[CvDocumentParserService] Error extrayendo foto de Docx: $e');
+    }
+    return null;
+  }
+
   /// Extracts embedded profile photo JPEG/PNG images from PDF XObject streams
   static String? _extractPhotoFromPdf(Uint8List bytes) {
     try {
       final len = bytes.length;
-      Uint8List? bestJpeg;
+      img.Image? bestImage;
       int bestScore = -1;
 
       // Scan for JPEG streams (SOI marker: 0xFF, 0xD8, 0xFF)
       for (int i = 0; i < len - 4; i++) {
         if (bytes[i] == 0xFF && bytes[i + 1] == 0xD8 && bytes[i + 2] == 0xFF) {
           final start = i;
-          int end = -1;
-          final searchLimit = (start + 6000000 < len) ? start + 6000000 : len;
-          for (int j = start + 30; j < searchLimit - 1; j++) {
-            if (bytes[j] == 0xFF && bytes[j + 1] == 0xD9) {
-              end = j + 2;
-            }
-          }
-          if (end > start + 2500) {
-            final slice = bytes.sublist(start, end);
-            try {
-              final decoded = img.decodeImage(slice);
-              if (decoded != null && decoded.width >= 50 && decoded.height >= 50) {
-                final ratio = decoded.width / decoded.height;
-                // Typical portrait / square photo aspect ratio (0.5 to 2.0)
-                if (ratio >= 0.5 && ratio <= 2.0) {
-                  int score = 1000;
-                  if (ratio >= 0.7 && ratio <= 1.35) score += 500;
-                  if (decoded.width >= 100 && decoded.width <= 1600) score += 300;
-                  score += (slice.length ~/ 1024).clamp(0, 500);
+          final searchLimit = (start + 5000000 < len) ? start + 5000000 : len;
 
-                  if (score > bestScore) {
-                    bestScore = score;
-                    bestJpeg = slice;
+          for (int j = start + 100; j < searchLimit - 1; j++) {
+            if (bytes[j] == 0xFF && bytes[j + 1] == 0xD9) {
+              final end = j + 2;
+              if (end > start + 1000) {
+                final slice = bytes.sublist(start, end);
+                try {
+                  final decoded = img.decodeImage(slice);
+                  if (decoded != null && decoded.width >= 50 && decoded.height >= 50) {
+                    final ratio = decoded.width / decoded.height;
+                    // Typical portrait or square photo aspect ratio (0.45 to 2.2)
+                    if (ratio >= 0.45 && ratio <= 2.2) {
+                      int score = 1000;
+                      if (ratio >= 0.7 && ratio <= 1.4) score += 600;
+                      if (decoded.width >= 100 && decoded.width <= 1600) score += 400;
+                      score += (slice.length ~/ 1024).clamp(0, 500);
+
+                      if (score > bestScore) {
+                        bestScore = score;
+                        bestImage = decoded;
+                      }
+                    }
+                    // Found valid JPEG stream boundary; advance loop
+                    i = end - 1;
+                    break;
                   }
-                }
-              }
-            } catch (_) {
-              if (bestJpeg == null && slice.length > 5000 && slice.length < 2500000) {
-                bestJpeg = slice;
+                } catch (_) {}
               }
             }
-            i = end - 1;
           }
         }
       }
 
-      if (bestJpeg != null) {
-        return 'data:image/jpeg;base64,${base64Encode(bestJpeg)}';
+      if (bestImage != null) {
+        // Encode directly to clean standardized 32-bit PNG to ensure flawless rendering across all platforms
+        final pngBytes = Uint8List.fromList(img.encodePng(bestImage));
+        return 'data:image/png;base64,${base64Encode(pngBytes)}';
       }
     } catch (e) {
       debugPrint('[CvDocumentParserService] Error extrayendo foto de PDF: $e');
@@ -606,6 +641,60 @@ class CvDocumentParserService {
         .replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
+  /// Validates whether a token is an actual competence and not a gerund, article, or narrative prose fragment
+  static bool _isValidSkillName(String s) {
+    final clean = s.replaceAll(RegExp(r'^[•\-\*\s]+'), '').replaceAll(RegExp(r'[…\.\s]+$'), '').trim();
+    if (clean.length < 3 || clean.length > 40) return false;
+    final lower = clean.toLowerCase();
+
+    // Rechazar gerundios en español (-ando, -iendo) o fragmentos verbales como 'priorizando las'
+    if (RegExp(
+      r'^(?:priorizando|manejando|utilizando|realizando|gestionando|haciendo|colaborando|apoyando|desarrollando|ejecutando|asegurando|coordinando|garantizando|promoviendo|facilitando|organizando|asistiendo|participando|aplicando)\b',
+      caseSensitive: false,
+    ).hasMatch(lower)) {
+      return false;
+    }
+
+    // Rechazar fragmentos que terminen en artículos, preposiciones o conjunciones (e.g. 'priorizando las', 'manejo de')
+    if (RegExp(
+      r'\b(?:las|los|la|el|de|del|en|con|por|para|un|una|unos|unas|y|e|o|u|que|a|al|se|su|sus|siempre)\s*$',
+      caseSensitive: false,
+    ).hasMatch(lower)) {
+      return false;
+    }
+
+    // Rechazar fragmentos que empiecen con artículos o conjunciones sueltas
+    if (RegExp(
+      r'^(?:las|los|la|el|de|del|en|con|por|para|un|una|y|e|o|u|que|al|se|su)\s+',
+      caseSensitive: false,
+    ).hasMatch(lower)) {
+      return false;
+    }
+
+    // Rechazar fragmentos de redacción o prosa
+    if (lower.contains('con destreza') ||
+        lower.contains('del oficio') ||
+        lower.contains('prevención de riesgos y el uso') ||
+        lower.contains('responsable y') ||
+        lower.contains('disposición para') ||
+        lower.contains('vocación práctica')) {
+      return false;
+    }
+
+    // Debe contener al menos 2 letras
+    if (RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]').allMatches(clean).length < 2) return false;
+
+    return true;
+  }
+
+  static String _cleanSkillTitle(String s) {
+    var clean = s.replaceAll(RegExp(r'^[•\-\*\s]+'), '').replaceAll(RegExp(r'[…\.\s]+$'), '').trim();
+    if (clean.toUpperCase() == clean && clean.length > 3) {
+      clean = clean.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : '').join(' ');
+    }
+    return clean;
+  }
+
   /// Robust heuristic semantic parser for CV contents with filename awareness and layout independence
   static CvProfileModel parseCvText(String rawText, CvProfileModel baseProfile, [String fileName = '']) {
     final cleanText = rawText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
@@ -889,13 +978,13 @@ class CvDocumentParserService {
         }
 
         if (l.contains(',') || l.contains('•') || l.contains('|')) {
-          final tokens = l.split(RegExp(r'[,•|]')).map((s) => s.trim()).where((s) => s.length >= 2 && s.length <= 35);
+          final tokens = l.split(RegExp(r'[,•|]')).map((s) => s.trim()).where((s) => _isValidSkillName(s));
           for (final tok in tokens) {
-            discoveredSkills.add(CvSkillItem(name: tok, level: 5));
+            discoveredSkills.add(CvSkillItem(name: _cleanSkillTitle(tok), level: 5));
           }
           consumedLineIndices.add(i);
-        } else if (l.length >= 2 && l.length <= 40 && !l.contains('@') && !phoneRegex.hasMatch(l)) {
-          discoveredSkills.add(CvSkillItem(name: l.replaceAll(RegExp(r'[…\.]+$'), '').trim(), level: 5));
+        } else if (_isValidSkillName(l) && !l.contains('@') && !phoneRegex.hasMatch(l)) {
+          discoveredSkills.add(CvSkillItem(name: _cleanSkillTitle(l), level: 5));
           consumedLineIndices.add(i);
         }
       }
@@ -935,7 +1024,7 @@ class CvDocumentParserService {
         continue;
       }
 
-      if (RegExp(r'[A-ZÁÉÍÓÚÑ]').hasMatch(l) && l == l.toUpperCase() && l.length >= 3 && l.length <= 40 && !l.contains('@') && !phoneRegex.hasMatch(l)) {
+      if (_isValidSkillName(l) && RegExp(r'[A-ZÁÉÍÓÚÑ]').hasMatch(l) && l == l.toUpperCase() && l.length >= 3 && l.length <= 40 && !l.contains('@') && !phoneRegex.hasMatch(l)) {
         String cleanSkillName = l.replaceAll(RegExp(r'[…\.]+$'), '').trim();
         if (cleanSkillName.startsWith('PUNTUALIDAD Y SERIED')) cleanSkillName = 'PUNTUALIDAD Y SERIEDAD';
         if (cleanSkillName.startsWith('MANEJO DE HERRAMIEN')) cleanSkillName = 'MANEJO DE HERRAMIENTAS';
@@ -958,15 +1047,15 @@ class CvDocumentParserService {
           }
         }
         discoveredSkills.add(CvSkillItem(
-          name: cleanSkillName,
+          name: _cleanSkillTitle(cleanSkillName),
           level: 5,
           description: desc,
         ));
         consumedLineIndices.add(i);
       } else if (l.contains('•') || l.contains('|') || (l.contains(',') && l.length <= 60 && !l.endsWith('.'))) {
-        final tokens = l.split(RegExp(r'[,•|]')).map((s) => s.trim()).where((s) => s.length >= 2 && s.length <= 35);
+        final tokens = l.split(RegExp(r'[,•|]')).map((s) => s.trim()).where((s) => _isValidSkillName(s));
         for (final tok in tokens) {
-          discoveredSkills.add(CvSkillItem(name: tok, level: 5));
+          discoveredSkills.add(CvSkillItem(name: _cleanSkillTitle(tok), level: 5));
         }
         consumedLineIndices.add(i);
       }
