@@ -175,6 +175,7 @@ class CvProfileModel {
   final String watermarkPattern;
   final double watermarkOpacity;
   final double watermarkDensity;
+  final double watermarkRandomness;
   final String customWatermarkUrl;
 
   const CvProfileModel({
@@ -210,6 +211,7 @@ class CvProfileModel {
     this.watermarkPattern = 'gears',
     this.watermarkOpacity = 0.14,
     this.watermarkDensity = 1.0,
+    this.watermarkRandomness = 0.0,
     this.customWatermarkUrl = '',
   });
 
@@ -266,6 +268,7 @@ class CvProfileModel {
       watermarkPattern: json['watermarkPattern'] as String? ?? 'gears',
       watermarkOpacity: (json['watermarkOpacity'] as num?)?.toDouble() ?? 0.14,
       watermarkDensity: (json['watermarkDensity'] as num?)?.toDouble() ?? 1.0,
+      watermarkRandomness: (json['watermarkRandomness'] as num?)?.toDouble() ?? 0.0,
       customWatermarkUrl: json['customWatermarkUrl'] as String? ?? '',
     );
   }
@@ -304,6 +307,7 @@ class CvProfileModel {
       'watermarkPattern': watermarkPattern,
       'watermarkOpacity': watermarkOpacity,
       'watermarkDensity': watermarkDensity,
+      'watermarkRandomness': watermarkRandomness,
       'customWatermarkUrl': customWatermarkUrl,
     };
   }
@@ -341,6 +345,7 @@ class CvProfileModel {
     String? watermarkPattern,
     double? watermarkOpacity,
     double? watermarkDensity,
+    double? watermarkRandomness,
     String? customWatermarkUrl,
   }) {
     final effectiveSkillItems = skillItems ??
@@ -383,6 +388,7 @@ class CvProfileModel {
       watermarkPattern: watermarkPattern ?? this.watermarkPattern,
       watermarkOpacity: watermarkOpacity ?? this.watermarkOpacity,
       watermarkDensity: watermarkDensity ?? this.watermarkDensity,
+      watermarkRandomness: watermarkRandomness ?? this.watermarkRandomness,
       customWatermarkUrl: customWatermarkUrl ?? this.customWatermarkUrl,
     );
   }

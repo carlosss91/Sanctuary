@@ -1739,6 +1739,60 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       _buildTransparencyPresetChip('60% (Marcada)', 0.40, isDark),
                     ],
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // 3. Slider: Aleatoriedad / Dispersión
+                  Row(
+                    children: [
+                      const Icon(Icons.shuffle_rounded, size: 15, color: AppTheme.emerald),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Aleatoriedad / Dispersión: ${(widget.profile.watermarkRandomness * 100).toInt()}%',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      Text(
+                        widget.profile.watermarkRandomness <= 0.05
+                            ? 'En línea'
+                            : widget.profile.watermarkRandomness <= 0.35
+                                ? 'Ligera'
+                                : widget.profile.watermarkRandomness <= 0.70
+                                    ? 'Media'
+                                    : 'Máxima',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: AppTheme.emerald,
+                      thumbColor: AppTheme.emerald,
+                      overlayColor: AppTheme.emerald.withOpacity(0.2),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: widget.profile.watermarkRandomness.clamp(0.0, 1.0),
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      onChanged: (val) {
+                        _update(widget.profile.copyWith(watermarkRandomness: val));
+                      },
+                    ),
+                  ),
+
+                  // Quick presets for Aleatoriedad
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _buildRandomnessPresetChip('0% (En línea)', 0.0, isDark),
+                      _buildRandomnessPresetChip('35% (Ligera)', 0.35, isDark),
+                      _buildRandomnessPresetChip('70% (Equilibrada)', 0.70, isDark),
+                      _buildRandomnessPresetChip('100% (Dispersa)', 1.0, isDark),
+                    ],
+                  ),
                 ],
               ],
             ),
@@ -2207,6 +2261,32 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
     final isSelected = (widget.profile.watermarkOpacity - opacityVal).abs() < 0.04;
     return InkWell(
       onTap: () => _update(widget.profile.copyWith(watermarkOpacity: opacityVal)),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.emerald.withOpacity(0.2) : (isDark ? AppTheme.darkInput : AppTheme.lightInput),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.emerald : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.emerald : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRandomnessPresetChip(String label, double val, bool isDark) {
+    final isSelected = (widget.profile.watermarkRandomness - val).abs() < 0.06;
+    return InkWell(
+      onTap: () => _update(widget.profile.copyWith(watermarkRandomness: val)),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

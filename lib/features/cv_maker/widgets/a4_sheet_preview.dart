@@ -168,7 +168,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     }
   }
 
-  Widget _buildWatermarkOverlay({double? opacity, double? density}) {
+  Widget _buildWatermarkOverlay({double? opacity, double? density, double? randomness}) {
     if (!widget.profile.showWatermark ||
         widget.profile.watermarkPattern == 'none') {
       return const SizedBox.shrink();
@@ -177,6 +177,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     final effectiveOpacity = (opacity ?? widget.profile.watermarkOpacity).clamp(0.0, 1.0);
     if (effectiveOpacity <= 0.0) return const SizedBox.shrink();
     final effectiveDensity = (density ?? widget.profile.watermarkDensity).clamp(0.4, 3.0);
+    final effectiveRandomness = (randomness ?? widget.profile.watermarkRandomness).clamp(0.0, 1.0);
 
     if (widget.profile.watermarkPattern == 'custom' && widget.profile.customWatermarkUrl.isNotEmpty) {
       final img = widget.profile.customWatermarkUrl;
@@ -211,6 +212,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
         pattern: widget.profile.watermarkPattern,
         opacity: effectiveOpacity,
         density: effectiveDensity,
+        randomness: effectiveRandomness,
       ),
     );
   }
@@ -1595,12 +1597,35 @@ class WatermarkPainter extends CustomPainter {
   final String pattern;
   final double opacity;
   final double density;
+  final double randomness;
 
   WatermarkPainter({
     required this.pattern,
     this.opacity = 0.14,
     this.density = 1.0,
+    this.randomness = 0.0,
   });
+
+  // Deterministic pseudo-random float [0.0, 1.0) based on seed (stable across repaints)
+  double _pr(num seed) {
+    final v = math.sin(seed * 12.9898 + 78.233) * 43758.5453123;
+    return (v - v.floor()).abs();
+  }
+
+  // Jitters a point based on randomness
+  Offset _scatterPoint(Offset base, int seed, double maxDx, double maxDy, [Size? bounds]) {
+    if (randomness <= 0.001) return base;
+    final rx = (_pr(seed * 23 + 11) * 2.0 - 1.0) * maxDx * randomness;
+    final ry = (_pr(seed * 41 + 17) * 2.0 - 1.0) * maxDy * randomness;
+    final res = Offset(base.dx + rx, base.dy + ry);
+    if (bounds != null) {
+      return Offset(
+        res.dx.clamp(-15.0, bounds.width + 15.0),
+        res.dy.clamp(-15.0, bounds.height + 15.0),
+      );
+    }
+    return res;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1703,11 +1728,24 @@ class WatermarkPainter extends CustomPainter {
       final step = 38.0 / math.sqrt(density.clamp(0.4, 2.5));
       int idx = 0;
       for (double x = 12; x < size.width + 30; x += step) {
-        final r = (idx % 2 == 0)
+        final baseR = (idx % 2 == 0)
             ? (14.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 22.0)
             : (10.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(6.0, 16.0);
+        final r = (baseR * (1.0 + (_pr(idx * 19 + 3) - 0.5) * 0.35 * randomness)).clamp(5.0, 24.0);
         final teeth = (idx % 2 == 0) ? 9 : 7;
-        _drawSingleGear(canvas, Offset(x, cy), r, teeth, stroke, fill);
+
+        final dy = (_pr(idx * 37 + 7) * 2.0 - 1.0) * (size.height * 0.42) * randomness;
+        final dx = (_pr(idx * 53 + 13) * 2.0 - 1.0) * (step * 0.35) * randomness;
+        final center = Offset(x + dx, (cy + dy).clamp(2.0, size.height - 2.0));
+
+        _drawSingleGear(canvas, center, r, teeth, stroke, fill);
+
+        // When randomness is high, spawn micro-gears in gaps to create organic dispersion
+        if (randomness >= 0.45 && idx % 2 == 0) {
+          final satDy = -dy * 0.85;
+          final satCenter = Offset(x + step * 0.5 + dx * 0.3, (cy + satDy).clamp(3.0, size.height - 3.0));
+          _drawSingleGear(canvas, satCenter, r * 0.52, 6, stroke, fill);
+        }
         idx++;
       }
       return;
@@ -1715,23 +1753,23 @@ class WatermarkPainter extends CustomPainter {
 
     // Multi-gear engineering arrangement across the layout
     final d = math.sqrt(density.clamp(0.4, 2.5));
-    _drawSingleGear(canvas, Offset(size.width * 0.82, size.height * 0.08), 34.0 * d, 10, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.96, size.height * 0.15), 18.0 * d, 8, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.82, size.height * 0.08), 101, size.width * 0.12, size.height * 0.05), 34.0 * d, 10, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.96, size.height * 0.15), 102, size.width * 0.10, size.height * 0.05), 18.0 * d, 8, stroke, fill);
 
-    _drawSingleGear(canvas, Offset(size.width * 0.16, size.height * 0.28), 28.0 * d, 9, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.05, size.height * 0.35), 16.0 * d, 7, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.16, size.height * 0.28), 103, size.width * 0.10, size.height * 0.05), 28.0 * d, 9, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.05, size.height * 0.35), 104, size.width * 0.08, size.height * 0.05), 16.0 * d, 7, stroke, fill);
 
-    _drawSingleGear(canvas, Offset(size.width * 0.86, size.height * 0.50), 32.0 * d, 10, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.20, size.height * 0.70), 30.0 * d, 9, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.86, size.height * 0.50), 105, size.width * 0.10, size.height * 0.05), 32.0 * d, 10, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.20, size.height * 0.70), 106, size.width * 0.10, size.height * 0.05), 30.0 * d, 9, stroke, fill);
 
-    _drawSingleGear(canvas, Offset(size.width * 0.74, size.height * 0.88), 46.0 * d, 12, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.26, size.height * 0.94), 30.0 * d, 8, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.92), 20.0 * d, 7, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.74, size.height * 0.88), 107, size.width * 0.10, size.height * 0.05), 46.0 * d, 12, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.26, size.height * 0.94), 108, size.width * 0.10, size.height * 0.05), 30.0 * d, 8, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.50, size.height * 0.92), 109, size.width * 0.10, size.height * 0.05), 20.0 * d, 7, stroke, fill);
 
     if (density >= 1.25) {
-      _drawSingleGear(canvas, Offset(size.width * 0.52, size.height * 0.20), 22.0 * d, 8, stroke, fill);
-      _drawSingleGear(canvas, Offset(size.width * 0.80, size.height * 0.38), 24.0 * d, 8, stroke, fill);
-      _drawSingleGear(canvas, Offset(size.width * 0.15, size.height * 0.58), 20.0 * d, 7, stroke, fill);
+      _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.52, size.height * 0.20), 110, size.width * 0.10, size.height * 0.05), 22.0 * d, 8, stroke, fill);
+      _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.80, size.height * 0.38), 111, size.width * 0.10, size.height * 0.05), 24.0 * d, 8, stroke, fill);
+      _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.15, size.height * 0.58), 112, size.width * 0.10, size.height * 0.05), 20.0 * d, 7, stroke, fill);
     }
   }
 
@@ -1790,31 +1828,45 @@ class WatermarkPainter extends CustomPainter {
     if (size.height <= 60) {
       final cy = size.height / 2;
       final step = 50.0 / math.sqrt(density.clamp(0.4, 2.5));
+      int idx = 0;
       for (double x = 20; x < size.width + 30; x += step) {
-        _drawCrossedTools(canvas, Offset(x, cy), (12.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 18.0), stroke, fill);
+        final baseR = (12.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 18.0);
+        final r = (baseR * (1.0 + (_pr(idx * 17 + 5) - 0.5) * 0.35 * randomness)).clamp(6.0, 22.0);
+        final dy = (_pr(idx * 31 + 11) * 2.0 - 1.0) * (size.height * 0.42) * randomness;
+        final dx = (_pr(idx * 47 + 7) * 2.0 - 1.0) * (step * 0.35) * randomness;
+        final center = Offset(x + dx, (cy + dy).clamp(3.0, size.height - 3.0));
+        final rotJitter = (_pr(idx * 29 + 13) * 2.0 - 1.0) * (math.pi * 0.5) * randomness;
+
+        _drawCrossedTools(canvas, center, r, stroke, fill, rotationJitter: rotJitter);
+
+        if (randomness >= 0.50 && idx % 2 == 1) {
+          final altDy = -dy * 0.85;
+          _drawCrossedTools(canvas, Offset(x + step * 0.45 + dx * 0.3, (cy + altDy).clamp(3.0, size.height - 3.0)), r * 0.60, stroke, fill, rotationJitter: -rotJitter);
+        }
+        idx++;
       }
       return;
     }
 
     final d = math.sqrt(density.clamp(0.4, 2.5));
-    _drawCrossedTools(canvas, Offset(size.width * 0.80, size.height * 0.10), 22 * d, stroke, fill);
-    _drawCrossedTools(canvas, Offset(size.width * 0.22, size.height * 0.32), 24 * d, stroke, fill);
-    _drawCrossedTools(canvas, Offset(size.width * 0.82, size.height * 0.54), 26 * d, stroke, fill);
-    _drawCrossedTools(canvas, Offset(size.width * 0.25, size.height * 0.74), 24 * d, stroke, fill);
+    _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.80, size.height * 0.10), 201, size.width * 0.10, size.height * 0.05), 22 * d, stroke, fill);
+    _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.22, size.height * 0.32), 202, size.width * 0.10, size.height * 0.05), 24 * d, stroke, fill);
+    _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.82, size.height * 0.54), 203, size.width * 0.10, size.height * 0.05), 26 * d, stroke, fill);
+    _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.25, size.height * 0.74), 204, size.width * 0.10, size.height * 0.05), 24 * d, stroke, fill);
 
-    _drawCrossedTools(canvas, Offset(size.width * 0.50, size.height * 0.89), 34 * d, stroke, fill);
-    _drawSingleGear(canvas, Offset(size.width * 0.50, size.height * 0.89), 40.0 * d, 12, stroke, fill);
+    _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.50, size.height * 0.89), 205, size.width * 0.08, size.height * 0.04), 34 * d, stroke, fill);
+    _drawSingleGear(canvas, _scatterPoint(Offset(size.width * 0.50, size.height * 0.89), 206, size.width * 0.08, size.height * 0.04), 40.0 * d, 12, stroke, fill);
 
     if (density >= 1.25) {
-      _drawCrossedTools(canvas, Offset(size.width * 0.55, size.height * 0.22), 18 * d, stroke, fill);
-      _drawCrossedTools(canvas, Offset(size.width * 0.75, size.height * 0.70), 20 * d, stroke, fill);
+      _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.55, size.height * 0.22), 207, size.width * 0.10, size.height * 0.05), 18 * d, stroke, fill);
+      _drawCrossedTools(canvas, _scatterPoint(Offset(size.width * 0.75, size.height * 0.70), 208, size.width * 0.10, size.height * 0.05), 20 * d, stroke, fill);
     }
   }
 
-  void _drawCrossedTools(Canvas canvas, Offset c, double radius, Paint stroke, Paint fill) {
+  void _drawCrossedTools(Canvas canvas, Offset c, double radius, Paint stroke, Paint fill, {double rotationJitter = 0.0}) {
     canvas.save();
     canvas.translate(c.dx, c.dy);
-    canvas.rotate(math.pi / 4);
+    canvas.rotate(math.pi / 4 + rotationJitter);
 
     final wrenchShaft = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset.zero, width: radius * 2.2, height: radius * 0.26),
@@ -1833,7 +1885,7 @@ class WatermarkPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(c.dx, c.dy);
-    canvas.rotate(-math.pi / 4);
+    canvas.rotate(-math.pi / 4 + rotationJitter);
 
     final toolShaft = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset.zero, width: radius * 2.1, height: radius * 0.22),
@@ -1870,16 +1922,19 @@ class WatermarkPainter extends CustomPainter {
     final step = 36.0 / math.sqrt(density.clamp(0.4, 2.5));
     for (double y = 8; y < size.height + step; y += step) {
       for (double x = 8; x < size.width + step; x += step) {
-        final c = Offset(x, y);
+        final c = _scatterPoint(Offset(x, y), (x * 19 + y * 23).toInt(), step * 0.35, step * 0.35, size);
+        final rightTarget = _scatterPoint(Offset(x + step, y), ((x + step) * 19 + y * 23).toInt(), step * 0.35, step * 0.35, size);
+        final bottomTarget = _scatterPoint(Offset(x, y + step), (x * 19 + (y + step) * 23).toInt(), step * 0.35, step * 0.35, size);
         // Connect to right neighbor
         if (x + step < size.width + step) {
-          canvas.drawLine(c, Offset(x + step, y), stroke..strokeWidth = 0.55);
+          canvas.drawLine(c, rightTarget, stroke..strokeWidth = 0.55);
         }
         // Connect to bottom and diagonal
         if (y + step < size.height + step) {
-          canvas.drawLine(c, Offset(x, y + step), stroke..strokeWidth = 0.55);
+          canvas.drawLine(c, bottomTarget, stroke..strokeWidth = 0.55);
           if (((x + y).toInt() % (step * 2).toInt()) == 0) {
-            canvas.drawLine(c, Offset(x + step, y + step), stroke..strokeWidth = 0.55);
+            final diagTarget = _scatterPoint(Offset(x + step, y + step), ((x + step) * 19 + (y + step) * 23).toInt(), step * 0.35, step * 0.35, size);
+            canvas.drawLine(c, diagTarget, stroke..strokeWidth = 0.55);
           }
         }
         // Hub vs regular node
@@ -1935,7 +1990,7 @@ class WatermarkPainter extends CustomPainter {
       int col = 0;
       for (double x = 12; x < size.width + 20; x += stepX) {
         final sym = (row + col) % 3;
-        final c = Offset(x, y);
+        final c = _scatterPoint(Offset(x, y), (row * 37 + col * 17), stepX * 0.32, stepY * 0.38, size);
         if (sym == 0) {
           // </ >
           final p = Path()
@@ -2081,22 +2136,35 @@ class WatermarkPainter extends CustomPainter {
     if (size.height <= 60) {
       final cy = size.height / 2;
       final step = 46.0 / math.sqrt(density.clamp(0.4, 2.5));
+      int idx = 0;
       for (double x = 18; x < size.width + 30; x += step) {
-        _drawSingleShield(canvas, Offset(x, cy), (11.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 16.0), stroke, fill);
+        final baseS = (11.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 16.0);
+        final s = (baseS * (1.0 + (_pr(idx * 23 + 9) - 0.5) * 0.35 * randomness)).clamp(6.0, 20.0);
+        final dy = (_pr(idx * 37 + 13) * 2.0 - 1.0) * (size.height * 0.42) * randomness;
+        final dx = (_pr(idx * 43 + 3) * 2.0 - 1.0) * (step * 0.35) * randomness;
+        final center = Offset(x + dx, (cy + dy).clamp(3.0, size.height - 3.0));
+
+        _drawSingleShield(canvas, center, s, stroke, fill);
+
+        if (randomness >= 0.50 && idx % 2 == 1) {
+          final altDy = -dy * 0.85;
+          _drawSingleShield(canvas, Offset(x + step * 0.45 + dx * 0.3, (cy + altDy).clamp(3.0, size.height - 3.0)), s * 0.62, stroke, fill);
+        }
+        idx++;
       }
       return;
     }
 
     final d = math.sqrt(density.clamp(0.4, 2.5));
-    _drawSingleShield(canvas, Offset(size.width * 0.80, size.height * 0.10), 24 * d, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.20, size.height * 0.32), 26 * d, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.82, size.height * 0.53), 28 * d, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.22, size.height * 0.74), 26 * d, stroke, fill);
-    _drawSingleShield(canvas, Offset(size.width * 0.50, size.height * 0.88), 40 * d, stroke, fill);
+    _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.80, size.height * 0.10), 301, size.width * 0.10, size.height * 0.05), 24 * d, stroke, fill);
+    _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.20, size.height * 0.32), 302, size.width * 0.10, size.height * 0.05), 26 * d, stroke, fill);
+    _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.82, size.height * 0.53), 303, size.width * 0.10, size.height * 0.05), 28 * d, stroke, fill);
+    _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.22, size.height * 0.74), 304, size.width * 0.10, size.height * 0.05), 26 * d, stroke, fill);
+    _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.50, size.height * 0.88), 305, size.width * 0.08, size.height * 0.04), 40 * d, stroke, fill);
 
     if (density >= 1.25) {
-      _drawSingleShield(canvas, Offset(size.width * 0.52, size.height * 0.20), 20 * d, stroke, fill);
-      _drawSingleShield(canvas, Offset(size.width * 0.72, size.height * 0.70), 22 * d, stroke, fill);
+      _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.52, size.height * 0.20), 306, size.width * 0.10, size.height * 0.05), 20 * d, stroke, fill);
+      _drawSingleShield(canvas, _scatterPoint(Offset(size.width * 0.72, size.height * 0.70), 307, size.width * 0.10, size.height * 0.05), 22 * d, stroke, fill);
     }
   }
 
@@ -2164,7 +2232,7 @@ class WatermarkPainter extends CustomPainter {
 
     for (double y = 10; y < size.height + 20; y += stepY) {
       for (double x = 10; x < size.width + 20; x += stepX) {
-        final c = Offset(x, y);
+        final c = _scatterPoint(Offset(x, y), (x * 11 + y * 17).toInt(), stepX * 0.35, stepY * 0.35, size);
         final p = Path()
           ..moveTo(c.dx - 10, c.dy + 8)
           ..quadraticBezierTo(c.dx - 8, c.dy - 6, c.dx + 10, c.dy - 8)
@@ -2180,6 +2248,7 @@ class WatermarkPainter extends CustomPainter {
   bool shouldRepaint(covariant WatermarkPainter oldDelegate) {
     return oldDelegate.pattern != pattern ||
         oldDelegate.opacity != opacity ||
-        oldDelegate.density != density;
+        oldDelegate.density != density ||
+        oldDelegate.randomness != randomness;
   }
 }
