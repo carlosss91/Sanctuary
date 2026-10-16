@@ -40,6 +40,9 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
 
   String _currentTheme = 'dark'; // 'dark' or 'light'
   bool _currentAnimated = true;
+  int _currentCometCount = 1; // 0 = off, 1 = subtle/recommended, 2 = balanced, 3 = dynamic
+  int _currentCometFrequency = 1; // 1 = relaxed/calm, 2 = balanced, 3 = fast
+  String _previewMode = 'canvas'; // 'canvas' or 'gif'
 
   @override
   void initState() {
@@ -84,6 +87,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _footerCtrl.text = t['footerNote']?.toString() ?? '';
     _currentTheme = t['theme']?.toString() == 'light' ? 'light' : 'dark';
     _currentAnimated = t['animated'] != false;
+    _currentCometCount = (t['cometCount'] as num?)?.toInt() ?? 1;
+    _currentCometFrequency = (t['cometFrequency'] as num?)?.toInt() ?? 1;
   }
 
   void _updateActiveTemplateState() {
@@ -97,6 +102,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _templates[_selectedTemplate]['footerNote'] = _footerCtrl.text;
     _templates[_selectedTemplate]['theme'] = _currentTheme;
     _templates[_selectedTemplate]['animated'] = _currentAnimated;
+    _templates[_selectedTemplate]['cometCount'] = _currentCometCount;
+    _templates[_selectedTemplate]['cometFrequency'] = _currentCometFrequency;
     setState(() {});
   }
 
@@ -150,6 +157,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       customFields: {
         'theme': _currentTheme,
         'animated': _currentAnimated,
+        'cometCount': _currentCometCount,
+        'cometFrequency': _currentCometFrequency,
         'subject': _subjectCtrl.text,
         'title': _titleCtrl.text,
         'body': _bodyCtrl.text,
@@ -452,93 +461,211 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Theme Mode Selector
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Paleta de Color',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-                      ),
-                      const SizedBox(height: 6),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'dark', label: Text('Oscuro', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.dark_mode, size: 15)),
-                          ButtonSegment(value: 'light', label: Text('Claro', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.light_mode, size: 15)),
-                        ],
-                        selected: {_currentTheme},
-                        onSelectionChanged: (newVal) {
-                          setState(() {
-                            _currentTheme = newVal.first;
-                            _updateActiveTemplateState();
-                          });
-                        },
-                        style: ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // Cosmic Animation Toggle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Animación Cósmica',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-                      ),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _currentAnimated = !_currentAnimated;
-                            _updateActiveTemplateState();
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _currentAnimated
-                                ? const Color(0xFF10B981).withOpacity(0.14)
-                                : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: _currentAnimated ? const Color(0xFF10B981).withOpacity(0.5) : Colors.transparent,
+                Row(
+                  children: [
+                    // Theme Mode Selector
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Paleta de Color',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 6),
+                          SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'dark', label: Text('Oscuro', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.dark_mode, size: 15)),
+                              ButtonSegment(value: 'light', label: Text('Claro', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.light_mode, size: 15)),
+                            ],
+                            selected: {_currentTheme},
+                            onSelectionChanged: (newVal) {
+                              setState(() {
+                                _currentTheme = newVal.first;
+                                _updateActiveTemplateState();
+                              });
+                            },
+                            style: ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _currentAnimated ? Icons.stars_rounded : Icons.star_border_rounded,
-                                size: 18,
-                                color: _currentAnimated ? const Color(0xFF10B981) : Colors.grey,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  _currentAnimated ? 'Cometas & Estrellas' : 'Estrellas fijas',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _currentAnimated ? const Color(0xFF10B981) : Colors.grey,
-                                  ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    // Cosmic Animation Toggle
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Animación Cósmica',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 6),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _currentAnimated = !_currentAnimated;
+                                _updateActiveTemplateState();
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _currentAnimated
+                                    ? const Color(0xFF10B981).withOpacity(0.14)
+                                    : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _currentAnimated ? const Color(0xFF10B981).withOpacity(0.5) : Colors.transparent,
                                 ),
                               ),
-                            ],
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _currentAnimated ? Icons.stars_rounded : Icons.star_border_rounded,
+                                    size: 18,
+                                    color: _currentAnimated ? const Color(0xFF10B981) : Colors.grey,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      _currentAnimated ? 'Cometas & Estrellas' : 'Estrellas fijas',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: _currentAnimated ? const Color(0xFF10B981) : Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (_currentAnimated) ...[
+                  const SizedBox(height: 14),
+                  Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
+                  const SizedBox(height: 12),
+
+                  // Slider 1: Cantidad de Cometas
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, size: 15, color: Color(0xFFF59E0B)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Cantidad de Cometas',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _getCometCountLabel(_currentCometCount),
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
                         ),
                       ),
                     ],
                   ),
-                ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: const Color(0xFFF59E0B),
+                      thumbColor: const Color(0xFFF59E0B),
+                      overlayColor: const Color(0xFFF59E0B).withOpacity(0.2),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: _currentCometCount.toDouble(),
+                      min: 0,
+                      max: 4,
+                      divisions: 4,
+                      onChanged: (val) {
+                        setState(() {
+                          _currentCometCount = val.round();
+                          _updateActiveTemplateState();
+                        });
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Slider 2: Frecuencia / Ritmo de Aparición
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.speed_rounded, size: 15, color: Color(0xFF38BDF8)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Frecuencia y Ritmo',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _getCometFrequencyLabel(_currentCometFrequency),
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: const Color(0xFF38BDF8),
+                      thumbColor: const Color(0xFF38BDF8),
+                      overlayColor: const Color(0xFF38BDF8).withOpacity(0.2),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: _currentCometFrequency.toDouble(),
+                      min: 1,
+                      max: 3,
+                      divisions: 2,
+                      onChanged: (val) {
+                        setState(() {
+                          _currentCometFrequency = val.round();
+                          _updateActiveTemplateState();
+                        });
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -763,6 +890,293 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     );
   }
 
+  // --- COSMIC CONFIGURATION LABELS & HELPERS ---
+  String _getCometCountLabel(int count) {
+    switch (count) {
+      case 0:
+        return '0 · Desactivado (Solo estrellas)';
+      case 1:
+        return '1 · Sutil (Recomendado)';
+      case 2:
+        return '2 · Equilibrado';
+      case 3:
+        return '3 · Dinámico';
+      case 4:
+        return '4 · Lluvia Cósmica';
+      default:
+        return '$count cometas';
+    }
+  }
+
+  String _getCometFrequencyLabel(int freq) {
+    switch (freq) {
+      case 1:
+        return '1 · Pausado y Relajado (Recomendado)';
+      case 2:
+        return '2 · Cadencia Normal';
+      case 3:
+        return '3 · Frecuente / Dinámico';
+      default:
+        return '$freq';
+    }
+  }
+
+  void _showCosmicRenderingInfoDialog(BuildContext context, bool isDark) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withOpacity(0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.hub_outlined, color: Color(0xFF10B981), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Arquitectura de Entrega Dual',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Cómo Sanctuary garantiza 100% de compatibilidad visual',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildInfoItem(
+                  icon: Icons.shield_outlined,
+                  color: const Color(0xFFF59E0B),
+                  title: '¿Por qué webmail como Gmail no admite Canvas o CSS @keyframes?',
+                  description:
+                      'Los clientes de correo líderes (Gmail, Outlook.com, Yahoo) despojan el código JavaScript, Canvas y animaciones CSS avanzadas por directivas de seguridad contra phishing. Si solo se enviaran animaciones CSS, en Gmail el fondo aparecería completamente inmóvil y estático.',
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 12),
+                _buildInfoItem(
+                  icon: Icons.gif_box_outlined,
+                  color: const Color(0xFF10B981),
+                  title: '🌌 Solución Sanctuary: Motor Universal GIF (~30 - 47 KB)',
+                  description:
+                      'Para que el 100% de los usuarios reciban un fondo vivo con estrellas titilantes y cometas majestuosos, Sanctuary compila un tapiz GIF astronómico cuantizado y sin bucles bruscos. Es compatible universalmente, no calienta la CPU/GPU del móvil y pesa menos que una imagen normal.',
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 12),
+                _buildInfoItem(
+                  icon: Icons.brush_outlined,
+                  color: const Color(0xFF38BDF8),
+                  title: '🔮 Motor Vectorial Pro (Canvas / CSS3 a 60 FPS)',
+                  description:
+                      'En clientes avanzados (como Apple Mail) o dentro de la propia plataforma de Sanctuary, el sistema despliega el motor vectorial fluido a 60 FPS con estelas lumínicas y nebulosas volumétricas.',
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 12),
+                _buildInfoItem(
+                  icon: Icons.tune_rounded,
+                  color: const Color(0xFFA78BFA),
+                  title: '✨ Control de Ritmo y Cero Sobrecarga Visual',
+                  description:
+                      'Con los nuevos deslizadores de Cantidad y Frecuencia, el fondo cósmico se mantiene sereno, espacioso y elegante: una bóveda estrellada con cometas ocasionales que deleitan sin cansar la vista ni ralentizar el sistema.',
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Entendido', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String description,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.08 : 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.45,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGifSimulationBackground(bool previewIsDark) {
+    final skyUrl = previewIsDark
+        ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-sky-dark.gif'
+        : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-sky-light.gif';
+    final bannerUrl = previewIsDark
+        ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-banner-dark.gif'
+        : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-banner-light.gif';
+    final sideUrl = previewIsDark
+        ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-side-dark.gif'
+        : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-side-light.gif';
+
+    return Stack(
+      children: [
+        // 1. Tiled / Fitted GIF Starfield
+        Positioned.fill(
+          child: Image.network(
+            skyUrl,
+            fit: BoxFit.cover,
+            repeat: ImageRepeat.repeat,
+            errorBuilder: (_, __, ___) => Container(
+              color: previewIsDark ? const Color(0xFF05080E) : const Color(0xFFD6E4F0),
+            ),
+          ),
+        ),
+
+        // 2. Side Ambient Cosmic Columns (flanking the card)
+        if (_currentAnimated) ...[
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 50,
+            child: Opacity(
+              opacity: 0.65,
+              child: Image.network(
+                sideUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 50,
+            child: Opacity(
+              opacity: 0.65,
+              child: Image.network(
+                sideUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        ],
+
+        // 3. Top Majestic Canopy Comet Banner (if cometCount >= 1)
+        if (_currentAnimated && _currentCometCount > 0)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 75,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Image.network(
+                  bannerUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+
+        // 4. Bottom Canopy Comet Banner (if cometCount >= 2)
+        if (_currentAnimated && _currentCometCount > 1)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 75,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Transform.flip(
+                  flipY: true,
+                  child: Image.network(
+                    bannerUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   // --- INTERACTIVE COSMIC EMAIL LIVE PREVIEW ---
   Widget _buildPreviewCard(bool isDark) {
     final previewIsDark = _currentTheme == 'dark';
@@ -812,10 +1226,15 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Header with Dual-Engine switcher, info button and theme badge
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF10B981)),
                   const SizedBox(width: 8),
@@ -829,20 +1248,68 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (previewIsDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  previewIsDark ? '🌙 Tema Oscuro' : '☀️ Tema Claro',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: previewIsDark ? Colors.white70 : const Color(0xFF334155),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Engine Toggle: Canvas Pro vs GIF Universal
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'canvas',
+                        label: Text('🔮 Canvas Pro', style: TextStyle(fontSize: 11)),
+                      ),
+                      ButtonSegment(
+                        value: 'gif',
+                        label: Text('🌌 GIF Universal', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                    selected: {_previewMode},
+                    onSelectionChanged: (val) {
+                      setState(() {
+                        _previewMode = val.first;
+                      });
+                    },
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Info Button for Dual Engine Explanation
+                  Tooltip(
+                    message: '¿Por qué hay 2 motores de renderizado?',
+                    child: InkWell(
+                      onTap: () => _showCosmicRenderingInfoDialog(context, isDark),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                        ),
+                        child: const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF10B981)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Theme badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: (previewIsDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      previewIsDark ? '🌙 Oscuro' : '☀️ Claro',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: previewIsDark ? Colors.white70 : const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -861,18 +1328,57 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                 ),
                 child: Stack(
                   children: [
-                    // Celestial Background Canvas with Stars & Comets Across the Entire Window
+                    // Dynamic Engine Background (Canvas Pro or Universal GIF Simulation)
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: CustomPaint(
-                          painter: CosmicEmailPreviewPainter(
-                            progress: _currentAnimated ? _animController.value : 0.0,
-                            isDark: previewIsDark,
-                            isSuspension: isSuspension,
-                            isAiSentinel: isAiSentinel,
-                            isAnimated: _currentAnimated,
-                          ),
+                        child: _previewMode == 'canvas'
+                            ? CustomPaint(
+                                painter: CosmicEmailPreviewPainter(
+                                  progress: _currentAnimated ? _animController.value : 0.0,
+                                  isDark: previewIsDark,
+                                  isSuspension: isSuspension,
+                                  isAiSentinel: isAiSentinel,
+                                  isAnimated: _currentAnimated,
+                                  cometCount: _currentCometCount,
+                                  cometFrequency: _currentCometFrequency,
+                                ),
+                              )
+                            : _buildGifSimulationBackground(previewIsDark),
+                      ),
+                    ),
+
+                    // Engine Watermark / Status Badge
+                    Positioned(
+                      top: 10,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _previewMode == 'canvas' ? Icons.brush_outlined : Icons.gif_box_outlined,
+                              size: 11,
+                              color: _previewMode == 'canvas' ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _previewMode == 'canvas'
+                                  ? 'Motor Vectorial Pro (Canvas 60fps)'
+                                  : 'Motor Universal (GIF ~47KB · Gmail)',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: _previewMode == 'canvas' ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1196,13 +1702,15 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 }
 
-// Custom Painter for the Interactive Cosmic Email Preview Canvas with Full-Canvas Starfield & Shooting Comets
+// Custom Painter for the Interactive Cosmic Email Preview Canvas with Full-Canvas Starfield & Configurable Shooting Comets
 class CosmicEmailPreviewPainter extends CustomPainter {
   final double progress;
   final bool isDark;
   final bool isSuspension;
   final bool isAiSentinel;
   final bool isAnimated;
+  final int cometCount;
+  final int cometFrequency;
 
   CosmicEmailPreviewPainter({
     required this.progress,
@@ -1210,6 +1718,8 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     required this.isSuspension,
     this.isAiSentinel = false,
     required this.isAnimated,
+    this.cometCount = 1,
+    this.cometFrequency = 1,
   });
 
   // Pre-calculated deterministic celestial distribution spanning all quadrants
@@ -1309,75 +1819,113 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       canvas.drawCircle(pos, radius, starPaint);
     }
 
-    // 3. Dynamic Shooting Comets (Full-Screen Diagonal Trajectories)
-    if (isAnimated) {
-      // Comet 1: Sweeps across the upper sky
-      final c1Progress = (progress * 1.5) % 1.0;
-      if (c1Progress < 0.65) {
-        final norm = c1Progress / 0.65;
-        final startX = -40.0 + norm * (size.width + 120);
-        final startY = 15.0 + norm * (size.height * 0.40);
-        final endX = startX - 65;
-        final endY = startY - 26;
+    // 3. Dynamic Shooting Comets (Respecting cometCount & cometFrequency)
+    if (isAnimated && cometCount > 0) {
+      // Frequency multiplier: 1 = calm / long pause (0.75), 2 = balanced (1.0), 3 = dynamic (1.35)
+      final freqMult = cometFrequency == 1 ? 0.75 : (cometFrequency == 2 ? 1.0 : 1.35);
 
-        final cometPaint = Paint()
-          ..shader = uiGradient(
-            from: Offset(startX, startY),
-            to: Offset(endX, endY),
-            colors: [Colors.white, const Color(0xFF38BDF8).withOpacity(0.85), Colors.transparent],
-          )
-          ..strokeWidth = 2.4
-          ..strokeCap = StrokeCap.round;
+      // Comet 1 (Subtle / Recommended): Sweeps majestically across the upper horizon
+      if (cometCount >= 1) {
+        final c1Raw = (progress * 1.1 * freqMult) % 1.0;
+        // Calm astronomical pause: visible only for 45% of cycle
+        if (c1Raw < 0.45) {
+          final norm = c1Raw / 0.45;
+          final startX = -60.0 + norm * (size.width + 160);
+          final startY = 16.0 + norm * (size.height * 0.32);
+          final endX = startX - 75;
+          final endY = startY - 24;
 
-        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), cometPaint);
-        canvas.drawCircle(Offset(startX, startY), 3.2, Paint()..color = Colors.white);
+          final cometPaint = Paint()
+            ..shader = uiGradient(
+              from: Offset(startX, startY),
+              to: Offset(endX, endY),
+              colors: [Colors.white, const Color(0xFF38BDF8).withOpacity(0.85), Colors.transparent],
+            )
+            ..strokeWidth = 2.4
+            ..strokeCap = StrokeCap.round;
+
+          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), cometPaint);
+          canvas.drawCircle(Offset(startX, startY), 3.2, Paint()..color = Colors.white);
+        }
       }
 
-      // Comet 2: Sweeps across the lower sky
-      final c2Progress = ((progress + 0.48) * 1.25) % 1.0;
-      if (c2Progress < 0.60) {
-        final norm = c2Progress / 0.60;
-        final startX = size.width + 40 - norm * (size.width + 120);
-        final startY = size.height * 0.55 + norm * (size.height * 0.38);
-        final endX = startX + 60;
-        final endY = startY - 25;
+      // Comet 2 (Balanced): Warm amber comet sweeping across the lower horizon
+      if (cometCount >= 2) {
+        final c2Raw = ((progress + 0.52) * 0.95 * freqMult) % 1.0;
+        if (c2Raw < 0.42) {
+          final norm = c2Raw / 0.42;
+          final startX = size.width + 60 - norm * (size.width + 160);
+          final startY = size.height * 0.65 + norm * (size.height * 0.28);
+          final endX = startX + 70;
+          final endY = startY - 22;
 
-        final comet2Paint = Paint()
-          ..shader = uiGradient(
-            from: Offset(startX, startY),
-            to: Offset(endX, endY),
-            colors: [const Color(0xFFFDE68A), const Color(0xFFF59E0B).withOpacity(0.8), Colors.transparent],
-          )
-          ..strokeWidth = 2.2
-          ..strokeCap = StrokeCap.round;
+          final comet2Paint = Paint()
+            ..shader = uiGradient(
+              from: Offset(startX, startY),
+              to: Offset(endX, endY),
+              colors: [const Color(0xFFFDE68A), const Color(0xFFF59E0B).withOpacity(0.8), Colors.transparent],
+            )
+            ..strokeWidth = 2.2
+            ..strokeCap = StrokeCap.round;
 
-        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet2Paint);
-        canvas.drawCircle(Offset(startX, startY), 2.8, Paint()..color = const Color(0xFFFDE68A));
+          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet2Paint);
+          canvas.drawCircle(Offset(startX, startY), 2.8, Paint()..color = const Color(0xFFFDE68A));
+        }
       }
 
-      // Comet 3: Fast sweep across the topmost horizon
-      final c3Progress = ((progress + 0.22) * 1.8) % 1.0;
-      if (c3Progress < 0.55) {
-        final norm = c3Progress / 0.55;
-        final startX = size.width * 0.05 + norm * (size.width * 0.90);
-        final startY = 8.0 + norm * 45.0;
-        final endX = startX - 48;
-        final endY = startY - 14;
+      // Comet 3 (Dynamic): Emerald / Violet comet along the top-right
+      if (cometCount >= 3) {
+        final c3Raw = ((progress + 0.25) * 1.3 * freqMult) % 1.0;
+        if (c3Raw < 0.38) {
+          final norm = c3Raw / 0.38;
+          final startX = size.width * 0.15 + norm * (size.width * 0.85);
+          final startY = 10.0 + norm * 40.0;
+          final endX = startX - 55;
+          final endY = startY - 15;
 
-        final comet3Paint = Paint()
-          ..shader = uiGradient(
-            from: Offset(startX, startY),
-            to: Offset(endX, endY),
-            colors: [Colors.white, (isAiSentinel ? const Color(0xFFA78BFA) : const Color(0xFF10B981)).withOpacity(0.8), Colors.transparent],
-          )
-          ..strokeWidth = 2.0
-          ..strokeCap = StrokeCap.round;
+          final comet3Paint = Paint()
+            ..shader = uiGradient(
+              from: Offset(startX, startY),
+              to: Offset(endX, endY),
+              colors: [
+                Colors.white,
+                (isAiSentinel ? const Color(0xFFA78BFA) : const Color(0xFF10B981)).withOpacity(0.8),
+                Colors.transparent
+              ],
+            )
+            ..strokeWidth = 2.0
+            ..strokeCap = StrokeCap.round;
 
-        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet3Paint);
-        canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = Colors.white);
+          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet3Paint);
+          canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = Colors.white);
+        }
       }
-    } else {
-      // Static decorative comets
+
+      // Comet 4 (Meteor Shower): Diagonal comet across the lower sky
+      if (cometCount >= 4) {
+        final c4Raw = ((progress + 0.78) * 1.2 * freqMult) % 1.0;
+        if (c4Raw < 0.40) {
+          final norm = c4Raw / 0.40;
+          final startX = -30.0 + norm * (size.width + 100);
+          final startY = size.height * 0.78 + norm * (size.height * 0.18);
+          final endX = startX - 60;
+          final endY = startY - 18;
+
+          final comet4Paint = Paint()
+            ..shader = uiGradient(
+              from: Offset(startX, startY),
+              to: Offset(endX, endY),
+              colors: [Colors.white, const Color(0xFFEC4899).withOpacity(0.75), Colors.transparent],
+            )
+            ..strokeWidth = 2.0
+            ..strokeCap = StrokeCap.round;
+
+          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet4Paint);
+          canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = Colors.white);
+        }
+      }
+    } else if (!isAnimated && cometCount > 0) {
+      // Static decorative single comet
       final comet1 = Paint()
         ..shader = uiGradient(
           from: Offset(size.width * 0.26, size.height * 0.09),
@@ -1388,17 +1936,6 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(Offset(size.width * 0.26, size.height * 0.09), Offset(size.width * 0.16, size.height * 0.04), comet1);
       canvas.drawCircle(Offset(size.width * 0.26, size.height * 0.09), 2.8, Paint()..color = Colors.white);
-
-      final comet2 = Paint()
-        ..shader = uiGradient(
-          from: Offset(size.width * 0.74, size.height * 0.93),
-          to: Offset(size.width * 0.84, size.height * 0.88),
-          colors: [const Color(0xFFFDE68A), const Color(0xFFF59E0B).withOpacity(0.75), Colors.transparent],
-        )
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(size.width * 0.74, size.height * 0.93), Offset(size.width * 0.84, size.height * 0.88), comet2);
-      canvas.drawCircle(Offset(size.width * 0.74, size.height * 0.93), 2.6, Paint()..color = const Color(0xFFFDE68A));
     }
   }
 
@@ -1412,6 +1949,9 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         oldDelegate.isDark != isDark ||
         oldDelegate.isSuspension != isSuspension ||
         oldDelegate.isAiSentinel != isAiSentinel ||
-        oldDelegate.isAnimated != isAnimated;
+        oldDelegate.isAnimated != isAnimated ||
+        oldDelegate.cometCount != cometCount ||
+        oldDelegate.cometFrequency != cometFrequency;
   }
 }
+

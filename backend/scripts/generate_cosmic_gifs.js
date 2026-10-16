@@ -43,53 +43,53 @@ function drawComet(data, width, height, hx, hy, tx, ty, headColor, tailColor, he
   drawDot(data, width, height, hx, hy, headRadius * 1.45, [255, 255, 255], 1.0);
 }
 
-// 1. TILEABLE FULL-SCREEN COSMIC SKY (Tiles seamlessly across 100% of any widescreen monitor)
-function createCosmicSkyTile({ width = 480, height = 480, isDark = true, totalFrames = 20, delay = 90 }) {
+// 1. TILEABLE FULL-SCREEN COSMIC SKY (Pure, serene starry universe with NO repetitive comets)
+function createCosmicSkyTile({ width = 480, height = 480, isDark = true, totalFrames = 24, delay = 100 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
-  // 60 twinkling stars carefully placed across the tile (keeping margins away from boundaries to prevent clipping)
+  // 50 carefully distributed twinkling stars across the tile (calm, asynchronous, elegant)
   const stars = [
     { x: 30, y: 40, r: 2.2, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.1 },
     { x: 75, y: 90, r: 2.6, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 1.4 },
-    { x: 120, y: 35, r: 1.8, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.7 },
+    { x: 120, y: 35, r: 1.6, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.7 },
     { x: 165, y: 110, r: 2.4, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 0.8 },
-    { x: 210, y: 45, r: 2.0, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 3.2 },
+    { x: 210, y: 45, r: 1.8, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 3.2 },
     { x: 260, y: 80, r: 2.8, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 1.9 },
-    { x: 310, y: 30, r: 2.1, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.1 },
-    { x: 360, y: 105, r: 2.7, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 2.3 },
-    { x: 410, y: 50, r: 1.9, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.5 },
-    { x: 450, y: 95, r: 2.5, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 3.7 },
+    { x: 310, y: 30, r: 1.9, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.1 },
+    { x: 360, y: 105, r: 2.5, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 2.3 },
+    { x: 410, y: 50, r: 1.7, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.5 },
+    { x: 450, y: 95, r: 2.3, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 3.7 },
 
-    { x: 45, y: 160, r: 2.0, color: isDark ? [167, 139, 250] : [124, 58, 237], phase: 1.1 },
-    { x: 95, y: 210, r: 2.5, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 2.9 },
-    { x: 140, y: 175, r: 1.7, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.3 },
-    { x: 190, y: 230, r: 2.8, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 3.5 },
-    { x: 240, y: 165, r: 2.2, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 1.6 },
-    { x: 290, y: 220, r: 1.9, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 4.3 },
-    { x: 340, y: 170, r: 2.6, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 2.0 },
-    { x: 390, y: 225, r: 2.1, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.7 },
-    { x: 440, y: 180, r: 2.4, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 3.0 },
+    { x: 45, y: 160, r: 1.9, color: isDark ? [167, 139, 250] : [124, 58, 237], phase: 1.1 },
+    { x: 95, y: 210, r: 2.4, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 2.9 },
+    { x: 140, y: 175, r: 1.5, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.3 },
+    { x: 190, y: 230, r: 2.7, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 3.5 },
+    { x: 240, y: 165, r: 2.0, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 1.6 },
+    { x: 290, y: 220, r: 1.8, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 4.3 },
+    { x: 340, y: 170, r: 2.5, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 2.0 },
+    { x: 390, y: 225, r: 1.9, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.7 },
+    { x: 440, y: 180, r: 2.3, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 3.0 },
 
-    { x: 35, y: 280, r: 2.3, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 1.8 },
-    { x: 80, y: 340, r: 2.7, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 3.6 },
-    { x: 130, y: 295, r: 1.9, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 0.9 },
-    { x: 175, y: 350, r: 2.5, color: isDark ? [245, 158, 11] : [2, 132, 199], phase: 2.4 },
-    { x: 225, y: 300, r: 2.1, color: isDark ? [56, 189, 248] : [124, 58, 237], phase: 4.5 },
-    { x: 275, y: 360, r: 2.9, color: isDark ? [255, 255, 255] : [217, 119, 6], phase: 1.3 },
-    { x: 325, y: 305, r: 1.8, color: isDark ? [167, 139, 250] : [124, 58, 237], phase: 3.1 },
-    { x: 375, y: 355, r: 2.6, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.4 },
-    { x: 425, y: 310, r: 2.2, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 2.8 },
+    { x: 35, y: 280, r: 2.1, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 1.8 },
+    { x: 80, y: 340, r: 2.6, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 3.6 },
+    { x: 130, y: 295, r: 1.7, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 0.9 },
+    { x: 175, y: 350, r: 2.3, color: isDark ? [245, 158, 11] : [2, 132, 199], phase: 2.4 },
+    { x: 225, y: 300, r: 1.9, color: isDark ? [56, 189, 248] : [124, 58, 237], phase: 4.5 },
+    { x: 275, y: 360, r: 2.8, color: isDark ? [255, 255, 255] : [217, 119, 6], phase: 1.3 },
+    { x: 325, y: 305, r: 1.6, color: isDark ? [167, 139, 250] : [124, 58, 237], phase: 3.1 },
+    { x: 375, y: 355, r: 2.4, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.4 },
+    { x: 425, y: 310, r: 2.0, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 2.8 },
 
-    { x: 50, y: 410, r: 2.4, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 1.5 },
-    { x: 100, y: 450, r: 2.1, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 3.3 },
-    { x: 150, y: 415, r: 2.7, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 0.6 },
-    { x: 200, y: 455, r: 1.9, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 2.2 },
-    { x: 250, y: 420, r: 2.5, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 4.0 },
-    { x: 300, y: 450, r: 2.0, color: isDark ? [245, 158, 11] : [2, 132, 199], phase: 1.7 },
-    { x: 350, y: 415, r: 2.8, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 3.8 },
-    { x: 400, y: 455, r: 2.2, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 0.2 },
-    { x: 445, y: 420, r: 2.6, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 2.5 },
+    { x: 50, y: 410, r: 2.2, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 1.5 },
+    { x: 100, y: 450, r: 1.9, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 3.3 },
+    { x: 150, y: 415, r: 2.5, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 0.6 },
+    { x: 200, y: 455, r: 1.7, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 2.2 },
+    { x: 250, y: 420, r: 2.3, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 4.0 },
+    { x: 300, y: 450, r: 1.8, color: isDark ? [245, 158, 11] : [2, 132, 199], phase: 1.7 },
+    { x: 350, y: 415, r: 2.7, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 3.8 },
+    { x: 400, y: 455, r: 2.0, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 0.2 },
+    { x: 445, y: 420, r: 2.4, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 2.5 },
   ];
 
   for (let f = 0; f < totalFrames; f++) {
@@ -105,41 +105,15 @@ function createCosmicSkyTile({ width = 480, height = 480, isDark = true, totalFr
       data[idx + 3] = 255;
     }
 
-    // 2. Draw Twinkling Stars
+    // 2. Draw Tranquil Twinkling Stars (No repetitive comets in the tileable background!)
     for (const s of stars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
-      const curRadius = s.r * (0.8 + 0.45 * pulse);
+      const curRadius = s.r * (0.8 + 0.35 * pulse);
       const curAlpha = 0.35 + 0.65 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, s.color, curAlpha);
     }
 
-    // 3. Draw Shooting Comet 1 (Sweeping across upper sky)
-    const c1Norm = (progress * 1.35) % 1.0;
-    if (c1Norm < 0.70) {
-      const t = c1Norm / 0.70;
-      const hx = -35 + t * (width + 90);
-      const hy = 20 + t * 90;
-      const tx = hx - 60;
-      const ty = hy - 26;
-      const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
-      const cometTail = isDark ? [56, 189, 248] : [5, 150, 105];
-      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.2);
-    }
-
-    // 4. Draw Shooting Comet 2 (Sweeping across lower sky)
-    const c2Norm = ((progress + 0.52) * 1.25) % 1.0;
-    if (c2Norm < 0.65) {
-      const t = c2Norm / 0.65;
-      const hx = (width + 35) - t * (width + 90);
-      const hy = 250 + t * 110;
-      const tx = hx + 55;
-      const ty = hy - 24;
-      const cometHead2 = [253, 230, 138];
-      const cometTail2 = [245, 158, 11];
-      drawComet(data, width, height, hx, hy, tx, ty, cometHead2, cometTail2, 2.8);
-    }
-
-    const palette = quantize(data, 48);
+    const palette = quantize(data, 32);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -148,20 +122,20 @@ function createCosmicSkyTile({ width = 480, height = 480, isDark = true, totalFr
   return Buffer.from(gif.bytes());
 }
 
-// 2. EXPANSIVE BORDERLESS TOP CANOPY (560x90 px)
-function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFrames = 20, delay = 90 }) {
+// 2. EXPANSIVE BORDERLESS CANOPY (560x90 px) with 1 Single Majestic, Elegant Shooting Comet
+function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFrames = 24, delay = 110 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
   const stars = [
     { x: 35, y: 35, r: 2.2, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0 },
     { x: 75, y: 22, r: 2.8, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 1.2 },
-    { x: 120, y: 55, r: 2.0, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.5 },
+    { x: 120, y: 55, r: 1.8, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.5 },
     { x: 165, y: 28, r: 2.4, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 0.8 },
     { x: 215, y: 65, r: 1.8, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 3.1 },
     { x: 260, y: 20, r: 2.6, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 1.7 },
-    { x: 310, y: 52, r: 2.2, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.0 },
-    { x: 360, y: 25, r: 3.0, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 2.1 },
+    { x: 310, y: 52, r: 2.0, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.0 },
+    { x: 360, y: 25, r: 2.9, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 2.1 },
     { x: 410, y: 62, r: 1.9, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.5 },
     { x: 460, y: 30, r: 2.5, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 3.6 },
     { x: 505, y: 55, r: 2.2, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 1.9 },
@@ -185,38 +159,29 @@ function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFram
       data[idx + 3] = 255;
     }
 
+    // Twinkling canopy stars
     for (const s of stars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
-      const curRadius = s.r * (0.8 + 0.4 * pulse);
-      const curAlpha = 0.4 + 0.6 * pulse;
+      const curRadius = s.r * (0.8 + 0.35 * pulse);
+      const curAlpha = 0.35 + 0.65 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, s.color, curAlpha);
     }
 
-    const c1Norm = (progress * 1.3) % 1.0;
-    if (c1Norm < 0.75) {
-      const t = c1Norm / 0.75;
-      const hx = -30 + t * (width + 80);
-      const hy = 18 + t * 45;
-      const tx = hx - 55;
-      const ty = hy - 25;
+    // 1 Single Majestic Shooting Comet with long, elegant trajectory & natural pause
+    // Only visible during the first 65% of the loop, then leaves peaceful night sky
+    const cometActive = progress < 0.65;
+    if (cometActive) {
+      const t = progress / 0.65;
+      const hx = -40 + t * (width + 120);
+      const hy = 12 + t * 48;
+      const tx = hx - 90; // Long elegant tail (90px)
+      const ty = hy - 32;
       const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
-      const cometTail = isDark ? [16, 185, 129] : [5, 150, 105];
+      const cometTail = isDark ? [56, 189, 248] : [5, 150, 105];
       drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.2);
     }
 
-    const c2Norm = ((progress + 0.5) * 1.1) % 1.0;
-    if (c2Norm < 0.65) {
-      const t = c2Norm / 0.65;
-      const hx = (width + 30) - t * (width + 70);
-      const hy = 22 + t * 40;
-      const tx = hx + 48;
-      const ty = hy - 20;
-      const cometHead2 = [253, 230, 138];
-      const cometTail2 = [245, 158, 11];
-      drawComet(data, width, height, hx, hy, tx, ty, cometHead2, cometTail2, 2.6);
-    }
-
-    const palette = quantize(data, 48);
+    const palette = quantize(data, 40);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -225,32 +190,30 @@ function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFram
   return Buffer.from(gif.bytes());
 }
 
-// 3. WIDE LATERAL CELESTIAL GUTTERS (110x650 px, double column of stars with comets)
-function createSideStars({ width = 110, height = 650, isDark = true, totalFrames = 20, delay = 90 }) {
+// 3. WIDE LATERAL CELESTIAL GUTTERS (110x650 px, pure calm twinkling star columns)
+function createSideStars({ width = 110, height = 650, isDark = true, totalFrames = 24, delay = 100 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
   const stars = [
-    { x: 25, y: 25, r: 2.4, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.2 },
-    { x: 75, y: 50, r: 2.8, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 1.5 },
-    { x: 35, y: 75, r: 2.0, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.8 },
-    { x: 85, y: 105, r: 2.5, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 0.9 },
-    { x: 30, y: 135, r: 1.9, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 3.4 },
-    { x: 70, y: 165, r: 3.0, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 1.8 },
-    { x: 25, y: 200, r: 2.2, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.1 },
-    { x: 80, y: 230, r: 2.6, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 2.3 },
-    { x: 35, y: 260, r: 2.1, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.6 },
-    { x: 75, y: 290, r: 2.9, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 3.2 },
-    { x: 25, y: 325, r: 2.2, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 1.4 },
-    { x: 85, y: 355, r: 2.7, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.4 },
-    { x: 30, y: 390, r: 2.0, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.1 },
-    { x: 80, y: 420, r: 2.8, color: isDark ? [253, 230, 138] : [2, 132, 199], phase: 0.5 },
-    { x: 35, y: 455, r: 2.3, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 3.7 },
-    { x: 75, y: 485, r: 2.5, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 1.1 },
-    { x: 25, y: 520, r: 2.1, color: isDark ? [245, 158, 11] : [2, 132, 199], phase: 2.9 },
-    { x: 85, y: 550, r: 2.9, color: isDark ? [255, 255, 255] : [5, 150, 105], phase: 0.3 },
-    { x: 30, y: 585, r: 2.0, color: isDark ? [56, 189, 248] : [124, 58, 237], phase: 4.2 },
-    { x: 75, y: 615, r: 2.6, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 1.7 },
+    { x: 25, y: 25, r: 2.2, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 0.2 },
+    { x: 75, y: 55, r: 2.6, color: isDark ? [255, 255, 255] : [2, 132, 199], phase: 1.5 },
+    { x: 35, y: 85, r: 1.8, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.8 },
+    { x: 80, y: 120, r: 2.4, color: isDark ? [253, 230, 138] : [217, 119, 6], phase: 0.9 },
+    { x: 30, y: 155, r: 1.9, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 3.4 },
+    { x: 70, y: 190, r: 2.8, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 1.8 },
+    { x: 25, y: 225, r: 2.1, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.1 },
+    { x: 80, y: 260, r: 2.5, color: isDark ? [56, 189, 248] : [2, 132, 199], phase: 2.3 },
+    { x: 35, y: 295, r: 1.9, color: isDark ? [253, 230, 138] : [5, 150, 105], phase: 0.6 },
+    { x: 75, y: 330, r: 2.7, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 3.2 },
+    { x: 25, y: 365, r: 2.0, color: isDark ? [16, 185, 129] : [2, 132, 199], phase: 1.4 },
+    { x: 85, y: 400, r: 2.6, color: isDark ? [245, 158, 11] : [217, 119, 6], phase: 4.4 },
+    { x: 30, y: 435, r: 1.9, color: isDark ? [56, 189, 248] : [5, 150, 105], phase: 2.1 },
+    { x: 80, y: 470, r: 2.7, color: isDark ? [253, 230, 138] : [2, 132, 199], phase: 0.5 },
+    { x: 35, y: 505, r: 2.2, color: isDark ? [255, 255, 255] : [124, 58, 237], phase: 3.7 },
+    { x: 75, y: 540, r: 2.4, color: isDark ? [16, 185, 129] : [217, 119, 6], phase: 1.1 },
+    { x: 25, y: 575, r: 2.0, color: isDark ? [245, 158, 11] : [2, 132, 199], phase: 2.9 },
+    { x: 80, y: 610, r: 2.7, color: isDark ? [255, 255, 255] : [5, 150, 105], phase: 0.3 },
   ];
 
   for (let f = 0; f < totalFrames; f++) {
@@ -267,25 +230,12 @@ function createSideStars({ width = 110, height = 650, isDark = true, totalFrames
 
     for (const s of stars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
-      const curRadius = s.r * (0.8 + 0.45 * pulse);
-      const curAlpha = 0.4 + 0.6 * pulse;
+      const curRadius = s.r * (0.8 + 0.35 * pulse);
+      const curAlpha = 0.35 + 0.65 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, s.color, curAlpha);
     }
 
-    // Occasional mini comet sweep on the side strip
-    const sNorm = (progress * 1.35) % 1.0;
-    if (sNorm < 0.65) {
-      const t = sNorm / 0.65;
-      const hx = (width + 15) - t * (width + 35);
-      const hy = 160 + t * 85;
-      const tx = hx + 36;
-      const ty = hy - 16;
-      const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
-      const cometTail = isDark ? [56, 189, 248] : [5, 150, 105];
-      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 2.3);
-    }
-
-    const palette = quantize(data, 40);
+    const palette = quantize(data, 32);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }

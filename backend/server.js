@@ -230,6 +230,8 @@ function getDefaultEmailTemplates() {
     activation: {
       theme: 'dark',
       animated: true,
+      cometCount: 1,
+      cometFrequency: 1,
       subject: 'Activa tu cuenta en Sanctuary 🪐',
       title: '¡Te damos la bienvenida a bordo!',
       body: 'Hola {name}, tu cuenta en Sanctuary está prácticamente lista. Para garantizar la seguridad de tu identidad y activar todas tus herramientas digitales, introduce este código en la aplicación o pulsa el botón inferior:',
@@ -239,6 +241,8 @@ function getDefaultEmailTemplates() {
     suspension: {
       theme: 'dark',
       animated: true,
+      cometCount: 1,
+      cometFrequency: 1,
       subject: 'Aviso de Suspensión de Cuenta · Sanctuary ⚠️',
       title: 'Tu cuenta ha sido suspendida',
       body: 'Hola {name},\n\nTe notificamos que el acceso a tu cuenta en Sanctuary Suite (@{username}) ha sido restringido por un administrador del sistema por motivos de moderación o seguridad.',
@@ -248,6 +252,8 @@ function getDefaultEmailTemplates() {
     announcement: {
       theme: 'dark',
       animated: true,
+      cometCount: 1,
+      cometFrequency: 1,
       subject: 'Novedades y Anuncios · Sanctuary Suite 🪐',
       title: 'Comunicado Oficial de la Plataforma',
       body: 'Estimado/a {name},\n\nNos complace compartir contigo las últimas novedades, actualizaciones docentes y herramientas añadidas al ecosistema Sanctuary Suite (CV Maker, Firmador PDF y Descargador de Presentaciones).',
@@ -257,6 +263,8 @@ function getDefaultEmailTemplates() {
     ai_sentinel: {
       theme: 'dark',
       animated: true,
+      cometCount: 1,
+      cometFrequency: 1,
       subject: 'Alerta AI Sentinel: Nuevas Convocatorias Oficiales · Sanctuary 🪐',
       title: 'AI Sentinel: Vigilancia Oficial Automatizada',
       body: 'El motor inteligente AI Sentinel ha detectado nuevas convocatorias, resoluciones y publicaciones oficiales docentes en el BOC y BOE con alta relevancia para tu perfil:',
@@ -289,6 +297,8 @@ function buildSanctuaryEmailHtml({
   templateType = 'activation',
   theme = 'dark',
   animated = true,
+  cometCount = 1,
+  cometFrequency = 1,
   subject = 'Sanctuary Suite 🪐',
   title = '',
   body = '',
@@ -312,6 +322,11 @@ function buildSanctuaryEmailHtml({
   const finalBody = body || defs.body;
   const finalCta = ctaText !== undefined && ctaText !== null ? ctaText : defs.ctaText;
   const finalFooter = footerNote !== undefined && footerNote !== null ? footerNote : defs.footerNote;
+  const finalCometCount = cometCount !== undefined && cometCount !== null ? parseInt(cometCount, 10) : (defs.cometCount !== undefined ? defs.cometCount : 1);
+  const finalCometFreq = cometFrequency !== undefined && cometFrequency !== null ? parseInt(cometFrequency, 10) : (defs.cometFrequency !== undefined ? defs.cometFrequency : 1);
+
+  const showTopBanner = animated && finalCometCount > 0;
+  const showBottomBanner = animated && finalCometCount > 1;
 
   // Solid & gradient button attributes tailored per template to guarantee high contrast across all mail clients
   let btnSolidColor = '#10B981';
@@ -456,8 +471,8 @@ function buildSanctuaryEmailHtml({
             <!-- Center Content Column: Constrained to 580px for perfect readability -->
             <td width="580" align="center" valign="top" style="width:580px;max-width:580px;padding:0 6px;">
 
-              ${animated ? `
-              <!-- Top Animated Borderless Canopy (Shooting comets & glowing star clusters) -->
+              ${showTopBanner ? `
+              <!-- Top Animated Borderless Canopy (1 single elegant shooting comet & glowing stars) -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:560px;margin:0 auto 12px auto;">
                 <tr>
                   <td align="center" style="padding:0;line-height:0;">
@@ -591,7 +606,7 @@ function buildSanctuaryEmailHtml({
                 </tr>
               </table>
 
-              ${animated ? `
+              ${showBottomBanner ? `
               <!-- Bottom Animated Borderless Canopy (Cosmic Horizon with crossing comets) -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:560px;margin:14px auto 0 auto;">
                 <tr>
@@ -2047,6 +2062,8 @@ app.post('/api/admin/email/send-template', async (req, res) => {
       username,
       footerNote,
       extraInfo,
+      cometCount,
+      cometFrequency,
     } = req.body;
 
     if (!to || !to.includes('@')) {
@@ -2064,6 +2081,8 @@ app.post('/api/admin/email/send-template', async (req, res) => {
     const finalBody = body || baseConfig.body;
     const finalCta = ctaText !== undefined ? ctaText : baseConfig.ctaText;
     const finalFooter = footerNote !== undefined ? footerNote : baseConfig.footerNote;
+    const finalCometCount = cometCount !== undefined ? parseInt(cometCount, 10) : (baseConfig.cometCount !== undefined ? parseInt(baseConfig.cometCount, 10) : 1);
+    const finalCometFreq = cometFrequency !== undefined ? parseInt(cometFrequency, 10) : (baseConfig.cometFrequency !== undefined ? parseInt(baseConfig.cometFrequency, 10) : 1);
 
     const host = req.get('host') || `localhost:${port}`;
     const protocol = req.protocol || 'http';
@@ -2073,6 +2092,8 @@ app.post('/api/admin/email/send-template', async (req, res) => {
       templateType,
       theme: finalTheme,
       animated: finalAnimated,
+      cometCount: finalCometCount,
+      cometFrequency: finalCometFreq,
       subject: finalSubject,
       title: finalTitle,
       body: finalBody,
