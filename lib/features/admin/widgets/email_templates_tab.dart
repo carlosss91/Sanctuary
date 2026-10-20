@@ -41,7 +41,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   String _currentTheme = 'dark'; // 'dark' or 'light'
   bool _currentAnimated = true;
   String _currentAnimationType = 'comets'; // 'comets', 'nebula', 'blackhole', 'fixed'
-  int _currentCometCount = 1; // 0 = off, 1 = subtle/recommended, 2 = balanced, 3 = dynamic
+  int _currentCometCount = 1; // 0 = off, 1 = subtle/recommended, 2 = balanced, 3 = dynamic, 4 = rain
+  int _currentDensity = 2; // 1 = light, 2 = standard, 3 = dense, 4 = maximum
   int _currentCometFrequency = 1; // 1 = relaxed/calm, 2 = balanced, 3 = fast
   String _previewMode = 'canvas'; // 'canvas' or 'gif'
 
@@ -96,6 +97,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       _currentAnimationType = _currentAnimated ? 'comets' : 'fixed';
     }
     _currentCometCount = (t['cometCount'] as num?)?.toInt() ?? 1;
+    _currentDensity = (t['density'] as num?)?.toInt() ?? 2;
     _currentCometFrequency = (t['cometFrequency'] as num?)?.toInt() ?? 1;
   }
 
@@ -112,6 +114,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _templates[_selectedTemplate]['animated'] = _currentAnimationType != 'fixed';
     _templates[_selectedTemplate]['animationType'] = _currentAnimationType;
     _templates[_selectedTemplate]['cometCount'] = _currentCometCount;
+    _templates[_selectedTemplate]['density'] = _currentDensity;
     _templates[_selectedTemplate]['cometFrequency'] = _currentCometFrequency;
     setState(() {});
   }
@@ -168,6 +171,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
         'animated': _currentAnimated,
         'animationType': _currentAnimationType,
         'cometCount': _currentCometCount,
+        'density': _currentDensity,
         'cometFrequency': _currentCometFrequency,
         'subject': _subjectCtrl.text,
         'title': _titleCtrl.text,
@@ -227,6 +231,10 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       }
       _currentTheme = 'dark';
       _currentAnimated = true;
+      _currentAnimationType = 'comets';
+      _currentCometCount = 1;
+      _currentDensity = 2;
+      _currentCometFrequency = 1;
       _updateActiveTemplateState();
     });
   }
@@ -654,31 +662,34 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                   },
                 ),
 
-                // Homogenized Cosmic Animation Controls (Cometas, Nebulosa, Agujero Negro)
+                // Standardized Cosmic Animation Controls (Cometas, Nebulosa, Agujero Negro)
                 if (_currentAnimationType != 'fixed') ...[
                   const SizedBox(height: 14),
                   Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
                   const SizedBox(height: 12),
 
-                  // Slider 1: Cantidad / Densidad
+                  // Slider 1: Cantidad de Elementos
                   Builder(
                     builder: (context) {
-                      Color accent;
-                      IconData icon;
-                      String title;
-                      if (_currentAnimationType == 'nebula') {
-                        accent = const Color(0xFF8B5CF6);
-                        icon = Icons.grain_rounded;
-                        title = 'Densidad y Capas de Nebulosa';
-                      } else if (_currentAnimationType == 'blackhole') {
-                        accent = const Color(0xFF06B6D4);
-                        icon = Icons.radio_button_checked_rounded;
-                        title = 'Densidad de Materia y Disco';
-                      } else {
-                        accent = const Color(0xFFF59E0B);
-                        icon = Icons.auto_awesome;
-                        title = 'Cantidad de Cometas';
-                      }
+                      final isComets = _currentAnimationType == 'comets';
+                      final Color countAccent = _currentAnimationType == 'nebula'
+                          ? const Color(0xFF8B5CF6)
+                          : (_currentAnimationType == 'blackhole'
+                              ? const Color(0xFF06B6D4)
+                              : const Color(0xFFF59E0B));
+                      final IconData countIcon = _currentAnimationType == 'nebula'
+                          ? Icons.grain_rounded
+                          : (_currentAnimationType == 'blackhole'
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.auto_awesome);
+                      final String countTitle = _currentAnimationType == 'nebula'
+                          ? 'Cantidad de Nebulosas'
+                          : (_currentAnimationType == 'blackhole'
+                              ? 'Cantidad de Agujeros Negros'
+                              : 'Cantidad de Cometas');
+
+                      final double minVal = isComets ? 0.0 : 1.0;
+                      final int div = isComets ? 4 : 3;
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,10 +699,10 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                             children: [
                               Row(
                                 children: [
-                                  Icon(icon, size: 15, color: accent),
+                                  Icon(countIcon, size: 15, color: countAccent),
                                   const SizedBox(width: 6),
                                   Text(
-                                    title,
+                                    countTitle,
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -703,29 +714,29 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: accent.withOpacity(0.15),
+                                  color: countAccent.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: accent.withOpacity(0.3)),
+                                  border: Border.all(color: countAccent.withOpacity(0.3)),
                                 ),
                                 child: Text(
                                   _getAnimationCountLabel(_currentAnimationType, _currentCometCount),
-                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: accent),
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: countAccent),
                                 ),
                               ),
                             ],
                           ),
                           SliderTheme(
                             data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: accent,
-                              thumbColor: accent,
-                              overlayColor: accent.withOpacity(0.2),
+                              activeTrackColor: countAccent,
+                              thumbColor: countAccent,
+                              overlayColor: countAccent.withOpacity(0.2),
                               trackHeight: 3,
                             ),
                             child: Slider(
-                              value: _currentCometCount.toDouble().clamp(0.0, 4.0),
-                              min: 0,
-                              max: 4,
-                              divisions: 4,
+                              value: _currentCometCount.toDouble().clamp(minVal, 4.0),
+                              min: minVal,
+                              max: 4.0,
+                              divisions: div,
                               onChanged: (val) {
                                 setState(() {
                                   _currentCometCount = val.round();
@@ -741,25 +752,102 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
 
                   const SizedBox(height: 6),
 
-                  // Slider 2: Frecuencia y Ritmo / Velocidad
+                  // Slider 2: Densidad de Materia / Brillo / Disco / Estelas
                   Builder(
                     builder: (context) {
-                      Color freqAccent;
-                      IconData freqIcon;
-                      String freqTitle;
-                      if (_currentAnimationType == 'nebula') {
-                        freqAccent = const Color(0xFFEC4899);
-                        freqIcon = Icons.all_inclusive_rounded;
-                        freqTitle = 'Ritmo y Pulsación Cósmica';
-                      } else if (_currentAnimationType == 'blackhole') {
-                        freqAccent = const Color(0xFF38BDF8);
-                        freqIcon = Icons.rotate_right_rounded;
-                        freqTitle = 'Velocidad de Giro del Vórtice';
-                      } else {
-                        freqAccent = const Color(0xFF38BDF8);
-                        freqIcon = Icons.speed_rounded;
-                        freqTitle = 'Frecuencia y Ritmo';
-                      }
+                      final Color densityAccent = _currentAnimationType == 'nebula'
+                          ? const Color(0xFF8B5CF6)
+                          : (_currentAnimationType == 'blackhole'
+                              ? const Color(0xFF06B6D4)
+                              : const Color(0xFFF59E0B));
+                      final IconData densityIcon = _currentAnimationType == 'nebula'
+                          ? Icons.cloud_queue_rounded
+                          : (_currentAnimationType == 'blackhole'
+                              ? Icons.adjust_rounded
+                              : Icons.blur_linear_rounded);
+                      final String densityTitle = _currentAnimationType == 'nebula'
+                          ? 'Densidad de Gas y Polvo Estelar'
+                          : (_currentAnimationType == 'blackhole'
+                              ? 'Densidad de Materia y Disco'
+                              : 'Densidad de Cola y Estelas');
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(densityIcon, size: 15, color: densityAccent),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    densityTitle,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: densityAccent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: densityAccent.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  _getAnimationDensityLabel(_currentAnimationType, _currentDensity),
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: densityAccent),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: densityAccent,
+                              thumbColor: densityAccent,
+                              overlayColor: densityAccent.withOpacity(0.2),
+                              trackHeight: 3,
+                            ),
+                            child: Slider(
+                              value: _currentDensity.toDouble().clamp(1.0, 4.0),
+                              min: 1.0,
+                              max: 4.0,
+                              divisions: 3,
+                              onChanged: (val) {
+                                setState(() {
+                                  _currentDensity = val.round();
+                                  _updateActiveTemplateState();
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Slider 3: Frecuencia y Ritmo / Velocidad
+                  Builder(
+                    builder: (context) {
+                      final Color freqAccent = _currentAnimationType == 'nebula'
+                          ? const Color(0xFFEC4899)
+                          : const Color(0xFF38BDF8);
+                      final IconData freqIcon = _currentAnimationType == 'nebula'
+                          ? Icons.all_inclusive_rounded
+                          : (_currentAnimationType == 'blackhole'
+                              ? Icons.rotate_right_rounded
+                              : Icons.speed_rounded);
+                      final String freqTitle = _currentAnimationType == 'nebula'
+                          ? 'Ritmo y Pulsación Cósmica'
+                          : (_currentAnimationType == 'blackhole'
+                              ? 'Velocidad de Giro del Vórtice'
+                              : 'Frecuencia y Ritmo de Paso');
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -804,8 +892,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                             ),
                             child: Slider(
                               value: _currentCometFrequency.toDouble().clamp(1.0, 3.0),
-                              min: 1,
-                              max: 3,
+                              min: 1.0,
+                              max: 3.0,
                               divisions: 2,
                               onChanged: (val) {
                                 setState(() {
@@ -1163,48 +1251,87 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   String _getAnimationCountLabel(String type, int count) {
     if (type == 'nebula') {
       switch (count) {
-        case 0:
-          return '0 · Desactivado (Estrellas puras)';
         case 1:
-          return '1 · Nube Sutil (Recomendado)';
+          return '1 · Nube Violeta Sutil (1 Cúmulo)';
         case 2:
-          return '2 · Nebulosa Bicolor';
+          return '2 · Nubes Bicolor (2 Nebulosas)';
         case 3:
-          return '3 · Manto Tricolor Denso';
+          return '3 · Manto Tricolor (3 Nebulosas)';
         case 4:
-          return '4 · Tormenta Cósmica Masiva';
+          return '4 · Tormenta Cuádruple (4 Nebulosas)';
         default:
-          return '$count capas';
+          return '$count nebulosas';
       }
     } else if (type == 'blackhole') {
       switch (count) {
-        case 0:
-          return '0 · Singularidad Silenciosa';
         case 1:
-          return '1 · Vórtice Sutil (3 corrientes)';
+          return '1 · Singularidad Primaria (1 Vórtice)';
         case 2:
-          return '2 · Disco Activo (6 corrientes)';
+          return '2 · Par Binario (2 Agujeros Negros)';
         case 3:
-          return '3 · Acreción Intensa (9 corrientes)';
+          return '3 · Trío Gravitacional (3 Vórtices)';
         case 4:
-          return '4 · Cuásar Relativista (12 corrientes)';
+          return '4 · Sistema Cuádruple (4 Vórtices)';
         default:
-          return '$count niveles';
+          return '$count vórtices';
       }
     } else {
       switch (count) {
         case 0:
           return '0 · Desactivado (Solo estrellas)';
         case 1:
-          return '1 · Sutil (Recomendado)';
+          return '1 · Sutil (1 Cometa)';
         case 2:
-          return '2 · Equilibrado';
+          return '2 · Equilibrado (2 Cometas)';
         case 3:
-          return '3 · Dinámico';
+          return '3 · Dinámico (3 Cometas)';
         case 4:
-          return '4 · Lluvia Cósmica';
+          return '4 · Lluvia Cósmica (4 Cometas)';
         default:
           return '$count cometas';
+      }
+    }
+  }
+
+  String _getAnimationDensityLabel(String type, int density) {
+    if (type == 'nebula') {
+      switch (density) {
+        case 1:
+          return '1 · Gas Difuso y Sutil';
+        case 2:
+          return '2 · Densidad Estándar Equilibrada';
+        case 3:
+          return '3 · Gas Denso y Luminoso';
+        case 4:
+          return '4 · Manto Volumétrico Saturado';
+        default:
+          return 'Nivel $density';
+      }
+    } else if (type == 'blackhole') {
+      switch (density) {
+        case 1:
+          return '1 · Disco Fino (3 corrientes)';
+        case 2:
+          return '2 · Disco Equilibrado (6 corrientes)';
+        case 3:
+          return '3 · Acreción Densa (9 corrientes)';
+        case 4:
+          return '4 · Cuásar Masivo (12 corrientes)';
+        default:
+          return 'Nivel $density';
+      }
+    } else {
+      switch (density) {
+        case 1:
+          return '1 · Estela Fina y Ligera';
+        case 2:
+          return '2 · Estela Estándar Equilibrada';
+        case 3:
+          return '3 · Estela Larga y Brillante';
+        case 4:
+          return '4 · Cola Densa de Polvo y Plasma';
+        default:
+          return 'Nivel $density';
       }
     }
   }
@@ -1217,7 +1344,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
         case 2:
           return '2 · Expansión Rítmica Normal';
         case 3:
-          return '3 · Mareas Estelares Dinámicas';
+          return '3 · Mareas Dinámicas';
         default:
           return '$freq';
       }
@@ -1239,16 +1366,12 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
         case 2:
           return '2 · Cadencia Normal';
         case 3:
-          return '3 · Frecuente / Dinámico';
+          return '3 · Frecuente / Rápido';
         default:
           return '$freq';
       }
     }
   }
-
-  String _getCometCountLabel(int count) => _getAnimationCountLabel('comets', count);
-
-  String _getCometFrequencyLabel(int freq) => _getAnimationFrequencyLabel('comets', freq);
 
   void _showCosmicRenderingInfoDialog(BuildContext context, bool isDark) {
     showDialog(
@@ -1729,6 +1852,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                   isAnimated: _currentAnimated,
                                   animationType: _currentAnimationType,
                                   cometCount: _currentCometCount,
+                                  density: _currentDensity,
                                   cometFrequency: _currentCometFrequency,
                                 ),
                               )
@@ -2090,6 +2214,40 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 }
 
+class _BlackHoleSlot {
+  final double relX;
+  final double relY;
+  final double scale;
+  final double spinDir;
+
+  const _BlackHoleSlot({
+    required this.relX,
+    required this.relY,
+    required this.scale,
+    required this.spinDir,
+  });
+}
+
+class _NebulaSlot {
+  final double relX;
+  final double relY;
+  final Color darkPrimary;
+  final Color darkSecondary;
+  final Color lightPrimary;
+  final Color lightSecondary;
+  final double baseRadius;
+
+  const _NebulaSlot({
+    required this.relX,
+    required this.relY,
+    required this.darkPrimary,
+    required this.darkSecondary,
+    required this.lightPrimary,
+    required this.lightSecondary,
+    required this.baseRadius,
+  });
+}
+
 // Custom Painter for the Interactive Cosmic Email Preview Canvas with Full-Canvas Starfield & Configurable Space Animations
 class CosmicEmailPreviewPainter extends CustomPainter {
   final double progress;
@@ -2099,6 +2257,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
   final bool isAnimated;
   final String animationType;
   final int cometCount;
+  final int density;
   final int cometFrequency;
 
   CosmicEmailPreviewPainter({
@@ -2109,41 +2268,98 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     required this.isAnimated,
     this.animationType = 'comets',
     this.cometCount = 1,
+    this.density = 2,
     this.cometFrequency = 1,
   });
 
-  // Pre-calculated deterministic celestial distribution spanning all quadrants
+  // Pre-calculated deterministic celestial distribution spanning all quadrants & center
   static final List<Offset> _denseStars = [
-    // Top Sky
+    // Top Sky & Upper Quadrants (Y: 0.03 - 0.16)
     const Offset(0.04, 0.04), const Offset(0.12, 0.07), const Offset(0.19, 0.03),
     const Offset(0.27, 0.09), const Offset(0.34, 0.04), const Offset(0.42, 0.08),
     const Offset(0.50, 0.03), const Offset(0.58, 0.07), const Offset(0.66, 0.04),
     const Offset(0.74, 0.09), const Offset(0.81, 0.03), const Offset(0.89, 0.07),
     const Offset(0.96, 0.05), const Offset(0.08, 0.13), const Offset(0.23, 0.15),
-    const Offset(0.38, 0.12), const Offset(0.62, 0.14), const Offset(0.77, 0.12),
-    const Offset(0.92, 0.14),
+    const Offset(0.38, 0.12), const Offset(0.52, 0.14), const Offset(0.62, 0.11),
+    const Offset(0.77, 0.14), const Offset(0.86, 0.12), const Offset(0.93, 0.15),
 
-    // Left Flank
-    const Offset(0.03, 0.22), const Offset(0.09, 0.26), const Offset(0.04, 0.32),
-    const Offset(0.11, 0.38), const Offset(0.02, 0.44), const Offset(0.08, 0.49),
-    const Offset(0.03, 0.55), const Offset(0.10, 0.60), const Offset(0.04, 0.66),
-    const Offset(0.09, 0.72), const Offset(0.02, 0.77), const Offset(0.08, 0.82),
-    const Offset(0.04, 0.88), const Offset(0.11, 0.93),
+    // Upper Center & Flanks (Y: 0.18 - 0.35)
+    const Offset(0.03, 0.22), const Offset(0.09, 0.26), const Offset(0.16, 0.20),
+    const Offset(0.24, 0.25), const Offset(0.31, 0.21), const Offset(0.40, 0.24),
+    const Offset(0.48, 0.19), const Offset(0.56, 0.23), const Offset(0.65, 0.20),
+    const Offset(0.72, 0.26), const Offset(0.80, 0.22), const Offset(0.88, 0.25),
+    const Offset(0.96, 0.22), const Offset(0.04, 0.32), const Offset(0.11, 0.35),
+    const Offset(0.18, 0.30), const Offset(0.26, 0.34), const Offset(0.35, 0.31),
+    const Offset(0.44, 0.35), const Offset(0.53, 0.32), const Offset(0.62, 0.35),
+    const Offset(0.70, 0.31), const Offset(0.79, 0.34), const Offset(0.87, 0.30),
+    const Offset(0.94, 0.34),
 
-    // Right Flank
-    const Offset(0.96, 0.22), const Offset(0.91, 0.26), const Offset(0.97, 0.32),
-    const Offset(0.90, 0.38), const Offset(0.98, 0.44), const Offset(0.92, 0.49),
-    const Offset(0.97, 0.55), const Offset(0.90, 0.60), const Offset(0.96, 0.66),
-    const Offset(0.91, 0.72), const Offset(0.98, 0.77), const Offset(0.92, 0.82),
-    const Offset(0.96, 0.88), const Offset(0.89, 0.93),
+    // True Center / Midsection (Y: 0.38 - 0.62)
+    const Offset(0.02, 0.42), const Offset(0.08, 0.40), const Offset(0.15, 0.44),
+    const Offset(0.22, 0.40), const Offset(0.30, 0.45), const Offset(0.38, 0.41),
+    const Offset(0.46, 0.44), const Offset(0.54, 0.40), const Offset(0.62, 0.45),
+    const Offset(0.70, 0.41), const Offset(0.78, 0.45), const Offset(0.85, 0.41),
+    const Offset(0.92, 0.44), const Offset(0.98, 0.42),
+    const Offset(0.03, 0.52), const Offset(0.10, 0.50), const Offset(0.17, 0.55),
+    const Offset(0.25, 0.51), const Offset(0.33, 0.54), const Offset(0.42, 0.50),
+    const Offset(0.50, 0.55), const Offset(0.58, 0.51), const Offset(0.67, 0.54),
+    const Offset(0.75, 0.50), const Offset(0.83, 0.55), const Offset(0.90, 0.51),
+    const Offset(0.97, 0.54),
 
-    // Bottom Sky
-    const Offset(0.05, 0.96), const Offset(0.14, 0.97), const Offset(0.22, 0.95),
-    const Offset(0.31, 0.98), const Offset(0.40, 0.95), const Offset(0.48, 0.97),
-    const Offset(0.55, 0.95), const Offset(0.64, 0.98), const Offset(0.72, 0.95),
-    const Offset(0.80, 0.97), const Offset(0.88, 0.95), const Offset(0.95, 0.97),
-    const Offset(0.18, 0.91), const Offset(0.35, 0.92), const Offset(0.65, 0.92),
-    const Offset(0.82, 0.91),
+    // Lower Midsection & Flanks (Y: 0.64 - 0.82)
+    const Offset(0.04, 0.64), const Offset(0.11, 0.67), const Offset(0.19, 0.63),
+    const Offset(0.27, 0.68), const Offset(0.36, 0.64), const Offset(0.45, 0.67),
+    const Offset(0.54, 0.63), const Offset(0.63, 0.68), const Offset(0.72, 0.64),
+    const Offset(0.81, 0.67), const Offset(0.89, 0.63), const Offset(0.96, 0.66),
+    const Offset(0.02, 0.75), const Offset(0.09, 0.72), const Offset(0.16, 0.77),
+    const Offset(0.24, 0.73), const Offset(0.32, 0.78), const Offset(0.41, 0.74),
+    const Offset(0.50, 0.78), const Offset(0.59, 0.73), const Offset(0.68, 0.78),
+    const Offset(0.77, 0.74), const Offset(0.85, 0.78), const Offset(0.92, 0.73),
+    const Offset(0.98, 0.76),
+
+    // Bottom Sky & Horizon (Y: 0.84 - 0.98)
+    const Offset(0.04, 0.85), const Offset(0.12, 0.88), const Offset(0.20, 0.84),
+    const Offset(0.28, 0.89), const Offset(0.37, 0.85), const Offset(0.46, 0.88),
+    const Offset(0.55, 0.84), const Offset(0.64, 0.89), const Offset(0.73, 0.85),
+    const Offset(0.82, 0.88), const Offset(0.90, 0.84), const Offset(0.96, 0.88),
+    const Offset(0.05, 0.95), const Offset(0.14, 0.97), const Offset(0.22, 0.94),
+    const Offset(0.31, 0.97), const Offset(0.40, 0.94), const Offset(0.48, 0.97),
+    const Offset(0.56, 0.94), const Offset(0.65, 0.98), const Offset(0.74, 0.94),
+    const Offset(0.82, 0.97), const Offset(0.89, 0.94), const Offset(0.96, 0.97),
+  ];
+
+  static const List<_BlackHoleSlot> _blackHoleSlots = [
+    _BlackHoleSlot(relX: 0.82, relY: 0.18, scale: 1.0, spinDir: 1.0),   // Slot 1: Upper-right primary
+    _BlackHoleSlot(relX: 0.18, relY: 0.78, scale: 0.84, spinDir: -1.0),  // Slot 2: Lower-left binary partner
+    _BlackHoleSlot(relX: 0.16, relY: 0.28, scale: 0.72, spinDir: 1.0),   // Slot 3: Upper-left companion
+    _BlackHoleSlot(relX: 0.84, relY: 0.68, scale: 0.68, spinDir: -1.0),  // Slot 4: Lower-right companion
+  ];
+
+  static const List<_NebulaSlot> _nebulaSlots = [
+    _NebulaSlot(
+      relX: 0.18, relY: 0.22,
+      darkPrimary: Color(0xFF8B5CF6), darkSecondary: Color(0xFFEC4899),
+      lightPrimary: Color(0xFF7C3AED), lightSecondary: Color(0xFFDB2777),
+      baseRadius: 125.0,
+    ),
+    _NebulaSlot(
+      relX: 0.82, relY: 0.76,
+      darkPrimary: Color(0xFF10B981), darkSecondary: Color(0xFF06B6D4),
+      lightPrimary: Color(0xFF059669), lightSecondary: Color(0xFF0284C7),
+      baseRadius: 130.0,
+    ),
+    _NebulaSlot(
+      relX: 0.52, relY: 0.12,
+      darkPrimary: Color(0xFF3B82F6), darkSecondary: Color(0xFF6366F1),
+      lightPrimary: Color(0xFF2563EB), lightSecondary: Color(0xFF4F46E5),
+      baseRadius: 110.0,
+    ),
+    _NebulaSlot(
+      relX: 0.24, relY: 0.70,
+      darkPrimary: Color(0xFFF59E0B), darkSecondary: Color(0xFFD97706),
+      lightPrimary: Color(0xFFD97706), lightSecondary: Color(0xFFB45309),
+      baseRadius: 120.0,
+    ),
   ];
 
   @override
@@ -2155,7 +2371,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       ..shader = RadialGradient(
         colors: isDark
             ? [const Color(0xFF10B981).withOpacity(0.15), Colors.transparent]
-            : [const Color(0xFF10B981).withOpacity(0.08), Colors.transparent],
+            : [const Color(0xFF059669).withOpacity(0.14), Colors.transparent],
       ).createShader(Rect.fromCircle(center: Offset(size.width * 0.15, size.height * 0.15), radius: 140));
     canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.15), 140, aura1Paint);
 
@@ -2163,7 +2379,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       ..shader = RadialGradient(
         colors: isDark
             ? [(isAiSentinel ? const Color(0xFF8B5CF6) : const Color(0xFF06B6D4)).withOpacity(0.16), Colors.transparent]
-            : [(isAiSentinel ? const Color(0xFF8B5CF6) : const Color(0xFF06B6D4)).withOpacity(0.08), Colors.transparent],
+            : [(isAiSentinel ? const Color(0xFF7C3AED) : const Color(0xFF0284C7)).withOpacity(0.14), Colors.transparent],
       ).createShader(Rect.fromCircle(center: Offset(size.width * 0.85, size.height * 0.20), radius: 150));
     canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.20), 150, aura2Paint);
 
@@ -2171,11 +2387,11 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       ..shader = RadialGradient(
         colors: isDark
             ? [const Color(0xFF3B82F6).withOpacity(0.12), Colors.transparent]
-            : [const Color(0xFF3B82F6).withOpacity(0.06), Colors.transparent],
+            : [const Color(0xFF2563EB).withOpacity(0.12), Colors.transparent],
       ).createShader(Rect.fromCircle(center: Offset(size.width * 0.50, size.height * 0.90), radius: 160));
     canvas.drawCircle(Offset(size.width * 0.50, size.height * 0.90), 160, aura3Paint);
 
-    // 2. Dense Celestial Starfield Across the Whole Canvas
+    // 2. Dense Celestial Starfield Across the Whole Canvas & Center
     final bool enableTwinkle = isAnimated && animationType != 'fixed';
     for (int i = 0; i < _denseStars.length; i++) {
       final p = _denseStars[i];
@@ -2187,26 +2403,26 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       Color starColor;
       final mod = i % 5;
       if (mod == 0) {
-        starColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706); // Amber
+        starColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309); // Amber
       } else if (mod == 1) {
-        starColor = isDark ? Colors.white : const Color(0xFF0284C7); // Diamond
+        starColor = isDark ? Colors.white : const Color(0xFF0369A1); // Deep Sapphire
       } else if (mod == 2) {
-        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7); // Sapphire
+        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7); // Azure
       } else if (mod == 3) {
-        starColor = isDark ? const Color(0xFF10B981) : const Color(0xFF059669); // Emerald
+        starColor = isDark ? const Color(0xFF10B981) : const Color(0xFF047857); // Emerald
       } else {
-        starColor = isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED); // Violet
+        starColor = isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9); // Violet
       }
 
       final radius = (i % 3 == 0) ? 2.4 : ((i % 2 == 0) ? 1.8 : 1.2);
 
       // Subtle halo for prominent stars
-      if (radius > 2.0) {
-        final haloPaint = Paint()..color = starColor.withOpacity(twinkle * (isDark ? 0.35 : 0.2));
+      if (radius > 1.8) {
+        final haloPaint = Paint()..color = starColor.withOpacity(twinkle * (isDark ? 0.35 : 0.28));
         canvas.drawCircle(pos, radius * 2.2, haloPaint);
       }
 
-      final starPaint = Paint()..color = starColor.withOpacity(twinkle.clamp(0.2, 1.0));
+      final starPaint = Paint()..color = starColor.withOpacity(twinkle.clamp(isDark ? 0.25 : 0.45, 1.0));
       canvas.drawCircle(pos, radius, starPaint);
     }
 
@@ -2218,204 +2434,185 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     } else if (animationType == 'comets') {
       _drawComets(canvas, size);
     }
-    // 'fixed': Serene fixed celestial starfield without motion trails
   }
 
-  // --- NEBULA COSMICA: Organic drifting interstellar clouds & stardust ---
+  // --- NEBULA COSMICA: Multi-cluster drifting clouds with saturated color contrast ---
   void _drawNebula(Canvas canvas, Size size) {
-    // If count == 0, keep quiet starry background with minimal stardust
     if (!isAnimated || cometCount <= 0) return;
 
-    // Frequency multiplier: 1 = calm / slow pulse (0.6), 2 = balanced (1.0), 3 = dynamic (1.8)
     final freqMult = cometFrequency == 1 ? 0.6 : (cometFrequency == 2 ? 1.0 : 1.8);
+    final densityMult = (density / 2.0).clamp(0.5, 2.0);
+    final activeCount = cometCount.clamp(1, 4);
 
-    // Oscillating pulse dynamics modulated by frequency
-    final pulse1 = 1.0 + 0.16 * math.sin(progress * 2 * math.pi * freqMult);
-    final pulse2 = 1.0 + 0.18 * math.cos(progress * 2 * math.pi * 1.2 * freqMult);
-    final pulse3 = 1.0 + 0.14 * math.sin(progress * 2 * math.pi * 0.85 * freqMult + 1.0);
-    final pulseCore = 1.0 + 0.20 * math.sin(progress * 2 * math.pi * 1.5 * freqMult + 0.5);
+    for (int s = 0; s < activeCount; s++) {
+      final slot = _nebulaSlots[s];
+      final center = Offset(size.width * slot.relX, size.height * slot.relY);
 
-    // Nebula 1: Ethereal Violet / Magenta Gas Cloud (Upper Left Flank) - activated at cometCount >= 1
-    if (cometCount >= 1) {
-      final c1 = Offset(size.width * 0.18, size.height * 0.22);
-      final r1 = (110.0 * pulse1).clamp(60.0, 210.0);
-      final alphaMult = cometCount == 1 ? 0.75 : 1.0;
-      final paint1 = Paint()
-        ..shader = RadialGradient(
-          colors: isDark
-              ? [
-                  const Color(0xFF8B5CF6).withOpacity(0.32 * alphaMult),
-                  const Color(0xFFEC4899).withOpacity(0.18 * alphaMult),
-                  const Color(0xFF3B82F6).withOpacity(0.06 * alphaMult),
-                  Colors.transparent,
-                ]
-              : [
-                  const Color(0xFF8B5CF6).withOpacity(0.18 * alphaMult),
-                  const Color(0xFFEC4899).withOpacity(0.10 * alphaMult),
-                  Colors.transparent,
-                ],
+      final pulse = 1.0 + 0.16 * math.sin(progress * 2 * math.pi * freqMult + s * 1.5);
+      final r = (slot.baseRadius * (0.8 + 0.15 * density) * pulse).clamp(50.0, 240.0);
+
+      final Paint gasPaint = Paint();
+      if (isDark) {
+        gasPaint.shader = RadialGradient(
+          colors: [
+            slot.darkPrimary.withOpacity((0.26 * densityMult).clamp(0.12, 0.45)),
+            slot.darkSecondary.withOpacity((0.16 * densityMult).clamp(0.08, 0.32)),
+            slot.darkPrimary.withOpacity(0.05),
+            Colors.transparent,
+          ],
           stops: const [0.0, 0.45, 0.75, 1.0],
-        ).createShader(Rect.fromCircle(center: c1, radius: r1));
-      canvas.drawCircle(c1, r1, paint1);
-    }
-
-    // Nebula 2: Glowing Emerald / Cyan Interstellar Cloud (Lower Right Flank) - activated at cometCount >= 2
-    if (cometCount >= 2) {
-      final c2 = Offset(size.width * 0.82, size.height * 0.76);
-      final r2 = (125.0 * pulse2).clamp(70.0, 230.0);
-      final paint2 = Paint()
-        ..shader = RadialGradient(
-          colors: isDark
-              ? [
-                  const Color(0xFF10B981).withOpacity(0.30),
-                  const Color(0xFF06B6D4).withOpacity(0.18),
-                  const Color(0xFF0284C7).withOpacity(0.06),
-                  Colors.transparent,
-                ]
-              : [
-                  const Color(0xFF10B981).withOpacity(0.16),
-                  const Color(0xFF06B6D4).withOpacity(0.10),
-                  Colors.transparent,
-                ],
+        ).createShader(Rect.fromCircle(center: center, radius: r));
+      } else {
+        // High-contrast saturated chromatic gas clouds for Light Theme
+        gasPaint.shader = RadialGradient(
+          colors: [
+            slot.lightPrimary.withOpacity((0.28 * densityMult).clamp(0.18, 0.50)),
+            slot.lightSecondary.withOpacity((0.18 * densityMult).clamp(0.10, 0.35)),
+            slot.lightPrimary.withOpacity(0.06),
+            Colors.transparent,
+          ],
           stops: const [0.0, 0.45, 0.75, 1.0],
-        ).createShader(Rect.fromCircle(center: c2, radius: r2));
-      canvas.drawCircle(c2, r2, paint2);
-    }
+        ).createShader(Rect.fromCircle(center: center, radius: r));
+      }
+      canvas.drawCircle(center, r, gasPaint);
 
-    // Nebula 3: Deep Stellar Blue / Indigo Cloud (Top Center Horizon) - activated at cometCount >= 3
-    if (cometCount >= 3) {
-      final c3 = Offset(size.width * 0.52, size.height * 0.10);
-      final r3 = (95.0 * pulse3).clamp(50.0, 190.0);
-      final paint3 = Paint()
-        ..shader = RadialGradient(
-          colors: isDark
-              ? [
-                  const Color(0xFF3B82F6).withOpacity(0.28),
-                  const Color(0xFF6366F1).withOpacity(0.15),
-                  Colors.transparent,
-                ]
-              : [
-                  const Color(0xFF3B82F6).withOpacity(0.14),
-                  const Color(0xFF6366F1).withOpacity(0.08),
-                  Colors.transparent,
-                ],
-          stops: const [0.0, 0.55, 1.0],
-        ).createShader(Rect.fromCircle(center: c3, radius: r3));
-      canvas.drawCircle(c3, r3, paint3);
-    }
-
-    // Nebula 4: Hyper-Stellar Amber/Gold Heart (Central Zenith Glow) - activated at cometCount >= 4
-    if (cometCount >= 4) {
-      final c4 = Offset(size.width * 0.35, size.height * 0.50);
-      final r4 = (140.0 * pulseCore).clamp(75.0, 240.0);
-      final paint4 = Paint()
-        ..shader = RadialGradient(
-          colors: isDark
-              ? [
-                  const Color(0xFFF59E0B).withOpacity(0.22),
-                  const Color(0xFF8B5CF6).withOpacity(0.12),
-                  Colors.transparent,
-                ]
-              : [
-                  const Color(0xFFF59E0B).withOpacity(0.12),
-                  Colors.transparent,
-                ],
-          stops: const [0.0, 0.50, 1.0],
-        ).createShader(Rect.fromCircle(center: c4, radius: r4));
-      canvas.drawCircle(c4, r4, paint4);
-    }
-
-    // Floating Stardust Particles drifting along cosmic currents (scaled by cometCount)
-    final stardustCount = cometCount * 5; // 5, 10, 15, 20 stardust particles
-    final c1 = Offset(size.width * 0.18, size.height * 0.22);
-    final c2 = Offset(size.width * 0.82, size.height * 0.76);
-    for (int i = 0; i < stardustCount; i++) {
-      final angle = (progress * 2 * math.pi * freqMult) + (i * (2 * math.pi / stardustCount));
-      final orbitR = 30.0 + (i % 4) * 22.0;
-      final center = (i % 2 == 0) ? c1 : c2;
-      final pPos = Offset(
-        center.dx + math.cos(angle) * orbitR,
-        center.dy + math.sin(angle) * orbitR * 0.65,
-      );
-      final dustPaint = Paint()
-        ..color = (i % 3 == 0
-                ? const Color(0xFF38BDF8)
-                : (i % 3 == 1 ? const Color(0xFFF472B6) : const Color(0xFF34D399)))
-            .withOpacity((0.35 + 0.45 * math.sin(angle)).clamp(0.15, 0.85));
-      canvas.drawCircle(pPos, (i % 2 == 0) ? 1.6 : 1.1, dustPaint);
+      // Orbiting stardust for each active nebula cloud
+      final dustCount = (density * 3).clamp(3, 12);
+      for (int i = 0; i < dustCount; i++) {
+        final angle = (progress * 2 * math.pi * freqMult) + (i * (2 * math.pi / dustCount)) + (s * 0.8);
+        final orbitR = 25.0 + (i % 3) * 18.0;
+        final pPos = Offset(
+          center.dx + math.cos(angle) * orbitR,
+          center.dy + math.sin(angle) * orbitR * 0.65,
+        );
+        final Color dustColor = isDark
+            ? (i % 2 == 0 ? slot.darkPrimary : slot.darkSecondary)
+            : (i % 2 == 0 ? slot.lightPrimary : slot.lightSecondary);
+        final dustPaint = Paint()
+          ..color = dustColor.withOpacity((0.35 + 0.55 * math.sin(angle)).clamp(0.2, 0.9));
+        canvas.drawCircle(pPos, (i % 2 == 0) ? 1.6 : 1.1, dustPaint);
+      }
     }
   }
 
-  // --- AGUJERO NEGRO & VORTICE: Gravitational vortex, relativistic accretion disk & photon ring ---
+  // --- AGUJERO NEGRO & VORTICE: Multi-Black-Hole network with spacetime well in Light Mode ---
   void _drawBlackHole(Canvas canvas, Size size) {
-    final bhCenter = Offset(
-      size.width > 500 ? size.width * 0.82 : size.width * 0.76,
-      size.width > 500 ? size.height * 0.20 : 54.0,
-    );
+    if (!isAnimated || cometCount <= 0) return;
 
-    // Speed multiplier from cometFrequency: 1 = slow rotation (0.6), 2 = balanced (1.0), 3 = relativistic warp (2.0)
     final freqMult = cometFrequency == 1 ? 0.6 : (cometFrequency == 2 ? 1.0 : 2.0);
+    final densityMult = (density / 2.0).clamp(0.5, 2.0);
+    final activeCount = cometCount.clamp(1, 4);
 
-    // Size / Intensity scaling from cometCount (0 = dormant singularity, 4 = quasar level)
-    final countMult = cometCount / 4.0; // 0.0 to 1.0
+    for (int s = 0; s < activeCount; s++) {
+      final slot = _blackHoleSlots[s];
+      final bhCenter = Offset(size.width * slot.relX, size.height * slot.relY);
 
-    // 1. Gravitational Lensing Outer Halo (Deep spacetime distortion glow)
-    final lensRadius = 60.0 + cometCount * 7.0;
-    final lensPaint = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [
-                const Color(0xFF8B5CF6).withOpacity((0.20 + 0.20 * countMult).clamp(0.1, 0.45)),
-                const Color(0xFF06B6D4).withOpacity((0.10 + 0.15 * countMult).clamp(0.05, 0.3)),
-                const Color(0xFFF59E0B).withOpacity((0.05 + 0.10 * countMult).clamp(0.0, 0.2)),
-                Colors.transparent,
-              ]
-            : [
-                const Color(0xFF6366F1).withOpacity((0.12 + 0.12 * countMult).clamp(0.05, 0.25)),
-                const Color(0xFF0284C7).withOpacity(0.08),
-                Colors.transparent,
-              ],
-        stops: const [0.0, 0.45, 0.75, 1.0],
-      ).createShader(Rect.fromCircle(center: bhCenter, radius: lensRadius));
-    canvas.drawCircle(bhCenter, lensRadius, lensPaint);
+      _drawSingleBlackHole(
+        canvas: canvas,
+        size: size,
+        bhCenter: bhCenter,
+        scale: slot.scale,
+        spinDir: slot.spinDir,
+        freqMult: freqMult,
+        densityMult: densityMult,
+      );
+    }
+  }
 
-    // 2. Relativistic Rotating Accretion Disk (Slanted elliptical plasma disk)
+  void _drawSingleBlackHole({
+    required Canvas canvas,
+    required Size size,
+    required Offset bhCenter,
+    required double scale,
+    required double spinDir,
+    required double freqMult,
+    required double densityMult,
+  }) {
+    // 1. Gravitational Spacetime Lensing Well
+    if (!isDark) {
+      // Light Mode: Deep dark spacetime well behind the accretion disk so the vortex pops against the light sky!
+      final wellRadius = 78.0 * scale * (0.85 + 0.15 * densityMult);
+      final wellPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF0F172A).withOpacity((0.48 * densityMult).clamp(0.25, 0.65)),
+            const Color(0xFF1E293B).withOpacity((0.30 * densityMult).clamp(0.15, 0.45)),
+            const Color(0xFF334155).withOpacity(0.10),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.45, 0.75, 1.0],
+        ).createShader(Rect.fromCircle(center: bhCenter, radius: wellRadius));
+      canvas.drawCircle(bhCenter, wellRadius, wellPaint);
+
+      final haloPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF7C3AED).withOpacity(0.25 * densityMult),
+            const Color(0xFF0284C7).withOpacity(0.15 * densityMult),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ).createShader(Rect.fromCircle(center: bhCenter, radius: wellRadius * 1.15));
+      canvas.drawCircle(bhCenter, wellRadius * 1.15, haloPaint);
+    } else {
+      // Dark Mode: Luminous gravitational warping aura
+      final lensRadius = 65.0 * scale * (0.85 + 0.15 * densityMult);
+      final lensPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF8B5CF6).withOpacity((0.28 * densityMult).clamp(0.15, 0.48)),
+            const Color(0xFF06B6D4).withOpacity((0.18 * densityMult).clamp(0.10, 0.35)),
+            const Color(0xFFF59E0B).withOpacity((0.08 * densityMult).clamp(0.04, 0.20)),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.45, 0.75, 1.0],
+        ).createShader(Rect.fromCircle(center: bhCenter, radius: lensRadius));
+      canvas.drawCircle(bhCenter, lensRadius, lensPaint);
+    }
+
+    // 2. Relativistic Rotating Accretion Disk
     canvas.save();
     canvas.translate(bhCenter.dx, bhCenter.dy);
-    // Slant disk to 22 degrees and flatten into relativistic perspective
-    canvas.rotate(-0.35);
+    canvas.rotate(-0.35 * spinDir);
     canvas.scale(1.0, 0.38);
 
-    // Spinning plasma rays / spiral accretion streams modulated by freqMult
-    final diskRot = isAnimated ? (progress * 2 * math.pi * freqMult) : 0.0;
+    final diskRot = spinDir * (isAnimated ? (progress * 2 * math.pi * freqMult) : 0.0);
     canvas.rotate(diskRot);
 
-    final diskRadius = 40.0 + cometCount * 7.0;
-    final strokeWidth = (14.0 + cometCount * 2.5).clamp(12.0, 24.0);
-    final diskCenterRadius = 26.0 + cometCount * 3.0;
+    final diskRadius = (36.0 + density * 5.0) * scale;
+    final strokeWidth = (9.0 + density * 3.2) * scale;
+    final diskCenterRadius = (22.0 + density * 2.8) * scale;
 
     final plasmaPaint = Paint()
       ..shader = SweepGradient(
-        colors: const [
-          Color(0xFFF59E0B), // Radiant Amber
-          Color(0xFFDC2626), // Relativistic Crimson
-          Color(0xFF8B5CF6), // Purple redshift
-          Color(0xFF38BDF8), // Cyan blueshift
-          Color(0xFFF59E0B), // Radiant Amber
-        ],
+        colors: isDark
+            ? const [
+                Color(0xFFF59E0B),
+                Color(0xFFDC2626),
+                Color(0xFF8B5CF6),
+                Color(0xFF38BDF8),
+                Color(0xFFF59E0B),
+              ]
+            : const [
+                Color(0xFFD97706),
+                Color(0xFFB91C1C),
+                Color(0xFF6D28D9),
+                Color(0xFF0284C7),
+                Color(0xFFD97706),
+              ],
         stops: const [0.0, 0.28, 0.55, 0.82, 1.0],
       ).createShader(Rect.fromCircle(center: Offset.zero, radius: diskRadius))
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
     canvas.drawCircle(Offset.zero, diskCenterRadius, plasmaPaint);
 
-    // Accretion Disk Highlights / Bright Relativistic Beaming
+    // Accretion Disk Relativistic Beaming
     final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.85)
+      ..color = Colors.white.withOpacity(0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5;
+      ..strokeWidth = 3.2 * scale;
     canvas.drawArc(
       Rect.fromCircle(center: Offset.zero, radius: diskCenterRadius),
       0.0,
@@ -2426,110 +2623,121 @@ class CosmicEmailPreviewPainter extends CustomPainter {
 
     canvas.restore();
 
-    // 3. Photon Sphere Ring (Intense luminous razor-sharp aura)
-    final photonRadius = 15.0 + cometCount * 0.8;
+    // 3. Photon Sphere Ring
+    final photonRadius = (14.0 + density * 0.75) * scale;
     final photonPaint = Paint()
-      ..color = const Color(0xFF38BDF8).withOpacity(0.95)
+      ..color = (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.95)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4;
+      ..strokeWidth = 2.2 * scale;
     canvas.drawCircle(bhCenter, photonRadius, photonPaint);
 
     final photonGlow = Paint()
-      ..color = Colors.white.withOpacity(0.75)
+      ..color = Colors.white.withOpacity(0.85)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawCircle(bhCenter, photonRadius - 0.8, photonGlow);
+      ..strokeWidth = 1.0 * scale;
+    canvas.drawCircle(bhCenter, photonRadius - 0.7 * scale, photonGlow);
 
     // 4. The Event Horizon (Pitch-black absolute singularity)
-    final horizonRadius = photonRadius - 1.5;
+    final horizonRadius = photonRadius - 1.4 * scale;
     final horizonPaint = Paint()
       ..color = const Color(0xFF030712)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(bhCenter, horizonRadius, horizonPaint);
 
-    // 5. Infalling Matter Streams (Vortices spiraling in, modulated by cometCount and freqMult)
-    if (isAnimated && cometCount > 0) {
-      final numStreams = cometCount * 3; // 3, 6, 9, 12 streams
+    // 5. Infalling Matter Streams
+    if (isAnimated) {
+      final numStreams = (density * 3).clamp(3, 12);
       for (int i = 0; i < numStreams; i++) {
         final streamProgress = (progress * freqMult + (i / numStreams.toDouble())) % 1.0;
         final spiralAngle = diskRot + (i * (2 * math.pi / numStreams)) + (streamProgress * 2 * math.pi);
-        final spiralDist = horizonRadius + 2.0 + (1.0 - streamProgress) * (diskRadius - horizonRadius);
+        final spiralDist = horizonRadius + 2.0 * scale + (1.0 - streamProgress) * (diskRadius - horizonRadius);
         final p = Offset(
           bhCenter.dx + math.cos(spiralAngle) * spiralDist,
           bhCenter.dy + math.sin(spiralAngle) * spiralDist * 0.42,
         );
+        final Color streamColor = isDark
+            ? (i % 2 == 0 ? const Color(0xFFFDE68A) : const Color(0xFF67E8F9))
+            : (i % 2 == 0 ? const Color(0xFFD97706) : const Color(0xFF0284C7));
         final particlePaint = Paint()
-          ..color = (i % 2 == 0 ? const Color(0xFFFDE68A) : const Color(0xFF67E8F9))
-              .withOpacity((streamProgress * 0.9).clamp(0.1, 0.9));
-        canvas.drawCircle(p, 1.8 * streamProgress + 0.6, particlePaint);
+          ..color = streamColor.withOpacity((streamProgress * 0.95).clamp(0.2, 0.95));
+        canvas.drawCircle(p, (1.8 * streamProgress + 0.6) * scale, particlePaint);
       }
     }
   }
 
-  // --- COMETAS Y ESTRELLAS: Sweeping luminous shooting comets ---
+  // --- COMETAS Y ESTRELLAS: Sweeping luminous shooting comets with density scaling ---
   void _drawComets(Canvas canvas, Size size) {
     if (isAnimated && cometCount > 0) {
-      // Frequency multiplier: 1 = calm / long pause (0.75), 2 = balanced (1.0), 3 = dynamic (1.35)
       final freqMult = cometFrequency == 1 ? 0.75 : (cometFrequency == 2 ? 1.0 : 1.35);
+      final double widthScale = 1.2 + density * 0.6;
+      final double headRadius = 2.2 + density * 0.6;
+      final double tailLen = 50.0 + density * 16.0;
 
-      // Comet 1 (Subtle / Recommended): Sweeps majestically across the upper horizon
+      // Comet 1: Sweeps majestically across upper sky
       if (cometCount >= 1) {
         final c1Raw = (progress * 1.1 * freqMult) % 1.0;
-        // Calm astronomical pause: visible only for 45% of cycle
         if (c1Raw < 0.45) {
           final norm = c1Raw / 0.45;
           final startX = -60.0 + norm * (size.width + 160);
           final startY = 16.0 + norm * (size.height * 0.32);
-          final endX = startX - 75;
-          final endY = startY - 24;
+          final endX = startX - tailLen;
+          final endY = startY - (tailLen * 0.32);
 
           final cometPaint = Paint()
             ..shader = uiGradient(
               from: Offset(startX, startY),
               to: Offset(endX, endY),
-              colors: [Colors.white, const Color(0xFF38BDF8).withOpacity(0.85), Colors.transparent],
+              colors: [
+                Colors.white,
+                (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.85),
+                Colors.transparent,
+              ],
             )
-            ..strokeWidth = 2.4
+            ..strokeWidth = widthScale
             ..strokeCap = StrokeCap.round;
 
           canvas.drawLine(Offset(startX, startY), Offset(endX, endY), cometPaint);
-          canvas.drawCircle(Offset(startX, startY), 3.2, Paint()..color = Colors.white);
+          canvas.drawCircle(Offset(startX, startY), headRadius, Paint()..color = Colors.white);
         }
       }
 
-      // Comet 2 (Balanced): Warm amber comet sweeping across the lower horizon
+      // Comet 2: Warm amber comet sweeping across lower sky
       if (cometCount >= 2) {
         final c2Raw = ((progress + 0.52) * 0.95 * freqMult) % 1.0;
         if (c2Raw < 0.42) {
           final norm = c2Raw / 0.42;
           final startX = size.width + 60 - norm * (size.width + 160);
           final startY = size.height * 0.65 + norm * (size.height * 0.28);
-          final endX = startX + 70;
-          final endY = startY - 22;
+          final endX = startX + tailLen;
+          final endY = startY - (tailLen * 0.31);
 
           final comet2Paint = Paint()
             ..shader = uiGradient(
               from: Offset(startX, startY),
               to: Offset(endX, endY),
-              colors: [const Color(0xFFFDE68A), const Color(0xFFF59E0B).withOpacity(0.8), Colors.transparent],
+              colors: [
+                const Color(0xFFFDE68A),
+                (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706)).withOpacity(0.85),
+                Colors.transparent,
+              ],
             )
-            ..strokeWidth = 2.2
+            ..strokeWidth = widthScale
             ..strokeCap = StrokeCap.round;
 
           canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet2Paint);
-          canvas.drawCircle(Offset(startX, startY), 2.8, Paint()..color = const Color(0xFFFDE68A));
+          canvas.drawCircle(Offset(startX, startY), headRadius, Paint()..color = const Color(0xFFFDE68A));
         }
       }
 
-      // Comet 3 (Dynamic): Emerald / Violet comet along the top-right
+      // Comet 3: Emerald / Violet comet along upper-right
       if (cometCount >= 3) {
         final c3Raw = ((progress + 0.25) * 1.3 * freqMult) % 1.0;
         if (c3Raw < 0.38) {
           final norm = c3Raw / 0.38;
           final startX = size.width * 0.15 + norm * (size.width * 0.85);
           final startY = 10.0 + norm * 40.0;
-          final endX = startX - 55;
-          final endY = startY - 15;
+          final endX = startX - (tailLen * 0.85);
+          final endY = startY - (tailLen * 0.25);
 
           final comet3Paint = Paint()
             ..shader = uiGradient(
@@ -2537,52 +2745,67 @@ class CosmicEmailPreviewPainter extends CustomPainter {
               to: Offset(endX, endY),
               colors: [
                 Colors.white,
-                (isAiSentinel ? const Color(0xFFA78BFA) : const Color(0xFF10B981)).withOpacity(0.8),
-                Colors.transparent
+                (isAiSentinel
+                        ? (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))
+                        : (isDark ? const Color(0xFF10B981) : const Color(0xFF059669)))
+                    .withOpacity(0.85),
+                Colors.transparent,
               ],
             )
-            ..strokeWidth = 2.0
+            ..strokeWidth = widthScale * 0.9
             ..strokeCap = StrokeCap.round;
 
           canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet3Paint);
-          canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = Colors.white);
+          canvas.drawCircle(Offset(startX, startY), headRadius * 0.9, Paint()..color = Colors.white);
         }
       }
 
-      // Comet 4 (Meteor Shower): Diagonal comet across the lower sky
+      // Comet 4: Diagonal comet across lower sky
       if (cometCount >= 4) {
         final c4Raw = ((progress + 0.78) * 1.2 * freqMult) % 1.0;
         if (c4Raw < 0.40) {
           final norm = c4Raw / 0.40;
           final startX = -30.0 + norm * (size.width + 100);
           final startY = size.height * 0.78 + norm * (size.height * 0.18);
-          final endX = startX - 60;
-          final endY = startY - 18;
+          final endX = startX - (tailLen * 0.85);
+          final endY = startY - (tailLen * 0.26);
 
           final comet4Paint = Paint()
             ..shader = uiGradient(
               from: Offset(startX, startY),
               to: Offset(endX, endY),
-              colors: [Colors.white, const Color(0xFFEC4899).withOpacity(0.75), Colors.transparent],
+              colors: [
+                Colors.white,
+                (isDark ? const Color(0xFFEC4899) : const Color(0xFFDB2777)).withOpacity(0.80),
+                Colors.transparent,
+              ],
             )
-            ..strokeWidth = 2.0
+            ..strokeWidth = widthScale * 0.9
             ..strokeCap = StrokeCap.round;
 
           canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet4Paint);
-          canvas.drawCircle(Offset(startX, startY), 2.5, Paint()..color = Colors.white);
+          canvas.drawCircle(Offset(startX, startY), headRadius * 0.9, Paint()..color = Colors.white);
         }
       }
     } else if (!isAnimated && cometCount > 0) {
-      // Static decorative single comet
+      final tailLen = 45.0 + density * 12.0;
       final comet1 = Paint()
         ..shader = uiGradient(
           from: Offset(size.width * 0.26, size.height * 0.09),
-          to: Offset(size.width * 0.16, size.height * 0.04),
-          colors: [Colors.white, const Color(0xFF38BDF8).withOpacity(0.75), Colors.transparent],
+          to: Offset(size.width * 0.26 - tailLen, size.height * 0.09 - tailLen * 0.35),
+          colors: [
+            Colors.white,
+            (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.80),
+            Colors.transparent,
+          ],
         )
-        ..strokeWidth = 2.2
+        ..strokeWidth = 1.6 + density * 0.5
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(size.width * 0.26, size.height * 0.09), Offset(size.width * 0.16, size.height * 0.04), comet1);
+      canvas.drawLine(
+        Offset(size.width * 0.26, size.height * 0.09),
+        Offset(size.width * 0.26 - tailLen, size.height * 0.09 - tailLen * 0.35),
+        comet1,
+      );
       canvas.drawCircle(Offset(size.width * 0.26, size.height * 0.09), 2.8, Paint()..color = Colors.white);
     }
   }
@@ -2600,6 +2823,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         oldDelegate.isAnimated != isAnimated ||
         oldDelegate.animationType != animationType ||
         oldDelegate.cometCount != cometCount ||
+        oldDelegate.density != density ||
         oldDelegate.cometFrequency != cometFrequency;
   }
 }

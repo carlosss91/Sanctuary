@@ -232,6 +232,7 @@ function getDefaultEmailTemplates() {
       animated: true,
       animationType: 'comets',
       cometCount: 1,
+      density: 2,
       cometFrequency: 1,
       subject: 'Activa tu cuenta en Sanctuary 🪐',
       title: '¡Te damos la bienvenida a bordo!',
@@ -244,6 +245,7 @@ function getDefaultEmailTemplates() {
       animated: true,
       animationType: 'comets',
       cometCount: 1,
+      density: 2,
       cometFrequency: 1,
       subject: 'Aviso de Suspensión de Cuenta · Sanctuary ⚠️',
       title: 'Tu cuenta ha sido suspendida',
@@ -256,6 +258,7 @@ function getDefaultEmailTemplates() {
       animated: true,
       animationType: 'comets',
       cometCount: 1,
+      density: 2,
       cometFrequency: 1,
       subject: 'Novedades y Anuncios · Sanctuary Suite 🪐',
       title: 'Comunicado Oficial de la Plataforma',
@@ -268,6 +271,7 @@ function getDefaultEmailTemplates() {
       animated: true,
       animationType: 'comets',
       cometCount: 1,
+      density: 2,
       cometFrequency: 1,
       subject: 'Alerta AI Sentinel: Nuevas Convocatorias Oficiales · Sanctuary 🪐',
       title: 'AI Sentinel: Vigilancia Oficial Automatizada',
@@ -303,6 +307,7 @@ function buildSanctuaryEmailHtml({
   animated = true,
   animationType = 'comets',
   cometCount = 1,
+  density = 2,
   cometFrequency = 1,
   subject = 'Sanctuary Suite 🪐',
   title = '',
@@ -329,6 +334,7 @@ function buildSanctuaryEmailHtml({
   const finalFooter = footerNote !== undefined && footerNote !== null ? footerNote : defs.footerNote;
   const finalAnimationType = animationType || defs.animationType || 'comets';
   const finalCometCount = cometCount !== undefined && cometCount !== null ? parseInt(cometCount, 10) : (defs.cometCount !== undefined ? defs.cometCount : 1);
+  const finalDensity = density !== undefined && density !== null ? parseInt(density, 10) : (defs.density !== undefined ? defs.density : 2);
   const finalCometFreq = cometFrequency !== undefined && cometFrequency !== null ? parseInt(cometFrequency, 10) : (defs.cometFrequency !== undefined ? defs.cometFrequency : 1);
 
   const showTopBanner = animated && finalAnimationType !== 'fixed' && finalCometCount > 0;
@@ -2036,6 +2042,7 @@ app.post('/api/admin/email/preview', (req, res) => {
       animated = true,
       animationType = 'comets',
       cometCount = 1,
+      density = 2,
       cometFrequency = 1,
       subject = 'Sanctuary Suite 🪐',
       title,
@@ -2055,6 +2062,7 @@ app.post('/api/admin/email/preview', (req, res) => {
       animated: animated !== false,
       animationType,
       cometCount,
+      density,
       cometFrequency,
       subject,
       title,
@@ -2094,6 +2102,7 @@ app.post('/api/admin/email/send-template', async (req, res) => {
       footerNote,
       extraInfo,
       cometCount,
+      density,
       cometFrequency,
     } = req.body;
 
@@ -2114,6 +2123,7 @@ app.post('/api/admin/email/send-template', async (req, res) => {
     const finalCta = ctaText !== undefined ? ctaText : baseConfig.ctaText;
     const finalFooter = footerNote !== undefined ? footerNote : baseConfig.footerNote;
     const finalCometCount = cometCount !== undefined ? parseInt(cometCount, 10) : (baseConfig.cometCount !== undefined ? parseInt(baseConfig.cometCount, 10) : 1);
+    const finalDensity = density !== undefined ? parseInt(density, 10) : (baseConfig.density !== undefined ? parseInt(baseConfig.density, 10) : 2);
     const finalCometFreq = cometFrequency !== undefined ? parseInt(cometFrequency, 10) : (baseConfig.cometFrequency !== undefined ? parseInt(baseConfig.cometFrequency, 10) : 1);
 
     const host = req.get('host') || `localhost:${port}`;
@@ -2126,6 +2136,7 @@ app.post('/api/admin/email/send-template', async (req, res) => {
       animated: finalAnimated,
       animationType: finalAnimationType,
       cometCount: finalCometCount,
+      density: finalDensity,
       cometFrequency: finalCometFreq,
       subject: finalSubject,
       title: finalTitle,

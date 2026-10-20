@@ -286,12 +286,12 @@ function createNebulaSkyTile({ width = 480, height = 480, isDark = true, totalFr
     const p2 = 0.85 + 0.25 * Math.cos(progress * Math.PI * 2);
 
     // Nebula Layer 1: Ethereal Violet/Pink Cloud (upper left)
-    drawNebulaGas(data, width, height, 110, 120, 130 * p1, 100 * p1, isDark ? [139, 92, 246] : [124, 58, 237], isDark ? 0.35 : 0.20);
-    drawNebulaGas(data, width, height, 135, 145, 80 * p1, 65 * p1, isDark ? [236, 72, 153] : [219, 39, 119], isDark ? 0.28 : 0.16);
+    drawNebulaGas(data, width, height, 110, 120, 130 * p1, 100 * p1, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.35 : 0.34);
+    drawNebulaGas(data, width, height, 135, 145, 80 * p1, 65 * p1, isDark ? [236, 72, 153] : [190, 24, 93], isDark ? 0.28 : 0.28);
 
     // Nebula Layer 2: Emerald / Cyan Cloud (lower right)
-    drawNebulaGas(data, width, height, 370, 360, 140 * p2, 110 * p2, isDark ? [16, 185, 129] : [5, 150, 105], isDark ? 0.32 : 0.18);
-    drawNebulaGas(data, width, height, 345, 335, 85 * p2, 70 * p2, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.26 : 0.15);
+    drawNebulaGas(data, width, height, 370, 360, 140 * p2, 110 * p2, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.32 : 0.32);
+    drawNebulaGas(data, width, height, 345, 335, 85 * p2, 70 * p2, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.26 : 0.26);
 
     // Twinkling canopy stars
     for (const s of sharedSkyStars) {
@@ -306,7 +306,7 @@ function createNebulaSkyTile({ width = 480, height = 480, isDark = true, totalFr
       const angle = progress * Math.PI * 2 + (i * Math.PI * 2) / 12;
       const ox = (i % 2 === 0 ? 110 : 370) + Math.cos(angle) * (35 + (i % 4) * 15);
       const oy = (i % 2 === 0 ? 120 : 360) + Math.sin(angle) * (25 + (i % 4) * 10);
-      drawDot(data, width, height, ox, oy, 1.8, isDark ? [255, 255, 255] : [245, 158, 11], 0.65);
+      drawDot(data, width, height, ox, oy, 1.8, isDark ? [255, 255, 255] : [217, 119, 6], 0.75);
     }
 
     const palette = quantize(data, 48);
@@ -336,9 +336,9 @@ function createNebulaBanner({ width = 560, height = 90, isDark = true, totalFram
 
     // Drifting horizontal nebula veil across canopy
     const shift = Math.sin(progress * Math.PI * 2) * 25;
-    drawNebulaGas(data, width, height, 140 + shift, 45, 160, 42, isDark ? [139, 92, 246] : [124, 58, 237], isDark ? 0.38 : 0.22);
-    drawNebulaGas(data, width, height, 380 - shift, 45, 180, 40, isDark ? [16, 185, 129] : [5, 150, 105], isDark ? 0.34 : 0.20);
-    drawNebulaGas(data, width, height, 260 + shift * 0.5, 45, 120, 36, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.25 : 0.16);
+    drawNebulaGas(data, width, height, 140 + shift, 45, 160, 42, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.36);
+    drawNebulaGas(data, width, height, 380 - shift, 45, 180, 40, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.34 : 0.34);
+    drawNebulaGas(data, width, height, 260 + shift * 0.5, 45, 120, 36, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.25 : 0.28);
 
     for (const s of sharedBannerStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
@@ -380,8 +380,8 @@ function createNebulaSide({ width = 110, height = 650, isDark = true, totalFrame
     }
 
     const p = Math.sin(progress * Math.PI * 2);
-    drawNebulaGas(data, width, height, 55, 160 + p * 15, 55, 120, isDark ? [139, 92, 246] : [124, 58, 237], isDark ? 0.30 : 0.18);
-    drawNebulaGas(data, width, height, 55, 450 - p * 15, 55, 130, isDark ? [16, 185, 129] : [5, 150, 105], isDark ? 0.28 : 0.16);
+    drawNebulaGas(data, width, height, 55, 160 + p * 15, 55, 120, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.30 : 0.32);
+    drawNebulaGas(data, width, height, 55, 450 - p * 15, 55, 130, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.28 : 0.30);
 
     for (const s of sharedSideStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
@@ -420,8 +420,12 @@ function createBlackHoleSkyTile({ width = 480, height = 480, isDark = true, tota
 
     // Outer gravitational lensing ripples
     const p = Math.sin(progress * Math.PI * 2);
-    drawNebulaGas(data, width, height, 240, 240, 180 + p * 10, 180 + p * 10, isDark ? [139, 92, 246] : [124, 58, 237], isDark ? 0.16 : 0.10);
-    drawNebulaGas(data, width, height, 240, 240, 120 + p * 6, 120 + p * 6, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.18 : 0.12);
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 240, 240, 140, 140, [15, 23, 42], 0.46);
+      drawNebulaGas(data, width, height, 240, 240, 95, 95, [30, 41, 59], 0.35);
+    }
+    drawNebulaGas(data, width, height, 240, 240, 180 + p * 10, 180 + p * 10, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.16 : 0.22);
+    drawNebulaGas(data, width, height, 240, 240, 120 + p * 6, 120 + p * 6, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.18 : 0.24);
 
     // Stars drawn inward by gravitational curvature
     for (const s of sharedSkyStars) {
@@ -466,9 +470,15 @@ function createBlackHoleBanner({ width = 560, height = 90, isDark = true, totalF
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
+    // Spacetime well in light mode behind accretion disk so the vortex pops against the light sky!
+    if (!isDark) {
+      drawNebulaGas(data, width, height, bhX, bhY, 78, 48, [15, 23, 42], 0.52);
+      drawNebulaGas(data, width, height, bhX, bhY, 54, 32, [30, 41, 59], 0.38);
+    }
+
     // 1. Gravitational lensing halo around black hole
-    drawNebulaGas(data, width, height, bhX, bhY, 80, 50, isDark ? [139, 92, 246] : [124, 58, 237], isDark ? 0.38 : 0.20);
-    drawNebulaGas(data, width, height, bhX, bhY, 65, 38, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.32 : 0.18);
+    drawNebulaGas(data, width, height, bhX, bhY, 80, 50, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.28);
+    drawNebulaGas(data, width, height, bhX, bhY, 65, 38, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.32 : 0.24);
 
     // 2. Relativistic rotating plasma accretion disk
     const diskSteps = 60;
@@ -484,13 +494,13 @@ function createBlackHoleBanner({ width = 560, height = 90, isDark = true, totalF
       const norm = (i / diskSteps);
       let plasmaColor;
       if (norm < 0.33) {
-        plasmaColor = [245, 158, 11]; // Amber
+        plasmaColor = isDark ? [245, 158, 11] : [217, 119, 6]; // Amber
       } else if (norm < 0.66) {
-        plasmaColor = [56, 189, 248]; // Cyan
+        plasmaColor = isDark ? [56, 189, 248] : [2, 132, 199]; // Cyan
       } else {
-        plasmaColor = [220, 38, 38]; // Crimson
+        plasmaColor = isDark ? [220, 38, 38] : [185, 28, 28]; // Crimson
       }
-      drawDot(data, width, height, px, py, 2.8, plasmaColor, 0.85);
+      drawDot(data, width, height, px, py, 2.8, plasmaColor, 0.90);
     }
 
     // 3. Infalling matter spiraling into event horizon
@@ -500,7 +510,7 @@ function createBlackHoleBanner({ width = 560, height = 90, isDark = true, totalF
       const dist = 14 + (1.0 - streamProg) * 36;
       const sx = bhX + Math.cos(spiralAngle) * dist;
       const sy = bhY + Math.sin(spiralAngle) * dist * 0.38;
-      drawDot(data, width, height, sx, sy, 2.0 * streamProg + 0.6, [253, 230, 138], 0.9);
+      drawDot(data, width, height, sx, sy, 2.0 * streamProg + 0.6, isDark ? [253, 230, 138] : [217, 119, 6], 0.95);
     }
 
     // 4. Luminous Photon Sphere Ring
@@ -508,7 +518,7 @@ function createBlackHoleBanner({ width = 560, height = 90, isDark = true, totalF
       const rad = (a * Math.PI * 2) / 36;
       const px = bhX + Math.cos(rad) * 14;
       const py = bhY + Math.sin(rad) * 14;
-      drawDot(data, width, height, px, py, 1.8, [56, 189, 248], 0.95);
+      drawDot(data, width, height, px, py, 1.8, isDark ? [56, 189, 248] : [2, 132, 199], 0.95);
     }
 
     // 5. Pitch-black event horizon core
@@ -550,7 +560,10 @@ function createBlackHoleSide({ width = 110, height = 650, isDark = true, totalFr
     }
 
     const p = Math.sin(progress * Math.PI * 2);
-    drawNebulaGas(data, width, height, 55, 300 + p * 20, 55, 140, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.28 : 0.16);
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 55, 300 + p * 20, 55, 120, [15, 23, 42], 0.44);
+    }
+    drawNebulaGas(data, width, height, 55, 300 + p * 20, 55, 140, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.28 : 0.24);
 
     for (const s of sharedSideStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
