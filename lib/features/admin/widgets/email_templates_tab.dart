@@ -178,8 +178,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
         'body': _bodyCtrl.text,
         'ctaText': _ctaTextCtrl.text,
         'footerNote': _footerCtrl.text,
-        'fullName': 'Carlos Santana (Tester)',
-        'username': 'tester_admin',
+        'fullName': 'Carlos Santana',
+        'username': 'carlos_santana',
         'code': '849201',
       },
     );
