@@ -894,6 +894,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                 labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
+                splashBorderRadius: BorderRadius.circular(12),
+                overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return const Color(0xFF06B6D4).withOpacity(isDark ? 0.14 : 0.09);
+                  }
+                  if (states.contains(WidgetState.pressed)) {
+                    return const Color(0xFF06B6D4).withOpacity(isDark ? 0.22 : 0.16);
+                  }
+                  return null;
+                }),
                 indicator: BoxDecoration(
                   color: isDark
                       ? const Color(0xFF06B6D4).withOpacity(0.22)

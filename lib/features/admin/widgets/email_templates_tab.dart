@@ -44,6 +44,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   int _currentCometCount = 1; // 0 = off, 1 = subtle/recommended, 2 = balanced, 3 = dynamic, 4 = rain
   int _currentDensity = 2; // 1 = light, 2 = standard, 3 = dense, 4 = maximum
   int _currentCometFrequency = 1; // 1 = relaxed/calm, 2 = balanced, 3 = fast
+  int _currentFps = 20; // 12 to 30 FPS, default 20 FPS (delays 33ms to 83ms)
   String _previewMode = 'canvas'; // 'canvas' or 'gif'
 
   @override
@@ -99,6 +100,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _currentCometCount = (t['cometCount'] as num?)?.toInt() ?? 1;
     _currentDensity = (t['density'] as num?)?.toInt() ?? 2;
     _currentCometFrequency = (t['cometFrequency'] as num?)?.toInt() ?? 1;
+    _currentFps = (t['fps'] as num?)?.toInt() ?? 20;
   }
 
   void _updateActiveTemplateState() {
@@ -116,6 +118,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _templates[_selectedTemplate]['cometCount'] = _currentCometCount;
     _templates[_selectedTemplate]['density'] = _currentDensity;
     _templates[_selectedTemplate]['cometFrequency'] = _currentCometFrequency;
+    _templates[_selectedTemplate]['fps'] = _currentFps;
     setState(() {});
   }
 
@@ -173,6 +176,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
         'cometCount': _currentCometCount,
         'density': _currentDensity,
         'cometFrequency': _currentCometFrequency,
+        'fps': _currentFps,
         'subject': _subjectCtrl.text,
         'title': _titleCtrl.text,
         'body': _bodyCtrl.text,
@@ -907,6 +911,74 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                       );
                     },
                   ),
+
+                  const SizedBox(height: 6),
+
+                  // Slider 4: Fluidez de Cuadros por Segundo (FPS)
+                  Builder(
+                    builder: (context) {
+                      const Color fpsAccent = Color(0xFF10B981);
+                      const IconData fpsIcon = Icons.motion_photos_on_rounded;
+                      const String fpsTitle = 'Fluidez y Cuadros por Segundo (FPS)';
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(fpsIcon, size: 15, color: fpsAccent),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    fpsTitle,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: fpsAccent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: fpsAccent.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  _getAnimationFpsLabel(_currentFps),
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: fpsAccent),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: fpsAccent,
+                              thumbColor: fpsAccent,
+                              overlayColor: fpsAccent.withOpacity(0.2),
+                              trackHeight: 3,
+                            ),
+                            child: Slider(
+                              value: _currentFps.toDouble().clamp(12.0, 30.0),
+                              min: 12.0,
+                              max: 30.0,
+                              divisions: 18,
+                              onChanged: (val) {
+                                setState(() {
+                                  _currentFps = val.round();
+                                  _updateActiveTemplateState();
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ] else ...[
                   const SizedBox(height: 10),
                   Text(
@@ -1373,6 +1445,13 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     }
   }
 
+  String _getAnimationFpsLabel(int fps) {
+    if (fps <= 14) return '$fps FPS · Modo Económico';
+    if (fps <= 18) return '$fps FPS · Estándar';
+    if (fps <= 24) return '$fps FPS · Ultra Fluido (Recomendado)';
+    return '$fps FPS · Cinemático Pro';
+  }
+
   void _showCosmicRenderingInfoDialog(BuildContext context, bool isDark) {
     showDialog(
       context: context,
@@ -1739,7 +1818,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                           painter: CosmicEmailPreviewPainter(
                             progress: _currentAnimated
                                 ? (_previewMode == 'gif'
-                                    ? ((_animController.value * 14).floor() / 14.0) // 14 FPS frame-stepped cadence of webmail GIF
+                                    ? ((_animController.value * _currentFps).floor() / _currentFps.toDouble())
                                     : _animController.value)
                                 : 0.0,
                             isDark: previewIsDark,
@@ -1750,6 +1829,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                             cometCount: _currentCometCount,
                             density: _currentDensity,
                             cometFrequency: _currentCometFrequency,
+                            fps: _currentFps,
                             isGifMode: _previewMode == 'gif',
                           ),
                         ),
@@ -1779,7 +1859,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                             Text(
                               _previewMode == 'canvas'
                                   ? 'Motor Vectorial Pro (Canvas 60fps · Fluido)'
-                                  : 'Motor Universal (GIF 14fps · Simulación Webmail)',
+                                  : 'Motor Universal (GIF $_currentFps fps · Simulación Webmail)',
                               style: TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
@@ -2155,6 +2235,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
   final int cometCount;
   final int density;
   final int cometFrequency;
+  final int fps;
   final bool isGifMode;
 
   CosmicEmailPreviewPainter({
@@ -2167,6 +2248,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     this.cometCount = 1,
     this.density = 2,
     this.cometFrequency = 1,
+    this.fps = 20,
     this.isGifMode = false,
   });
 
@@ -2264,32 +2346,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    // 1. Nebulae Glow Auras
-    final aura1Paint = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [const Color(0xFF10B981).withOpacity(0.15), Colors.transparent]
-            : [const Color(0xFF059669).withOpacity(0.14), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.15, size.height * 0.15), radius: 140));
-    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.15), 140, aura1Paint);
-
-    final aura2Paint = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [(isAiSentinel ? const Color(0xFF8B5CF6) : const Color(0xFF06B6D4)).withOpacity(0.16), Colors.transparent]
-            : [(isAiSentinel ? const Color(0xFF7C3AED) : const Color(0xFF0284C7)).withOpacity(0.14), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.85, size.height * 0.20), radius: 150));
-    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.20), 150, aura2Paint);
-
-    final aura3Paint = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [const Color(0xFF3B82F6).withOpacity(0.12), Colors.transparent]
-            : [const Color(0xFF2563EB).withOpacity(0.12), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset(size.width * 0.50, size.height * 0.90), radius: 160));
-    canvas.drawCircle(Offset(size.width * 0.50, size.height * 0.90), 160, aura3Paint);
-
-    // 2. Dense Celestial Starfield Across the Whole Canvas & Center (scales with density & frequency)
+    // 1. Dense Celestial Starfield Across the Whole Canvas & Center (scales with density & frequency)
     final bool enableTwinkle = isAnimated && animationType != 'fixed';
     final double twinkleSpeed = cometFrequency == 1 ? 0.70 : (cometFrequency == 2 ? 1.0 : 1.65);
     final double starScale = 0.85 + (density / 4.0) * 0.45;
@@ -2761,6 +2818,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         oldDelegate.cometCount != cometCount ||
         oldDelegate.density != density ||
         oldDelegate.cometFrequency != cometFrequency ||
+        oldDelegate.fps != fps ||
         oldDelegate.isGifMode != isGifMode;
   }
 }

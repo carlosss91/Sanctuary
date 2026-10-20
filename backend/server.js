@@ -460,16 +460,16 @@ function buildSanctuaryEmailHtml({
     }
   </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};${starTileUrl ? `background-image:url('${starTileUrl}');background-repeat:repeat;` : ''}font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
-  <!-- Outer Atmospheric Seamless Full-Canvas Starfield Container (100% monitor coverage with uniform twinkling stars) -->
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};${starTileUrl ? `background-image:url('${starTileUrl}');background-repeat:repeat;` : ''}width:100%;min-height:100vh;padding:20px 0 32px 0;margin:0;border-collapse:collapse;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
+  <!-- Outer Neutral Framing Container -->
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};width:100%;padding:24px 8px 32px 8px;margin:0;border-collapse:collapse;">
     <tr>
-      <td align="center" valign="top" style="padding:0;">
+      <td align="center" valign="middle" style="padding:0;">
 
-        <!-- Centered Celestial Stage (980px wide canvas: celestial bodies prominently positioned in the open flanks outside the card) -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:980px;width:100%;${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center top;` : ''}margin:0 auto;border-collapse:collapse;">
+        <!-- Centered Celestial Stage (940x580 canvas: card vertically and horizontally centered with snug padding on all 4 sides) -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:940px;width:100%;${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center center;background-size:940px 580px;border-radius:24px;` : ''}margin:0 auto;border-collapse:collapse;">
           <tr>
-            <td align="center" valign="top" style="padding:24px 12px 28px 12px;">
+            <td align="center" valign="middle" style="padding:40px 16px;">
 
               <!-- Main Card Container (Identical to Flutter Preview: 420px max-width, 18px border radius) -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:420px;width:100%;background:${cardBg};background-color:${cardBg};border-radius:18px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;margin:0 auto;border-collapse:separate;">

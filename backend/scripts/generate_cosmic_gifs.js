@@ -66,64 +66,183 @@ function drawComet(data, width, height, hx, hy, tx, ty, headColor, tailColor, he
   drawDot(data, width, height, hx, hy, headRadius * 1.5, [255, 255, 255], 1.0);
 }
 
-// Helper: draw relativistic black hole in flank position
+// Helper: draw Canvas Pro fidelity relativistic black hole
 function drawBlackHoleInstance(data, width, height, bhX, bhY, scale, progress, spinDir, isDark) {
   const rScale = scale || 1.0;
+  const tilt = -0.35 * spinDir;
+  const cosT = Math.cos(tilt);
+  const sinT = Math.sin(tilt);
+  const diskRot = spinDir * progress * Math.PI * 2;
 
-  // 1. Spacetime gravitational lensing well (deep contrast in light mode)
-  if (!isDark) {
-    drawNebulaGas(data, width, height, bhX, bhY, 74 * rScale, 52 * rScale, [15, 23, 42], 0.85);
-    drawNebulaGas(data, width, height, bhX, bhY, 52 * rScale, 36 * rScale, [2, 6, 23], 0.92);
-  } else {
-    drawNebulaGas(data, width, height, bhX, bhY, 78 * rScale, 54 * rScale, [139, 92, 246], 0.35);
-    drawNebulaGas(data, width, height, bhX, bhY, 56 * rScale, 38 * rScale, [6, 182, 212], 0.30);
-  }
+  // 1. Spacetime Gravitational Lensing Well
+  const lensR = (isDark ? 68 : 74) * rScale;
+  const minX = Math.max(0, Math.floor(bhX - lensR));
+  const maxX = Math.min(width - 1, Math.ceil(bhX + lensR));
+  const minY = Math.max(0, Math.floor(bhY - lensR));
+  const maxY = Math.min(height - 1, Math.ceil(bhY + lensR));
 
-  // 2. Relativistic rotating plasma accretion disk
-  const diskSteps = 54;
-  const rotBase = progress * Math.PI * 2 * spinDir;
-  for (let i = 0; i < diskSteps; i++) {
-    const theta = rotBase + (i * Math.PI * 2) / diskSteps;
-    const rx = (40 + Math.sin(theta * 2) * 5) * rScale;
-    const ry = (17 + Math.cos(theta * 2) * 3) * rScale;
-    const px = bhX + Math.cos(theta) * rx;
-    const py = bhY + Math.sin(theta) * ry;
-
-    const norm = (i / diskSteps);
-    let plasmaColor;
-    if (norm < 0.33) {
-      plasmaColor = isDark ? [245, 158, 11] : [217, 119, 6]; // Amber
-    } else if (norm < 0.66) {
-      plasmaColor = isDark ? [56, 189, 248] : [2, 132, 199]; // Cyan
-    } else {
-      plasmaColor = isDark ? [239, 68, 68] : [185, 28, 28]; // Crimson
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const dist = Math.hypot(x - bhX, y - bhY);
+      if (dist <= lensR) {
+        const norm = dist / lensR;
+        let r, g, b, alpha;
+        if (!isDark) {
+          // Deep absorption spacetime well popping against twilight sky
+          if (norm < 0.45) {
+            r = 15; g = 23; b = 42; alpha = (1 - norm / 0.45) * 0.65;
+          } else if (norm < 0.8) {
+            r = 109; g = 40; b = 217; alpha = (1 - (norm - 0.45) / 0.35) * 0.28;
+          } else {
+            r = 2; g = 132; b = 199; alpha = (1 - (norm - 0.8) / 0.2) * 0.16;
+          }
+        } else {
+          // Luminous celestial aura: Violet -> Cyan -> Amber
+          if (norm < 0.45) {
+            r = 139; g = 92; b = 246; alpha = (1 - norm / 0.45) * 0.38;
+          } else if (norm < 0.75) {
+            r = 6; g = 182; b = 212; alpha = (1 - (norm - 0.45) / 0.30) * 0.24;
+          } else {
+            r = 245; g = 158; b = 11; alpha = (1 - (norm - 0.75) / 0.25) * 0.12;
+          }
+        }
+        if (alpha > 0.02) {
+          const idx = (y * width + x) * 4;
+          data[idx] = Math.round(data[idx] * (1 - alpha) + r * alpha);
+          data[idx + 1] = Math.round(data[idx + 1] * (1 - alpha) + g * alpha);
+          data[idx + 2] = Math.round(data[idx + 2] * (1 - alpha) + b * alpha);
+        }
+      }
     }
-    drawDot(data, width, height, px, py, 2.7 * rScale, plasmaColor, 0.95);
   }
 
-  // 3. Infalling matter streams spiraling into event horizon
-  for (let s = 0; s < 5; s++) {
-    const streamProg = (progress + s / 5.0) % 1.0;
-    const spiralAngle = rotBase * 1.4 + (s * Math.PI * 2) / 5.0 + streamProg * Math.PI * 2;
-    const dist = (12 + (1.0 - streamProg) * 30) * rScale;
-    const sx = bhX + Math.cos(spiralAngle) * dist;
-    const sy = bhY + Math.sin(spiralAngle) * dist * 0.42;
-    drawDot(data, width, height, sx, sy, (1.8 * streamProg + 0.6) * rScale, isDark ? [253, 230, 138] : [217, 119, 6], 0.95);
+  // 2. Relativistic Rotating Accretion Disk (Tilted ellipse with 5-color plasma sweep)
+  const diskCenterR = 25 * rScale;
+  const diskHalfWidth = 7.0 * rScale;
+  const diskBoundingR = 52 * rScale;
+  const dMinX = Math.max(0, Math.floor(bhX - diskBoundingR));
+  const dMaxX = Math.min(width - 1, Math.ceil(bhX + diskBoundingR));
+  const dMinY = Math.max(0, Math.floor(bhY - diskBoundingR));
+  const dMaxY = Math.min(height - 1, Math.ceil(bhY + diskBoundingR));
+
+  const darkColors = [
+    [245, 158, 11], // 0.00 Amber
+    [220, 38, 38],  // 0.28 Crimson
+    [139, 92, 246], // 0.55 Violet
+    [56, 189, 248], // 0.82 Cyan
+    [245, 158, 11], // 1.00 Amber
+  ];
+  const lightColors = [
+    [217, 119, 6],  // 0.00 Amber
+    [185, 28, 28],  // 0.28 Crimson
+    [109, 40, 217], // 0.55 Purple
+    [2, 132, 199],  // 0.82 Sky Blue
+    [217, 119, 6],  // 1.00 Amber
+  ];
+  const stops = [0.0, 0.28, 0.55, 0.82, 1.0];
+  const plasmaPalette = isDark ? darkColors : lightColors;
+
+  for (let y = dMinY; y <= dMaxY; y++) {
+    for (let x = dMinX; x <= dMaxX; x++) {
+      const dx = x - bhX;
+      const dy = y - bhY;
+      // Un-tilt coordinates
+      const ux = dx * cosT + dy * sinT;
+      const uy = -dx * sinT + dy * cosT;
+      // Elliptical radius along Y (aspect 0.38 matching Flutter Canvas Pro)
+      const ey = uy / 0.38;
+      const ellipseDist = Math.hypot(ux, ey);
+      const distFromRing = Math.abs(ellipseDist - diskCenterR);
+
+      if (distFromRing <= diskHalfWidth) {
+        const ringIntensity = Math.cos((distFromRing / diskHalfWidth) * (Math.PI / 2));
+        let angle = Math.atan2(ey, ux) - diskRot;
+        angle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        const normAngle = angle / (Math.PI * 2);
+
+        // 5-stop plasma sweep gradient
+        let cr = 245, cg = 158, cb = 11;
+        for (let s = 0; s < stops.length - 1; s++) {
+          if (normAngle >= stops[s] && normAngle <= stops[s + 1]) {
+            const t = (normAngle - stops[s]) / (stops[s + 1] - stops[s]);
+            const c0 = plasmaPalette[s];
+            const c1 = plasmaPalette[s + 1];
+            cr = Math.round(c0[0] * (1 - t) + c1[0] * t);
+            cg = Math.round(c0[1] * (1 - t) + c1[1] * t);
+            cb = Math.round(c0[2] * (1 - t) + c1[2] * t);
+            break;
+          }
+        }
+
+        // Relativistic Beaming highlight on approaching edge (normAngle 0.0 to 0.375 = ~0 to 0.75*PI)
+        let beamBoost = 0;
+        if (normAngle >= 0 && normAngle <= 0.375) {
+          beamBoost = Math.sin((normAngle / 0.375) * Math.PI) * 0.90;
+          cr = Math.round(cr * (1 - beamBoost) + 255 * beamBoost);
+          cg = Math.round(cg * (1 - beamBoost) + 255 * beamBoost);
+          cb = Math.round(cb * (1 - beamBoost) + 255 * beamBoost);
+        }
+
+        const alpha = Math.min(1.0, ringIntensity * (0.88 + beamBoost * 0.12));
+        const idx = (y * width + x) * 4;
+        data[idx] = Math.round(data[idx] * (1 - alpha) + cr * alpha);
+        data[idx + 1] = Math.round(data[idx + 1] * (1 - alpha) + cg * alpha);
+        data[idx + 2] = Math.round(data[idx + 2] * (1 - alpha) + cb * alpha);
+      }
+    }
   }
 
-  // 4. Luminous Photon Sphere Ring
-  for (let a = 0; a < 32; a++) {
-    const rad = (a * Math.PI * 2) / 32;
-    const px = bhX + Math.cos(rad) * (14 * rScale);
-    const py = bhY + Math.sin(rad) * (12 * rScale);
-    drawDot(data, width, height, px, py, 1.9 * rScale, isDark ? [56, 189, 248] : [2, 132, 199], 0.95);
+  // 3. Infalling Matter Streams (spiraling particles)
+  const numStreams = 8;
+  const horizonR = 13.0 * rScale;
+  for (let i = 0; i < numStreams; i++) {
+    const streamProgress = (progress + i / numStreams) % 1.0;
+    const spiralAngle = -0.35 * spinDir + diskRot + (i * (Math.PI * 2 / numStreams)) + (streamProgress * Math.PI * 2);
+    const spiralDist = horizonR + 2.0 * rScale + (1.0 - streamProgress) * (diskCenterR - horizonR);
+    const px = bhX + Math.cos(spiralAngle) * spiralDist;
+    const py = bhY + Math.sin(spiralAngle) * spiralDist * 0.42;
+    const streamColor = isDark
+      ? (i % 2 === 0 ? [253, 230, 138] : [103, 232, 249])
+      : (i % 2 === 0 ? [217, 119, 6] : [2, 132, 199]);
+    drawDot(data, width, height, px, py, (1.8 * streamProgress + 0.6) * rScale, streamColor, Math.max(0.25, streamProgress * 0.95));
   }
 
-  // 5. Pitch-black Event Horizon core
-  const coreR = Math.round(11 * rScale);
-  for (let y = Math.max(0, Math.floor(bhY - coreR)); y <= Math.min(height - 1, Math.ceil(bhY + coreR)); y++) {
-    for (let x = Math.max(0, Math.floor(bhX - coreR)); x <= Math.min(width - 1, Math.ceil(bhX + coreR)); x++) {
-      if (Math.hypot(x - bhX, y - bhY) <= coreR) {
+  // 4. Luminous Photon Sphere Ring (Radius 14.5 * rScale)
+  const photonR = 14.5 * rScale;
+  const photonColor = isDark ? [56, 189, 248] : [2, 132, 199];
+  const pMinX = Math.max(0, Math.floor(bhX - photonR - 3));
+  const pMaxX = Math.min(width - 1, Math.ceil(bhX + photonR + 3));
+  const pMinY = Math.max(0, Math.floor(bhY - photonR - 3));
+  const pMaxY = Math.min(height - 1, Math.ceil(bhY + photonR + 3));
+
+  for (let y = pMinY; y <= pMaxY; y++) {
+    for (let x = pMinX; x <= pMaxX; x++) {
+      const dist = Math.hypot(x - bhX, y - bhY);
+      const ringDist = Math.abs(dist - photonR);
+      if (ringDist <= 2.2 * rScale) {
+        const intensity = Math.max(0, 1 - (ringDist / (2.2 * rScale)));
+        const isCore = ringDist <= 1.0 * rScale;
+        const [pr, pg, pb] = isCore ? [255, 255, 255] : photonColor;
+        const alpha = intensity * 0.95;
+        const idx = (y * width + x) * 4;
+        data[idx] = Math.round(data[idx] * (1 - alpha) + pr * alpha);
+        data[idx + 1] = Math.round(data[idx + 1] * (1 - alpha) + pg * alpha);
+        data[idx + 2] = Math.round(data[idx + 2] * (1 - alpha) + pb * alpha);
+      }
+    }
+  }
+
+  // 5. Pitch-Black Event Horizon Core (Radius 12.8 * rScale)
+  const coreR = 12.8 * rScale;
+  const cMinX = Math.max(0, Math.floor(bhX - coreR - 1));
+  const cMaxX = Math.min(width - 1, Math.ceil(bhX + coreR + 1));
+  const cMinY = Math.max(0, Math.floor(bhY - coreR - 1));
+  const cMaxY = Math.min(height - 1, Math.ceil(bhY + coreR + 1));
+
+  for (let y = cMinY; y <= cMaxY; y++) {
+    for (let x = cMinX; x <= cMaxX; x++) {
+      const dist = Math.hypot(x - bhX, y - bhY);
+      if (dist <= coreR) {
         const idx = (y * width + x) * 4;
         data[idx] = 3;
         data[idx + 1] = 7;
@@ -185,37 +304,31 @@ function drawStarfield(data, width, height, progress, isDark) {
       starColor = isDark ? [167, 139, 250] : [109, 40, 217];
     }
 
-    const baseR = (i % 3 === 0) ? 2.4 : ((i % 2 === 0) ? 1.7 : 1.1);
+    const baseR = (i % 3 === 0) ? 2.3 : ((i % 2 === 0) ? 1.6 : 1.0);
     const radius = baseR * (0.85 + 0.25 * twinkle);
 
     if (radius > 1.8) {
-      drawDot(data, width, height, sx, sy, radius * 2.0, starColor, twinkle * (isDark ? 0.32 : 0.25));
+      drawDot(data, width, height, sx, sy, radius * 1.8, starColor, twinkle * (isDark ? 0.30 : 0.22));
     }
     drawDot(data, width, height, sx, sy, radius, starColor, twinkle);
   }
 }
 
-// Helper: draw ambient background auric glows
-function drawAmbientAuras(data, width, height, isDark) {
-  drawNebulaGas(data, width, height, width * 0.15, height * 0.15, 190, 160, isDark ? [16, 185, 129] : [5, 150, 105], isDark ? 0.18 : 0.14);
-  drawNebulaGas(data, width, height, width * 0.85, height * 0.20, 200, 170, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.18 : 0.14);
-  drawNebulaGas(data, width, height, width * 0.50, height * 0.90, 220, 170, isDark ? [59, 130, 246] : [37, 99, 235], isDark ? 0.14 : 0.12);
-}
-
 // ========================================================
 // 1. FULL-CANVAS BLACK HOLE & VORTEX BY COUNT (1 to 4)
+// Canvas dimensions: 940 x 580 px (snug fit around 420x500px card)
+// Fluidity: 20 FPS (20 frames @ 50ms delay)
 // ========================================================
-function createBlackHoleCanvas({ count = 4, width = 980, height = 740, isDark = true, totalFrames = 14, delay = 100 }) {
+function createBlackHoleCanvas({ count = 4, width = 940, height = 580, isDark = true, totalFrames = 20, delay = 50 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
-  // 4 Slot Coordinates placed well in the open flanks (Card width 420px is at X: 280 to 700)
-  // Left flank center: X=140. Right flank center: X=840.
+  // 4 Balanced Flank Positions outside the 420px-wide card
   const slots = [
-    { x: 840, y: 180, scale: 1.02, spinDir: -1.0 }, // Slot 1: Upper-Right Flank
-    { x: 140, y: 520, scale: 0.94, spinDir: -1.0 }, // Slot 2: Lower-Left Flank
-    { x: 140, y: 180, scale: 0.88, spinDir: 1.0 },  // Slot 3: Upper-Left Flank
-    { x: 840, y: 520, scale: 0.82, spinDir: 1.0 },  // Slot 4: Lower-Right Flank
+    { x: 810, y: 155, scale: 1.02, spinDir: -1.0 }, // Slot 1: Upper-Right Flank
+    { x: 130, y: 425, scale: 0.94, spinDir: -1.0 }, // Slot 2: Lower-Left Flank
+    { x: 130, y: 155, scale: 0.88, spinDir: 1.0 },  // Slot 3: Upper-Left Flank
+    { x: 810, y: 425, scale: 0.82, spinDir: 1.0 },  // Slot 4: Lower-Right Flank
   ];
 
   const activeCount = Math.min(Math.max(count, 1), 4);
@@ -232,10 +345,9 @@ function createBlackHoleCanvas({ count = 4, width = 980, height = 740, isDark = 
       data[idx + 3] = 255;
     }
 
-    drawAmbientAuras(data, width, height, isDark);
     drawStarfield(data, width, height, progress, isDark);
 
-    // Draw active black holes based on slider count
+    // Draw active black holes with Canvas Pro fidelity
     for (let s = 0; s < activeCount; s++) {
       const slot = slots[s];
       drawBlackHoleInstance(data, width, height, slot.x, slot.y, slot.scale, progress, slot.spinDir, isDark);
@@ -252,20 +364,22 @@ function createBlackHoleCanvas({ count = 4, width = 980, height = 740, isDark = 
 
 // ========================================================
 // 2. FULL-CANVAS NEBULA COSMICA BY COUNT (1 to 4)
+// Canvas dimensions: 940 x 580 px
+// Fluidity: 20 FPS (20 frames @ 50ms delay)
 // ========================================================
-function createNebulaCanvas({ count = 4, width = 980, height = 740, isDark = true, totalFrames = 14, delay = 100 }) {
+function createNebulaCanvas({ count = 4, width = 940, height = 580, isDark = true, totalFrames = 20, delay = 50 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
   const nebulaSlots = [
     // Slot 1: Upper-Right (Sapphire / Indigo)
-    { x: 840, y: 180, darkP: [59, 130, 246], darkS: [99, 102, 241], lightP: [37, 99, 235], lightS: [79, 70, 229], phase: 0 },
+    { x: 810, y: 155, darkP: [59, 130, 246], darkS: [99, 102, 241], lightP: [37, 99, 235], lightS: [79, 70, 229], phase: 0 },
     // Slot 2: Lower-Left (Emerald / Cyan)
-    { x: 140, y: 520, darkP: [16, 185, 129], darkS: [6, 182, 212], lightP: [5, 150, 105], lightS: [2, 132, 199], phase: 1.5 },
+    { x: 130, y: 425, darkP: [16, 185, 129], darkS: [6, 182, 212], lightP: [5, 150, 105], lightS: [2, 132, 199], phase: 1.5 },
     // Slot 3: Upper-Left (Royal Violet / Pink)
-    { x: 140, y: 180, darkP: [139, 92, 246], darkS: [236, 72, 153], lightP: [109, 40, 217], lightS: [190, 24, 93], phase: 0.8 },
+    { x: 130, y: 155, darkP: [139, 92, 246], darkS: [236, 72, 153], lightP: [109, 40, 217], lightS: [190, 24, 93], phase: 0.8 },
     // Slot 4: Lower-Right (Amber / Gold)
-    { x: 840, y: 520, darkP: [245, 158, 11], darkS: [217, 119, 6], lightP: [217, 119, 6], lightS: [180, 83, 9], phase: 2.2 },
+    { x: 810, y: 425, darkP: [245, 158, 11], darkS: [217, 119, 6], lightP: [217, 119, 6], lightS: [180, 83, 9], phase: 2.2 },
   ];
 
   const activeCount = Math.min(Math.max(count, 1), 4);
@@ -282,7 +396,6 @@ function createNebulaCanvas({ count = 4, width = 980, height = 740, isDark = tru
       data[idx + 3] = 255;
     }
 
-    drawAmbientAuras(data, width, height, isDark);
     drawStarfield(data, width, height, progress, isDark);
 
     for (let s = 0; s < activeCount; s++) {
@@ -290,17 +403,17 @@ function createNebulaCanvas({ count = 4, width = 980, height = 740, isDark = tru
       const p = 0.88 + 0.22 * Math.sin(progress * Math.PI * 2 + slot.phase);
 
       if (!isDark) {
-        drawNebulaGas(data, width, height, slot.x, slot.y, 120 * p, 110 * p, [20, 30, 48], 0.42);
+        drawNebulaGas(data, width, height, slot.x, slot.y, 115 * p, 100 * p, [20, 30, 48], 0.40);
       }
-      drawNebulaGas(data, width, height, slot.x, slot.y, 110 * p, 100 * p, isDark ? slot.darkP : slot.lightP, isDark ? 0.38 : 0.54);
-      drawNebulaGas(data, width, height, slot.x + 8, slot.y + 6, 72 * p, 62 * p, isDark ? slot.darkS : slot.lightS, isDark ? 0.32 : 0.46);
+      drawNebulaGas(data, width, height, slot.x, slot.y, 105 * p, 92 * p, isDark ? slot.darkP : slot.lightP, isDark ? 0.38 : 0.52);
+      drawNebulaGas(data, width, height, slot.x + 6, slot.y + 4, 68 * p, 58 * p, isDark ? slot.darkS : slot.lightS, isDark ? 0.32 : 0.44);
 
       // Stardust sparks
       for (let i = 0; i < 6; i++) {
         const angle = progress * Math.PI * 2 + (i * Math.PI * 2) / 6 + slot.phase;
-        const ox = slot.x + Math.cos(angle) * (28 + (i % 2) * 12);
-        const oy = slot.y + Math.sin(angle) * (22 + (i % 2) * 8);
-        drawDot(data, width, height, ox, oy, 1.9, isDark ? [255, 255, 255] : [217, 119, 6], 0.90);
+        const ox = slot.x + Math.cos(angle) * (26 + (i % 2) * 10);
+        const oy = slot.y + Math.sin(angle) * (20 + (i % 2) * 8);
+        drawDot(data, width, height, ox, oy, 1.8, isDark ? [255, 255, 255] : [217, 119, 6], 0.90);
       }
     }
 
@@ -315,8 +428,10 @@ function createNebulaCanvas({ count = 4, width = 980, height = 740, isDark = tru
 
 // ========================================================
 // 3. FULL-CANVAS COMETS & STARS BY COUNT (1 to 4)
+// Canvas dimensions: 940 x 580 px
+// Fluidity: 20 FPS (20 frames @ 50ms delay)
 // ========================================================
-function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = true, totalFrames = 14, delay = 100 }) {
+function createCosmicSkyCanvas({ count = 2, width = 940, height = 580, isDark = true, totalFrames = 20, delay = 50 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
@@ -324,10 +439,10 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
     // Comet 1: Upper-left to Lower-right
     {
       calc: (prog) => ({
-        hx: -50 + prog * (width + 100),
-        hy: 80 + prog * (height * 0.65),
-        txOffset: -90,
-        tyOffset: -45,
+        hx: -40 + prog * (width + 80),
+        hy: 60 + prog * (height * 0.70),
+        txOffset: -85,
+        tyOffset: -42,
       }),
       head: isDark ? [255, 255, 255] : [2, 132, 199],
       tail: isDark ? [56, 189, 248] : [217, 119, 6],
@@ -337,10 +452,10 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
     // Comet 2: Lower-left to Upper-right
     {
       calc: (prog) => ({
-        hx: -40 + prog * (width + 90),
-        hy: height * 0.85 - prog * (height * 0.60),
-        txOffset: -85,
-        tyOffset: 42,
+        hx: -40 + prog * (width + 80),
+        hy: height * 0.90 - prog * (height * 0.70),
+        txOffset: -80,
+        tyOffset: 40,
       }),
       head: isDark ? [255, 255, 255] : [2, 132, 199],
       tail: isDark ? [16, 185, 129] : [5, 150, 105],
@@ -350,10 +465,10 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
     // Comet 3: Steep Upper-Right to Lower-Left
     {
       calc: (prog) => ({
-        hx: width * 0.90 - prog * (width * 0.80),
-        hy: -30 + prog * (height + 60),
-        txOffset: 60,
-        tyOffset: -75,
+        hx: width * 0.92 - prog * (width * 0.84),
+        hy: -20 + prog * (height + 40),
+        txOffset: 55,
+        tyOffset: -70,
       }),
       head: isDark ? [255, 255, 255] : [124, 58, 237],
       tail: isDark ? [167, 139, 250] : [217, 119, 6],
@@ -363,10 +478,10 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
     // Comet 4: Steep Upper-Left to Lower-Right
     {
       calc: (prog) => ({
-        hx: width * 0.15 + prog * (width * 0.75),
-        hy: -30 + prog * (height + 60),
-        txOffset: -55,
-        tyOffset: -75,
+        hx: width * 0.12 + prog * (width * 0.78),
+        hy: -20 + prog * (height + 40),
+        txOffset: -50,
+        tyOffset: -70,
       }),
       head: isDark ? [255, 255, 255] : [217, 119, 6],
       tail: isDark ? [245, 158, 11] : [2, 132, 199],
@@ -389,7 +504,6 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
       data[idx + 3] = 255;
     }
 
-    drawAmbientAuras(data, width, height, isDark);
     drawStarfield(data, width, height, progress, isDark);
 
     for (let c = 0; c < activeCount; c++) {
@@ -402,9 +516,9 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
 
       // Trailing sparks
       for (let s = 1; s <= 5; s++) {
-        const sx = hx + (txOffset / 36) * s * 6 + Math.sin(progress * 10 + s + c) * 4;
-        const sy = hy + (tyOffset / 36) * s * 6 + Math.cos(progress * 10 + s + c) * 4;
-        drawDot(data, width, height, sx, sy, 1.4, isDark ? [253, 230, 138] : [2, 132, 199], 0.80);
+        const sx = hx + (txOffset / 36) * s * 6 + Math.sin(progress * 10 + s + c) * 3;
+        const sy = hy + (tyOffset / 36) * s * 6 + Math.cos(progress * 10 + s + c) * 3;
+        drawDot(data, width, height, sx, sy, 1.3, isDark ? [253, 230, 138] : [2, 132, 199], 0.80);
       }
     }
 
@@ -420,11 +534,10 @@ function createCosmicSkyCanvas({ count = 2, width = 980, height = 740, isDark = 
 // ========================================================
 // 4. SEAMLESS STARFIELD BACKGROUND TILE (300x300)
 // ========================================================
-function createSeamlessStarsTile({ width = 300, height = 300, isDark = true, totalFrames = 14, delay = 100 }) {
+function createSeamlessStarsTile({ width = 300, height = 300, isDark = true, totalFrames = 20, delay = 50 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
-  // 36 stars with modulo wrapping so the tile repeats infinitely and seamlessly
   const tileStars = [];
   for (let i = 0; i < 36; i++) {
     tileStars.push({
@@ -502,7 +615,7 @@ for (const outDir of targetDirs) {
 
   console.log('Generating full-canvas and starfield assets in:', outDir);
 
-  // 1. Seamless Starfield Tiles (for 100% monitor coverage with no empty void)
+  // 1. Seamless Starfield Tiles
   console.log('  Generating seamless starfield tiles...');
   const starTileDark = createSeamlessStarsTile({ isDark: true });
   fs.writeFileSync(path.join(outDir, 'stars-tile-dark.gif'), starTileDark);
@@ -517,7 +630,6 @@ for (const outDir of targetDirs) {
     const l = createBlackHoleCanvas({ count: c, isDark: false });
     fs.writeFileSync(path.join(outDir, `blackhole-c${c}-light.gif`), l);
     if (c === 4) {
-      // Default alias
       fs.writeFileSync(path.join(outDir, 'blackhole-sky-dark.gif'), d);
       fs.writeFileSync(path.join(outDir, 'blackhole-sky-light.gif'), l);
     }
@@ -531,7 +643,6 @@ for (const outDir of targetDirs) {
     const l = createNebulaCanvas({ count: c, isDark: false });
     fs.writeFileSync(path.join(outDir, `nebula-c${c}-light.gif`), l);
     if (c === 4) {
-      // Default alias
       fs.writeFileSync(path.join(outDir, 'nebula-sky-dark.gif'), d);
       fs.writeFileSync(path.join(outDir, 'nebula-sky-light.gif'), l);
     }
@@ -545,7 +656,6 @@ for (const outDir of targetDirs) {
     const l = createCosmicSkyCanvas({ count: c, isDark: false });
     fs.writeFileSync(path.join(outDir, `cosmic-c${c}-light.gif`), l);
     if (c === 2) {
-      // Default alias
       fs.writeFileSync(path.join(outDir, 'cosmic-sky-dark.gif'), d);
       fs.writeFileSync(path.join(outDir, 'cosmic-sky-light.gif'), l);
     }
