@@ -379,13 +379,15 @@ function buildSanctuaryEmailHtml({
   const assetBaseUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets';
   const logoUrl = `${assetBaseUrl}/icon-192.png`;
 
-  let skyGifName = isDark ? 'cosmic-sky-dark.gif' : 'cosmic-sky-light.gif';
-  if (finalAnimationType === 'nebula') {
-    skyGifName = isDark ? 'nebula-sky-dark.gif' : 'nebula-sky-light.gif';
-  } else if (finalAnimationType === 'blackhole') {
-    skyGifName = isDark ? 'blackhole-sky-dark.gif' : 'blackhole-sky-light.gif';
-  }
+  // Celestial asset selection reflecting the exact slider count (1 to 4), theme, and animation type
+  const count = Math.min(Math.max(finalCometCount !== undefined ? parseInt(finalCometCount, 10) : 2, 1), 4);
+  let prefix = 'cosmic';
+  if (finalAnimationType === 'nebula') prefix = 'nebula';
+  if (finalAnimationType === 'blackhole') prefix = 'blackhole';
 
+  const skyGifName = `${prefix}-c${count}-${isDark ? 'dark' : 'light'}.gif`;
+  const starTileName = `stars-tile-${isDark ? 'dark' : 'light'}.gif`;
+  const starTileUrl = animated ? `${assetBaseUrl}/${starTileName}` : '';
   const canvasGifUrl = animated ? `${assetBaseUrl}/${skyGifName}` : '';
 
   // Atmospheric background colors: rich cosmic void in dark mode, radiant celestial twilight in light mode
@@ -451,110 +453,119 @@ function buildSanctuaryEmailHtml({
   <title>${subject}</title>
   <style>
     @media only screen and (max-width: 600px) {
-      .main-table { padding: 16px 8px !important; }
+      .main-table { padding: 12px 6px !important; }
       .email-card { width: 95% !important; max-width: 95% !important; border-radius: 18px !important; }
       .email-body { padding: 10px 18px 24px 18px !important; }
       .pin-number { font-size: 22px !important; letter-spacing: 5px !important; }
     }
   </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
-  <!-- Outer Atmospheric Seamless Full-Canvas Starfield Container (Non-repeating, centered celestial backdrop matching preview) -->
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center top;` : ''}width:100%;min-height:100vh;padding:32px 14px 44px 14px;margin:0;border-collapse:collapse;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};${starTileUrl ? `background-image:url('${starTileUrl}');background-repeat:repeat;` : ''}font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
+  <!-- Outer Atmospheric Seamless Full-Canvas Starfield Container (100% monitor coverage with uniform twinkling stars) -->
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};${starTileUrl ? `background-image:url('${starTileUrl}');background-repeat:repeat;` : ''}width:100%;min-height:100vh;padding:20px 0 32px 0;margin:0;border-collapse:collapse;">
     <tr>
       <td align="center" valign="top" style="padding:0;">
 
-        <!-- Main Card Container (Identical to Flutter Preview: 420px max-width, 18px border radius) -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:420px;width:100%;background:${cardBg};background-color:${cardBg};border-radius:18px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;margin:0 auto;border-collapse:separate;">
-          
-          <!-- Top Accent Iridescent Bar -->
+        <!-- Centered Celestial Stage (980px wide canvas: celestial bodies prominently positioned in the open flanks outside the card) -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:980px;width:100%;${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center top;` : ''}margin:0 auto;border-collapse:collapse;">
           <tr>
-            <td style="height:4px;background-color:${primaryAccent};background:${accentGradient};border-radius:18px 18px 0 0;line-height:4px;font-size:4px;">&nbsp;</td>
-          </tr>
+            <td align="center" valign="top" style="padding:24px 12px 28px 12px;">
 
-          <!-- Header with Official Logo Badge (Centered, identical to Flutter preview) -->
-          <tr>
-            <td align="center" style="padding:24px 22px 12px 22px;">
-              <div style="width:52px;height:52px;border-radius:16px;background:radial-gradient(circle at 35% 35%, ${isSuspension ? '#EF4444' : (isAnnouncement ? '#06B6D4' : (isAiSentinel ? '#8B5CF6' : '#10B981'))}, ${isSuspension ? '#7F1D1D' : (isAnnouncement ? '#0E7490' : (isAiSentinel ? '#4C1D95' : '#064E3B'))});box-shadow:0 0 18px ${primaryAccent}66;display:inline-block;box-sizing:border-box;margin:0 auto;">
-                <img src="${logoUrl}" width="52" height="52" alt="Sanctuary Logo" style="display:block;width:52px;height:52px;border-radius:16px;margin:0 auto;border:0;">
-              </div>
-              <div style="font-size:16px;font-weight:900;letter-spacing:2px;color:${textColor};text-transform:uppercase;margin-top:8px;">SANCTUARY</div>
-              <div style="font-size:9px;font-weight:bold;letter-spacing:1.5px;color:${primaryAccent};margin-top:4px;">
-                ${isAiSentinel ? '🛰️ AI SENTINEL · VIGILANCIA OFICIAL' : 'PLATFORM · DIGITAL SUITE'}
-              </div>
-            </td>
-          </tr>
-
-          <!-- Body Content Area -->
-          <tr>
-            <td class="email-body" style="padding:10px 24px 24px 24px;">
-              <h1 style="margin:0 0 12px 0;font-size:16px;font-weight:800;color:${textColor};text-align:center;">${finalTitle}</h1>
-              
-              ${bodyParagraphs}
-
-              ${code ? `
-              <!-- 6-digit PIN Box with Cosmic Glow (Identical to Flutter Preview) -->
-              <div style="background-color:${codeBoxBg};border:1px solid ${primaryAccent};border-radius:12px;padding:12px 16px;margin:16px 0;text-align:center;box-shadow:0 0 14px ${primaryAccent}26;">
-                <div style="font-size:9px;color:${subtextColor};letter-spacing:1.2px;text-transform:uppercase;font-weight:bold;">CÓDIGO DE VERIFICACIÓN</div>
-                <div class="pin-number" style="font-size:22px;font-weight:900;letter-spacing:6px;color:${primaryAccent};margin-top:4px;font-family:monospace;">${code}</div>
-              </div>` : ''}
-
-              ${isAiSentinel && sentinelNotices.length > 0 ? `
-              <!-- AI Sentinel Official Notices List (Identical to Flutter Preview) -->
-              <div style="margin:16px 0;">
-                ${sentinelNotices.map(n => `
-                <div style="background-color:${isDark ? '#0F172A' : '#F8FAFC'};border:1px solid ${isDark ? '#1E293B' : '#E2E8F0'};border-radius:12px;padding:12px;margin-bottom:10px;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-                  <div style="margin-bottom:6px;">
-                    <span style="background-color:${n.source === 'BOC' ? 'rgba(16,185,129,0.18)' : 'rgba(59,130,246,0.18)'};color:${n.source === 'BOC' ? '#10B981' : '#3B82F6'};font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid ${n.source === 'BOC' ? 'rgba(16,185,129,0.4)' : 'rgba(59,130,246,0.4)'};">${n.source}</span>
-                    <span style="background-color:rgba(139,92,246,0.18);color:#A78BFA;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;margin-left:6px;border:1px solid rgba(139,92,246,0.35);">📍 ${n.island || 'General'}</span>
-                    <span style="color:${subtextColor};font-size:9px;margin-left:8px;float:right;">${n.bulletinNumber || ''} · ${n.date || ''}</span>
-                  </div>
-                  <h3 style="margin:6px 0 4px 0;font-size:11.5px;font-weight:bold;color:${textColor};line-height:1.4;">${n.title}</h3>
-                  <p style="margin:0 0 6px 0;font-size:10px;color:${subtextColor};line-height:1.4;">${n.summary}</p>
-                  ${n.aiAnalysis ? `
-                  <div style="background-color:${isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)'};border-left:3px solid #8B5CF6;border-radius:6px;padding:6px 8px;margin:6px 0;color:${isDark ? '#A78BFA' : '#6D28D9'};font-size:9.5px;line-height:1.4;">
-                    ${n.aiAnalysis}
-                  </div>` : ''}
-                  <div style="margin-top:8px;text-align:right;">
-                    <a href="${n.url || '#'}" target="_blank" style="display:inline-block;background-color:${primaryAccent};color:#FFFFFF;text-decoration:none;font-size:10px;font-weight:bold;padding:5px 10px;border-radius:6px;">
-                      Ver Convocatoria Oficial →
-                    </a>
-                  </div>
-                </div>
-                `).join('')}
-              </div>` : ''}
-
-              ${extraInfo && !isAiSentinel ? `
-              <div style="background-color:${codeBoxBg};border:1px solid ${cardBorder};border-radius:12px;padding:12px;margin:14px 0;font-size:11.5px;line-height:1.45;color:${subtextColor};text-align:center;">
-                ${extraInfo}
-              </div>` : ''}
-
-              ${finalCta && ctaLink ? `
-              <!-- CTA Button (Identical to Flutter Preview) -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin:18px auto;border-collapse:separate;">
+              <!-- Main Card Container (Identical to Flutter Preview: 420px max-width, 18px border radius) -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:420px;width:100%;background:${cardBg};background-color:${cardBg};border-radius:18px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;margin:0 auto;border-collapse:separate;">
+                
+                <!-- Top Accent Iridescent Bar -->
                 <tr>
-                  <td align="center" bgcolor="${btnSolidColor}" style="border-radius:10px;background-color:${btnSolidColor} !important;background:${btnGradient};padding:0;text-align:center;box-shadow:0 4px 14px ${btnShadow};">
-                    <a href="${ctaLink}" target="_blank" style="display:inline-block;background-color:${btnSolidColor} !important;background:${btnGradient};color:#FFFFFF !important;font-size:12.5px;font-weight:bold;letter-spacing:0.3px;text-decoration:none;padding:12px 24px;border-radius:10px;border:1px solid ${btnBorderColor};text-align:center;box-sizing:border-box;">
-                      <span style="color:#FFFFFF !important;font-size:12.5px;font-weight:bold;letter-spacing:0.3px;text-decoration:none;display:inline-block;vertical-align:middle;">${finalCta}</span>
-                    </a>
+                  <td style="height:4px;background-color:${primaryAccent};background:${accentGradient};border-radius:18px 18px 0 0;line-height:4px;font-size:4px;">&nbsp;</td>
+                </tr>
+
+                <!-- Header with Official Logo Badge (Centered, identical to Flutter preview) -->
+                <tr>
+                  <td align="center" style="padding:24px 22px 12px 22px;">
+                    <div style="width:52px;height:52px;border-radius:16px;background:radial-gradient(circle at 35% 35%, ${isSuspension ? '#EF4444' : (isAnnouncement ? '#06B6D4' : (isAiSentinel ? '#8B5CF6' : '#10B981'))}, ${isSuspension ? '#7F1D1D' : (isAnnouncement ? '#0E7490' : (isAiSentinel ? '#4C1D95' : '#064E3B'))});box-shadow:0 0 18px ${primaryAccent}66;display:inline-block;box-sizing:border-box;margin:0 auto;">
+                      <img src="${logoUrl}" width="52" height="52" alt="Sanctuary Logo" style="display:block;width:52px;height:52px;border-radius:16px;margin:0 auto;border:0;">
+                    </div>
+                    <div style="font-size:16px;font-weight:900;letter-spacing:2px;color:${textColor};text-transform:uppercase;margin-top:8px;">SANCTUARY</div>
+                    <div style="font-size:9px;font-weight:bold;letter-spacing:1.5px;color:${primaryAccent};margin-top:4px;">
+                      ${isAiSentinel ? '🛰️ AI SENTINEL · VIGILANCIA OFICIAL' : 'PLATFORM · DIGITAL SUITE'}
+                    </div>
                   </td>
                 </tr>
-              </table>` : ''}
 
-              ${finalFooter ? `
-              <!-- Security / Verification Note -->
-              <p style="margin:16px 0 0 0;font-size:9.5px;line-height:1.4;color:${subtextColor};text-align:center;">
-                ${finalFooter.replace(/\n/g, '<br>')}
-              </p>` : ''}
-            </td>
-          </tr>
+                <!-- Body Content Area -->
+                <tr>
+                  <td class="email-body" style="padding:10px 24px 24px 24px;">
+                    <h1 style="margin:0 0 12px 0;font-size:16px;font-weight:800;color:${textColor};text-align:center;">${finalTitle}</h1>
+                    
+                    ${bodyParagraphs}
 
-          <!-- Cosmic Footer Section (Single line signature matching Flutter Preview) -->
-          <tr>
-            <td style="padding:12px 16px;background-color:${footerBg};border-top:1px solid ${footerBorder};text-align:center;border-radius:0 0 18px 18px;">
-              <p style="margin:0;font-size:9px;color:${subtextColor};line-height:1.4;">
-                Sanctuary Suite © 2026 · Diseñado con precisión cósmica
-              </p>
+                    ${code ? `
+                    <!-- 6-digit PIN Box with Cosmic Glow (Identical to Flutter Preview) -->
+                    <div style="background-color:${codeBoxBg};border:1px solid ${primaryAccent};border-radius:12px;padding:12px 16px;margin:16px 0;text-align:center;box-shadow:0 0 14px ${primaryAccent}26;">
+                      <div style="font-size:9px;color:${subtextColor};letter-spacing:1.2px;text-transform:uppercase;font-weight:bold;">CÓDIGO DE VERIFICACIÓN</div>
+                      <div class="pin-number" style="font-size:22px;font-weight:900;letter-spacing:6px;color:${primaryAccent};margin-top:4px;font-family:monospace;">${code}</div>
+                    </div>` : ''}
+
+                    ${isAiSentinel && sentinelNotices.length > 0 ? `
+                    <!-- AI Sentinel Official Notices List (Identical to Flutter Preview) -->
+                    <div style="margin:16px 0;">
+                      ${sentinelNotices.map(n => `
+                      <div style="background-color:${isDark ? '#0F172A' : '#F8FAFC'};border:1px solid ${isDark ? '#1E293B' : '#E2E8F0'};border-radius:12px;padding:12px;margin-bottom:10px;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+                        <div style="margin-bottom:6px;">
+                          <span style="background-color:${n.source === 'BOC' ? 'rgba(16,185,129,0.18)' : 'rgba(59,130,246,0.18)'};color:${n.source === 'BOC' ? '#10B981' : '#3B82F6'};font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid ${n.source === 'BOC' ? 'rgba(16,185,129,0.4)' : 'rgba(59,130,246,0.4)'};">${n.source}</span>
+                          <span style="background-color:rgba(139,92,246,0.18);color:#A78BFA;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;margin-left:6px;border:1px solid rgba(139,92,246,0.35);">📍 ${n.island || 'General'}</span>
+                          <span style="color:${subtextColor};font-size:9px;margin-left:8px;float:right;">${n.bulletinNumber || ''} · ${n.date || ''}</span>
+                        </div>
+                        <h3 style="margin:6px 0 4px 0;font-size:11.5px;font-weight:bold;color:${textColor};line-height:1.4;">${n.title}</h3>
+                        <p style="margin:0 0 6px 0;font-size:10px;color:${subtextColor};line-height:1.4;">${n.summary}</p>
+                        ${n.aiAnalysis ? `
+                        <div style="background-color:${isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)'};border-left:3px solid #8B5CF6;border-radius:6px;padding:6px 8px;margin:6px 0;color:${isDark ? '#A78BFA' : '#6D28D9'};font-size:9.5px;line-height:1.4;">
+                          ${n.aiAnalysis}
+                        </div>` : ''}
+                        <div style="margin-top:8px;text-align:right;">
+                          <a href="${n.url || '#'}" target="_blank" style="display:inline-block;background-color:${primaryAccent};color:#FFFFFF;text-decoration:none;font-size:10px;font-weight:bold;padding:5px 10px;border-radius:6px;">
+                            Ver Convocatoria Oficial →
+                          </a>
+                        </div>
+                      </div>
+                      `).join('')}
+                    </div>` : ''}
+
+                    ${extraInfo && !isAiSentinel ? `
+                    <div style="background-color:${codeBoxBg};border:1px solid ${cardBorder};border-radius:12px;padding:12px;margin:14px 0;font-size:11.5px;line-height:1.45;color:${subtextColor};text-align:center;">
+                      ${extraInfo}
+                    </div>` : ''}
+
+                    ${finalCta && ctaLink ? `
+                    <!-- CTA Button (Identical to Flutter Preview) -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin:18px auto;border-collapse:separate;">
+                      <tr>
+                        <td align="center" bgcolor="${btnSolidColor}" style="border-radius:10px;background-color:${btnSolidColor} !important;background:${btnGradient};padding:0;text-align:center;box-shadow:0 4px 14px ${btnShadow};">
+                          <a href="${ctaLink}" target="_blank" style="display:inline-block;background-color:${btnSolidColor} !important;background:${btnGradient};color:#FFFFFF !important;font-size:12.5px;font-weight:bold;letter-spacing:0.3px;text-decoration:none;padding:12px 24px;border-radius:10px;border:1px solid ${btnBorderColor};text-align:center;box-sizing:border-box;">
+                            <span style="color:#FFFFFF !important;font-size:12.5px;font-weight:bold;letter-spacing:0.3px;text-decoration:none;display:inline-block;vertical-align:middle;">${finalCta}</span>
+                          </a>
+                        </td>
+                      </tr>
+                    </table>` : ''}
+
+                    ${finalFooter ? `
+                    <!-- Security / Verification Note -->
+                    <p style="margin:16px 0 0 0;font-size:9.5px;line-height:1.4;color:${subtextColor};text-align:center;">
+                      ${finalFooter.replace(/\n/g, '<br>')}
+                    </p>` : ''}
+                  </td>
+                </tr>
+
+                <!-- Cosmic Footer Section (Single line signature matching Flutter Preview) -->
+                <tr>
+                  <td style="padding:12px 16px;background-color:${footerBg};border-top:1px solid ${footerBorder};text-align:center;border-radius:0 0 18px 18px;">
+                    <p style="margin:0;font-size:9px;color:${subtextColor};line-height:1.4;">
+                      Sanctuary Suite © 2026 · Diseñado con precisión cósmica
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
             </td>
           </tr>
         </table>
