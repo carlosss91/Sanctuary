@@ -469,6 +469,14 @@ class _HubScreenState extends State<HubScreen> {
                 widget.onOpenPdfSigner?.call();
               } else if (itemKey == 'Prezi2Pdf') {
                 widget.onOpenPreziDownloader?.call();
+              } else if (itemKey == 'AiSentinel') {
+                AiSentinelDialog.show(
+                  context,
+                  apiService: widget.apiService,
+                  currentUser: _currentUser,
+                  onConfigSaved: () => setState(() {}),
+                  onTriggerScan: () => setState(() {}),
+                );
               } else if (itemKey == 'AdminPanel' || itemKey == 'Ajustes') {
                 widget.onOpenAdminPanel?.call();
               }
@@ -974,6 +982,22 @@ class _HubScreenState extends State<HubScreen> {
                                 },
                               ),
                               _buildIPhoneAppIcon(
+                                title: 'AI Sentinel',
+                                subtitle: 'BOC · BOE · GobCan',
+                                icon: Icons.radar_rounded,
+                                gradient: const [Color(0xFF059669), Color(0xFF0D9488)],
+                                badge: 'IA Live',
+                                onTap: () {
+                                  AiSentinelDialog.show(
+                                    context,
+                                    apiService: widget.apiService,
+                                    currentUser: _currentUser,
+                                    onConfigSaved: () => setState(() {}),
+                                    onTriggerScan: () => setState(() {}),
+                                  );
+                                },
+                              ),
+                              _buildIPhoneAppIcon(
                                 title: 'Alumnos',
                                 subtitle: 'Gestor Docente',
                                 icon: Icons.school_rounded,
@@ -1009,22 +1033,6 @@ class _HubScreenState extends State<HubScreen> {
                                   } else {
                                     _showDocsDialog();
                                   }
-                                },
-                              ),
-                              _buildIPhoneAppIcon(
-                                title: 'AI Sentinel',
-                                subtitle: 'BOC · BOE · GobCan',
-                                icon: Icons.radar_rounded,
-                                gradient: const [Color(0xFF059669), Color(0xFF0D9488)],
-                                badge: 'IA Live',
-                                onTap: () {
-                                  AiSentinelDialog.show(
-                                    context,
-                                    apiService: widget.apiService,
-                                    currentUser: _currentUser,
-                                    onConfigSaved: () => setState(() {}),
-                                    onTriggerScan: () => setState(() {}),
-                                  );
                                 },
                               ),
                             ],

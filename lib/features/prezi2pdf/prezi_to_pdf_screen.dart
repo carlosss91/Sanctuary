@@ -1537,113 +1537,130 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
   }
 
   Widget _buildHeroBanner(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(26),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1E1B4B).withOpacity(0.8), const Color(0xFF0F172A).withOpacity(0.9)]
-              : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? const Color(0xFF312E81).withOpacity(0.6) : const Color(0xFFCBD5E1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFE11D48).withOpacity(0.08),
-            blurRadius: 28,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE11D48), Color(0xFF9333EA), Color(0xFF3B82F6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFE11D48).withOpacity(0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                )
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 650;
+        final iconWidget = Container(
+          width: isNarrow ? 48 : 58,
+          height: isNarrow ? 48 : 58,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE11D48), Color(0xFF9333EA), Color(0xFF3B82F6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 30),
+            borderRadius: BorderRadius.circular(isNarrow ? 14 : 18),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE11D48).withOpacity(0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              )
+            ],
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: isNarrow ? 26 : 30),
+        );
+
+        final contentWidget = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE11D48).withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'SANCTUARY DIGITAL SUITE',
-                        style: TextStyle(
-                          color: Color(0xFFE11D48),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE11D48).withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'SANCTUARY DIGITAL SUITE',
+                    style: TextStyle(
+                      color: Color(0xFFE11D48),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.1,
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'SLIDE DOWNLOADER PRO',
-                        style: TextStyle(
-                          color: AppTheme.emerald,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.emerald.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'SLIDE DOWNLOADER PRO',
+                    style: TextStyle(
+                      color: AppTheme.emerald,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Slide Downloader · Presentaciones a PDF & Videos',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Descarga presentaciones de Prezi, Google Slides, SlideShare, Speaker Deck o documentos PDF en archivos de alta nitidez con extracción opcional de videos.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Slide Downloader · Presentaciones a PDF & Videos',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontSize: isNarrow ? 18 : 22,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Descarga presentaciones de Prezi, Google Slides, SlideShare, Speaker Deck o documentos PDF en archivos de alta nitidez con extracción opcional de videos.',
+              style: TextStyle(
+                fontSize: isNarrow ? 12 : 13,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+              ),
+            ),
+          ],
+        );
+
+        return Container(
+          padding: EdgeInsets.all(isNarrow ? 16 : 26),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [const Color(0xFF1E1B4B).withOpacity(0.8), const Color(0xFF0F172A).withOpacity(0.9)]
+                  : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? const Color(0xFF312E81).withOpacity(0.6) : const Color(0xFFCBD5E1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE11D48).withOpacity(0.08),
+                blurRadius: 28,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
+          child: isNarrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    iconWidget,
+                    const SizedBox(height: 14),
+                    contentWidget,
+                  ],
+                )
+              : Row(
+                  children: [
+                    iconWidget,
+                    const SizedBox(width: 18),
+                    Expanded(child: contentWidget),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -1669,13 +1686,16 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               const Text(
                 'ENLACE DE LA PRESENTACIÓN',
                 style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, letterSpacing: 1.1),
               ),
-              const Spacer(),
               // Badge de detección automática de plataforma
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1797,48 +1817,43 @@ class _PreziToPdfScreenState extends State<PreziToPdfScreen> {
 
           const SizedBox(height: 14),
 
-          // CHIPS DE PLATAFORMAS SOPORTADAS CON ENLACES DE EJEMPLO
-          Row(
+          // CHIPS DE PLATAFORMAS SOPORTADAS CON ENLACES DE EJEMPLO (debajo del título, aprovechando todo el ancho)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Plataformas compatibles:',
-                style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 11.5, color: Colors.grey, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      SlidePlatform.prezi,
-                      SlidePlatform.googleSlides,
-                      SlidePlatform.slideShare,
-                      SlidePlatform.speakerDeck,
-                      SlidePlatform.directPdf,
-                    ].map((platform) {
-                      final isSelected = _detectedPlatform == platform;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ActionChip(
-                          avatar: Icon(platform.iconData, size: 14, color: platform.brandColor),
-                          label: Text(
-                            platform.displayName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? platform.brandColor : null,
-                            ),
-                          ),
-                          backgroundColor: isSelected ? platform.brandColor.withOpacity(0.15) : null,
-                          side: BorderSide(
-                            color: isSelected ? platform.brandColor : Colors.grey.withOpacity(0.2),
-                          ),
-                          onPressed: () => _applySampleUrl(platform),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  SlidePlatform.prezi,
+                  SlidePlatform.googleSlides,
+                  SlidePlatform.slideShare,
+                  SlidePlatform.speakerDeck,
+                  SlidePlatform.directPdf,
+                ].map((platform) {
+                  final isSelected = _detectedPlatform == platform;
+                  return ActionChip(
+                    avatar: Icon(platform.iconData, size: 14, color: platform.brandColor),
+                    label: Text(
+                      platform.displayName,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? platform.brandColor : null,
+                      ),
+                    ),
+                    backgroundColor: isSelected ? platform.brandColor.withOpacity(0.15) : null,
+                    side: BorderSide(
+                      color: isSelected ? platform.brandColor : Colors.grey.withOpacity(0.2),
+                    ),
+                    onPressed: () => _applySampleUrl(platform),
+                  );
+                }).toList(),
               ),
             ],
           ),

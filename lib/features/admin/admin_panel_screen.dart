@@ -862,7 +862,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       alignment: Alignment.center,
       child: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 880),
+          constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 1580),
           padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF0F172A).withOpacity(0.92) : Colors.white.withOpacity(0.95),
@@ -886,11 +886,12 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 680 || isMobile;
+              final isNarrow = constraints.maxWidth < 720 || isMobile;
               return TabBar(
                 controller: _tabController,
                 isScrollable: false,
                 tabAlignment: TabAlignment.fill,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
@@ -919,9 +920,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.manage_accounts_rounded, size: 17),
-                              SizedBox(width: 8),
-                              Text('Usuarios y Roles'),
+                              Icon(Icons.manage_accounts_rounded, size: 16),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Usuarios y Roles', maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                           ),
                   ),
@@ -936,9 +939,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.auto_awesome, size: 17),
-                              SizedBox(width: 8),
-                              Text('Plantillas de Correo'),
+                              Icon(Icons.auto_awesome, size: 16),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Plantillas de Correo', maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                           ),
                   ),
@@ -957,9 +962,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.forum_rounded, size: 17),
-                              const SizedBox(width: 8),
-                              Text('Chat (${_chatMessages.length})'),
+                              const Icon(Icons.forum_rounded, size: 16),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Chat (${_chatMessages.length})', maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                           ),
                   ),
@@ -974,9 +981,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.pie_chart_outline_rounded, size: 17),
-                              SizedBox(width: 8),
-                              Text('Almacenamiento'),
+                              Icon(Icons.pie_chart_outline_rounded, size: 16),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Almacenamiento', maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                           ),
                   ),
@@ -991,9 +1000,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.dashboard_customize_rounded, size: 17),
-                              SizedBox(width: 8),
-                              Text('Módulos'),
+                              Icon(Icons.dashboard_customize_rounded, size: 16),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Módulos', maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                           ),
                   ),
@@ -1008,9 +1019,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.dns_rounded, size: 17),
-                              SizedBox(width: 8),
-                              Text('Servidor y BD'),
+                              Icon(Icons.dns_rounded, size: 16),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Servidor y BD', maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
                             ],
                           ),
                   ),
@@ -1642,55 +1655,72 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   children: [
                     const Text('Acciones Rápidas del Administrador', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                    Row(
                       children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            final stopwatch = Stopwatch()..start();
-                            final healthy = await widget.apiService.checkHealth();
-                            stopwatch.stop();
-                            if (!mounted) return;
-                            await _loadAllAdminData();
-                            if (!mounted) return;
-                            final lat = _stats['db_latency_ms'] ?? stopwatch.elapsedMilliseconds;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(healthy ? Icons.verified : Icons.warning_amber_rounded, color: Colors.white, size: 20),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        healthy
-                                            ? '✔ Servidor y Base de Datos ($dbName): $lat ms de latencia (Conexión activa)'
-                                            : '⚠ El servidor no responde o está desconectado',
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final stopwatch = Stopwatch()..start();
+                              final healthy = await widget.apiService.checkHealth();
+                              stopwatch.stop();
+                              if (!mounted) return;
+                              await _loadAllAdminData();
+                              if (!mounted) return;
+                              final lat = _stats['db_latency_ms'] ?? stopwatch.elapsedMilliseconds;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(healthy ? Icons.verified : Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          healthy
+                                              ? '✔ Servidor y Base de Datos ($dbName): $lat ms de latencia (Conexión activa)'
+                                              : '⚠ El servidor no responde o está desconectado',
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  backgroundColor: healthy ? AppTheme.emerald : Colors.orange,
+                                  duration: const Duration(seconds: 4),
                                 ),
-                                backgroundColor: healthy ? AppTheme.emerald : Colors.orange,
-                                duration: const Duration(seconds: 4),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.network_check_rounded, size: 18),
-                          label: const Text('Comprobar Latencia'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                            foregroundColor: isDark ? Colors.white : Colors.black87,
-                            elevation: 0,
+                              );
+                            },
+                            icon: const Icon(Icons.network_check_rounded, size: 16),
+                            label: const Text(
+                              'Comprobar Latencia',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              foregroundColor: isDark ? Colors.white : Colors.black87,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
                           ),
                         ),
-                        ElevatedButton.icon(
-                          onPressed: _showCreateUserDialog,
-                          icon: const Icon(Icons.person_add_rounded, size: 18),
-                          label: const Text('Dar de Alta Usuario'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF06B6D4),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _showCreateUserDialog,
+                            icon: const Icon(Icons.person_add_rounded, size: 16),
+                            label: const Text(
+                              'Dar de Alta Usuario',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF06B6D4),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
                           ),
                         ),
                       ],
@@ -1715,54 +1745,66 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Icon and Title across full width
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Icon(Icons.mail_lock_rounded, color: Color(0xFF06B6D4), size: 22),
-                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF06B6D4).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.mail_lock_rounded, color: Color(0xFF06B6D4), size: 20),
+                        ),
+                        const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
                             'Diagnóstico de Servicio de Correo Electrónico (SMTP)',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: (_emailStatus?['isConfigured'] == true)
-                                ? AppTheme.emerald.withOpacity(0.18)
-                                : Colors.amber.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: (_emailStatus?['isConfigured'] == true)
-                                  ? AppTheme.emerald.withOpacity(0.4)
-                                  : Colors.amber.withOpacity(0.4),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                (_emailStatus?['isConfigured'] == true) ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-                                size: 14,
-                                color: (_emailStatus?['isConfigured'] == true) ? AppTheme.emerald : Colors.amber,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                (_emailStatus?['isConfigured'] == true)
-                                    ? 'SMTP Activo (${_emailStatus?['host'] ?? ''})'
-                                    : 'Modo Simulado (Logs)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: (_emailStatus?['isConfigured'] == true) ? AppTheme.emerald : Colors.amber,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+
+                    // SMTP Active / Simulated status badge underneath
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (_emailStatus?['isConfigured'] == true)
+                            ? AppTheme.emerald.withOpacity(0.18)
+                            : Colors.amber.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: (_emailStatus?['isConfigured'] == true)
+                              ? AppTheme.emerald.withOpacity(0.4)
+                              : Colors.amber.withOpacity(0.4),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            (_emailStatus?['isConfigured'] == true) ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                            size: 14,
+                            color: (_emailStatus?['isConfigured'] == true) ? AppTheme.emerald : Colors.amber,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            (_emailStatus?['isConfigured'] == true)
+                                ? 'SMTP Activo (${_emailStatus?['host'] ?? ''})'
+                                : 'Modo Simulado (Logs)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: (_emailStatus?['isConfigured'] == true) ? AppTheme.emerald : Colors.amber,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Text(
                       _emailStatus?['isConfigured'] == true
                           ? 'El servidor de correo real está configurado. Las activaciones de cuenta y recuperaciones de contraseña se envían a bandejas de entrada reales.'
@@ -1770,56 +1812,113 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _testEmailCtrl,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              hintText: 'Introduce un correo de destino (ej. tu@correo.com)',
-                              prefixIcon: const Icon(Icons.send_rounded, size: 18),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    LayoutBuilder(
+                      builder: (context, inputConstraints) {
+                        final isNarrow = inputConstraints.maxWidth < 440;
+                        if (isNarrow) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              TextField(
+                                controller: _testEmailCtrl,
+                                keyboardType: TextInputType.emailAddress,
+                                decoration: InputDecoration(
+                                  hintText: 'Introduce un correo de destino...',
+                                  prefixIcon: const Icon(Icons.send_rounded, size: 18),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              ElevatedButton.icon(
+                                onPressed: _isTestingEmail
+                                    ? null
+                                    : () async {
+                                        final dest = _testEmailCtrl.text.trim();
+                                        if (dest.isEmpty || !dest.contains('@')) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Escribe un correo válido para la prueba'), backgroundColor: Colors.orange),
+                                          );
+                                          return;
+                                        }
+                                        setState(() {
+                                          _isTestingEmail = true;
+                                          _emailTestResult = null;
+                                        });
+                                        final res = await widget.apiService.testSmtp(dest);
+                                        if (mounted) {
+                                          setState(() {
+                                            _isTestingEmail = false;
+                                            _emailTestResult = res['message'] ?? (res['success'] == true ? '✔ Correo enviado con éxito' : 'Error en envío');
+                                          });
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF06B6D4),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                icon: _isTestingEmail
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.mark_email_read_outlined, size: 18),
+                                label: const Text('Enviar Prueba'),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _testEmailCtrl,
+                                keyboardType: TextInputType.emailAddress,
+                                decoration: InputDecoration(
+                                  hintText: 'Introduce un correo de destino (ej. tu@correo.com)',
+                                  prefixIcon: const Icon(Icons.send_rounded, size: 18),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _isTestingEmail
-                              ? null
-                              : () async {
-                                  final dest = _testEmailCtrl.text.trim();
-                                  if (dest.isEmpty || !dest.contains('@')) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Escribe un correo válido para la prueba'), backgroundColor: Colors.orange),
-                                    );
-                                    return;
-                                  }
-                                  setState(() {
-                                    _isTestingEmail = true;
-                                    _emailTestResult = null;
-                                  });
-                                  final res = await widget.apiService.testSmtp(dest);
-                                  if (mounted) {
-                                    setState(() {
-                                      _isTestingEmail = false;
-                                      _emailTestResult = res['message'] ?? (res['success'] == true ? '✔ Correo enviado con éxito' : 'Error en envío');
-                                    });
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF06B6D4),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: _isTestingEmail
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.mark_email_read_outlined, size: 18),
-                          label: const Text('Enviar Prueba'),
-                        ),
-                      ],
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              onPressed: _isTestingEmail
+                                  ? null
+                                  : () async {
+                                      final dest = _testEmailCtrl.text.trim();
+                                      if (dest.isEmpty || !dest.contains('@')) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Escribe un correo válido para la prueba'), backgroundColor: Colors.orange),
+                                        );
+                                        return;
+                                      }
+                                      setState(() {
+                                        _isTestingEmail = true;
+                                        _emailTestResult = null;
+                                      });
+                                      final res = await widget.apiService.testSmtp(dest);
+                                      if (mounted) {
+                                        setState(() {
+                                          _isTestingEmail = false;
+                                          _emailTestResult = res['message'] ?? (res['success'] == true ? '✔ Correo enviado con éxito' : 'Error en envío');
+                                        });
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF06B6D4),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: _isTestingEmail
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Icon(Icons.mark_email_read_outlined, size: 18),
+                              label: const Text('Enviar Prueba'),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     if (_emailTestResult != null) ...[
                       const SizedBox(height: 12),
@@ -2535,21 +2634,20 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: color.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(cat, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color)),
-                                  ),
-                                ],
+                              Text(
+                                title,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                               const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(cat, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color)),
+                              ),
+                              const SizedBox(height: 6),
                               Text(desc, style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                             ],
                           ),
@@ -2732,12 +2830,59 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   Widget _buildInfoRow(String label, String value, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 540;
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                SelectableText(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            );
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Flexible(
+                child: SelectableText(
+                  value,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2779,108 +2924,206 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF06B6D4).withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.pie_chart_outline_rounded, color: Color(0xFF06B6D4), size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Almacenamiento Total y Cuotas de Usuario',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Capacidad del sistema, ocupación física en disco y desglose por cuenta',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    LayoutBuilder(
+                      builder: (context, headerConstraints) {
+                        final isMobileHeader = headerConstraints.maxWidth < 620;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF06B6D4).withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.pie_chart_outline_rounded, color: Color(0xFF06B6D4), size: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Almacenamiento Total y Cuotas de Usuario',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Capacidad del sistema, ocupación física en disco y desglose por cuenta',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!isMobileHeader) ...[
+                                  const SizedBox(width: 12),
+                                  OutlinedButton.icon(
+                                    onPressed: _isLoadingStorage
+                                        ? null
+                                        : () async {
+                                            setState(() => _isLoadingStorage = true);
+                                            final st = await widget.apiService.getStorageAnalytics();
+                                            if (mounted) {
+                                              setState(() {
+                                                _storageData = st;
+                                                _isLoadingStorage = false;
+                                              });
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('✔ Analíticas de almacenamiento actualizadas'),
+                                                  backgroundColor: AppTheme.emerald,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                    icon: _isLoadingStorage
+                                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                                        : const Icon(Icons.refresh, size: 14),
+                                    label: const Text('Actualizar'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF06B6D4),
+                                      side: const BorderSide(color: Color(0xFF06B6D4)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (isMobileHeader) ...[
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: OutlinedButton.icon(
+                                  onPressed: _isLoadingStorage
+                                      ? null
+                                      : () async {
+                                          setState(() => _isLoadingStorage = true);
+                                          final st = await widget.apiService.getStorageAnalytics();
+                                          if (mounted) {
+                                            setState(() {
+                                              _storageData = st;
+                                              _isLoadingStorage = false;
+                                            });
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('✔ Analíticas de almacenamiento actualizadas'),
+                                                backgroundColor: AppTheme.emerald,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                  icon: _isLoadingStorage
+                                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : const Icon(Icons.refresh, size: 14),
+                                  label: const Text('Actualizar'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF06B6D4),
+                                    side: const BorderSide(color: Color(0xFF06B6D4)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _isLoadingStorage
-                              ? null
-                              : () async {
-                                  setState(() => _isLoadingStorage = true);
-                                  final st = await widget.apiService.getStorageAnalytics();
-                                  if (mounted) {
-                                    setState(() {
-                                      _storageData = st;
-                                      _isLoadingStorage = false;
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('✔ Analíticas de almacenamiento actualizadas'),
-                                        backgroundColor: AppTheme.emerald,
-                                      ),
-                                    );
-                                  }
-                                },
-                          icon: _isLoadingStorage
-                              ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.refresh, size: 14),
-                          label: const Text('Actualizar'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF06B6D4),
-                            side: const BorderSide(color: Color(0xFF06B6D4)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
 
                     // Overall System Storage Progress Bar
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                    LayoutBuilder(
+                      builder: (context, storageConstraints) {
+                        final isNarrow = storageConstraints.maxWidth < 520;
+                        if (isNarrow) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Consumo Global de la Plataforma:',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                  Text(
+                                    '${summary['formattedTotal'] ?? '0 B'} / ${summary['formattedSystemQuota'] ?? '5 GB'}',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (systemPercent > 90
+                                          ? Colors.red
+                                          : (systemPercent > 70 ? Colors.amber : AppTheme.emerald))
+                                      .withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '$systemPercent% Utilizado',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: systemPercent > 90
+                                        ? Colors.redAccent
+                                        : (systemPercent > 70 ? Colors.amber : AppTheme.emerald),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Consumo Global de la Plataforma:',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Consumo Global de la Plataforma:',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${summary['formattedTotal'] ?? '0 B'} / ${summary['formattedSystemQuota'] ?? '5 GB'}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${summary['formattedTotal'] ?? '0 B'} / ${summary['formattedSystemQuota'] ?? '5 GB'}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: (systemPercent > 90
+                                        ? Colors.red
+                                        : (systemPercent > 70 ? Colors.amber : AppTheme.emerald))
+                                    .withOpacity(0.18),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$systemPercent% Utilizado',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: systemPercent > 90
+                                      ? Colors.redAccent
+                                      : (systemPercent > 70 ? Colors.amber : AppTheme.emerald),
+                                ),
+                              ),
                             ),
                           ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: (systemPercent > 90
-                                    ? Colors.red
-                                    : (systemPercent > 70 ? Colors.amber : AppTheme.emerald))
-                                .withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '$systemPercent% Utilizado',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: systemPercent > 90
-                                  ? Colors.redAccent
-                                  : (systemPercent > 70 ? Colors.amber : AppTheme.emerald),
-                            ),
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 8),
                     ClipRRect(

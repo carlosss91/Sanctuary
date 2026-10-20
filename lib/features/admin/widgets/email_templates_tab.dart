@@ -40,6 +40,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
 
   String _currentTheme = 'dark'; // 'dark' or 'light'
   bool _currentAnimated = true;
+  String _currentAnimationType = 'comets'; // 'comets', 'nebula', 'blackhole', 'fixed'
   int _currentCometCount = 1; // 0 = off, 1 = subtle/recommended, 2 = balanced, 3 = dynamic
   int _currentCometFrequency = 1; // 1 = relaxed/calm, 2 = balanced, 3 = fast
   String _previewMode = 'canvas'; // 'canvas' or 'gif'
@@ -86,7 +87,14 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _ctaTextCtrl.text = t['ctaText']?.toString() ?? '';
     _footerCtrl.text = t['footerNote']?.toString() ?? '';
     _currentTheme = t['theme']?.toString() == 'light' ? 'light' : 'dark';
-    _currentAnimated = t['animated'] != false;
+    final animType = t['animationType']?.toString();
+    if (animType != null && animType.isNotEmpty) {
+      _currentAnimationType = animType;
+      _currentAnimated = animType != 'fixed';
+    } else {
+      _currentAnimated = t['animated'] != false;
+      _currentAnimationType = _currentAnimated ? 'comets' : 'fixed';
+    }
     _currentCometCount = (t['cometCount'] as num?)?.toInt() ?? 1;
     _currentCometFrequency = (t['cometFrequency'] as num?)?.toInt() ?? 1;
   }
@@ -101,7 +109,8 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     _templates[_selectedTemplate]['ctaText'] = _ctaTextCtrl.text;
     _templates[_selectedTemplate]['footerNote'] = _footerCtrl.text;
     _templates[_selectedTemplate]['theme'] = _currentTheme;
-    _templates[_selectedTemplate]['animated'] = _currentAnimated;
+    _templates[_selectedTemplate]['animated'] = _currentAnimationType != 'fixed';
+    _templates[_selectedTemplate]['animationType'] = _currentAnimationType;
     _templates[_selectedTemplate]['cometCount'] = _currentCometCount;
     _templates[_selectedTemplate]['cometFrequency'] = _currentCometFrequency;
     setState(() {});
@@ -157,6 +166,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       customFields: {
         'theme': _currentTheme,
         'animated': _currentAnimated,
+        'animationType': _currentAnimationType,
         'cometCount': _currentCometCount,
         'cometFrequency': _currentCometFrequency,
         'subject': _subjectCtrl.text,
@@ -265,81 +275,45 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 
   Widget _buildHeaderBanner(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 680;
+
+        final logoWidget = Container(
+          width: isNarrow ? 46 : 52,
+          height: isNarrow ? 46 : 52,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4)]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF10B981).withOpacity(0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4)]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF10B981).withOpacity(0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(Icons.auto_awesome, color: Colors.white, size: 28),
-            ),
+          child: Center(
+            child: Icon(Icons.auto_awesome, color: Colors.white, size: isNarrow ? 24 : 28),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Diseño y Plantillas de Correo Cósmicas',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
-                      ),
-                      child: const Text(
-                        'Brevo SMTP Activo',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Configura la estética visual con estrellas y cometas, paleta clara/oscura, animación cósmica y textos según el tipo de comunicación.',
-                  style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
-                ),
-              ],
-            ),
+        );
+
+        final badgeWidget = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
           ),
-          const SizedBox(width: 12),
-          ElevatedButton.icon(
+          child: const Text(
+            'Brevo SMTP Activo',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+          ),
+        );
+
+        final saveBtn = SizedBox(
+          width: isNarrow ? double.infinity : null,
+          child: ElevatedButton.icon(
             onPressed: _isSaving ? null : _saveAllTemplates,
             icon: _isSaving
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -352,8 +326,106 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
-        ],
-      ),
+        );
+
+        if (isNarrow) {
+          return Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    logoWidget,
+                    badgeWidget,
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Diseño y Plantillas de Correo Cósmicas',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Configura la estética visual con estrellas y cometas, paleta clara/oscura, animación cósmica y textos según el tipo de comunicación.',
+                  style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 16),
+                saveBtn,
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              logoWidget,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Diseño y Plantillas de Correo Cósmicas',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        badgeWidget,
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Configura la estética visual con estrellas y cometas, paleta clara/oscura, animación cósmica y textos según el tipo de comunicación.',
+                      style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              saveBtn,
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -432,8 +504,11 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               Text(
                 'Personalización de Parámetros',
@@ -447,7 +522,12 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                 onPressed: _restoreDefaults,
                 icon: const Icon(Icons.restart_alt_rounded, size: 16),
                 label: const Text('Restablecer'),
-                style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF64748B),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ],
           ),
@@ -464,96 +544,118 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 1. PALETA DE COLOR (Texto siempre horizontal)
+                const Text(
+                  'Paleta de Color',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    // Theme Mode Selector
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Paleta de Color',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-                          ),
-                          const SizedBox(height: 6),
-                          SegmentedButton<String>(
-                            segments: const [
-                              ButtonSegment(value: 'dark', label: Text('Oscuro', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.dark_mode, size: 15)),
-                              ButtonSegment(value: 'light', label: Text('Claro', style: TextStyle(fontSize: 11.5)), icon: Icon(Icons.light_mode, size: 15)),
-                            ],
-                            selected: {_currentTheme},
-                            onSelectionChanged: (newVal) {
-                              setState(() {
-                                _currentTheme = newVal.first;
-                                _updateActiveTemplateState();
-                              });
-                            },
-                            style: ButtonStyle(
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ],
+                      child: _buildThemeOption(
+                        title: 'Modo Oscuro',
+                        icon: Icons.dark_mode_rounded,
+                        isSelected: _currentTheme == 'dark',
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() {
+                            _currentTheme = 'dark';
+                            _updateActiveTemplateState();
+                          });
+                        },
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    // Cosmic Animation Toggle
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Animación Cósmica',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-                          ),
-                          const SizedBox(height: 6),
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                _currentAnimated = !_currentAnimated;
-                                _updateActiveTemplateState();
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _currentAnimated
-                                    ? const Color(0xFF10B981).withOpacity(0.14)
-                                    : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _currentAnimated ? const Color(0xFF10B981).withOpacity(0.5) : Colors.transparent,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _currentAnimated ? Icons.stars_rounded : Icons.star_border_rounded,
-                                    size: 18,
-                                    color: _currentAnimated ? const Color(0xFF10B981) : Colors.grey,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      _currentAnimated ? 'Cometas & Estrellas' : 'Estrellas fijas',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: _currentAnimated ? const Color(0xFF10B981) : Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: _buildThemeOption(
+                        title: 'Modo Claro',
+                        icon: Icons.light_mode_rounded,
+                        isSelected: _currentTheme == 'light',
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() {
+                            _currentTheme = 'light';
+                            _updateActiveTemplateState();
+                          });
+                        },
                       ),
                     ),
                   ],
                 ),
-                if (_currentAnimated) ...[
+
+                const SizedBox(height: 16),
+                Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
+                const SizedBox(height: 14),
+
+                // 2. ESTILO DE ANIMACIÓN CÓSMICA
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Animación Cósmica',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _getAnimationTypeBadge(_currentAnimationType),
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                LayoutBuilder(
+                  builder: (context, animConstraints) {
+                    final isSmall = animConstraints.maxWidth < 420;
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildAnimationCard(
+                          keyId: 'comets',
+                          title: 'Cometas & Estrellas',
+                          icon: Icons.auto_awesome,
+                          accentColor: const Color(0xFFF59E0B),
+                          isDark: isDark,
+                          width: isSmall ? animConstraints.maxWidth : (animConstraints.maxWidth - 8) / 2,
+                        ),
+                        _buildAnimationCard(
+                          keyId: 'nebula',
+                          title: 'Nebulosa Cósmica',
+                          icon: Icons.grain_rounded,
+                          accentColor: const Color(0xFF8B5CF6),
+                          isDark: isDark,
+                          width: isSmall ? animConstraints.maxWidth : (animConstraints.maxWidth - 8) / 2,
+                        ),
+                        _buildAnimationCard(
+                          keyId: 'blackhole',
+                          title: 'Agujero Negro & Vórtice',
+                          icon: Icons.radio_button_checked_rounded,
+                          accentColor: const Color(0xFF06B6D4),
+                          isDark: isDark,
+                          width: isSmall ? animConstraints.maxWidth : (animConstraints.maxWidth - 8) / 2,
+                        ),
+                        _buildAnimationCard(
+                          keyId: 'fixed',
+                          title: 'Estrellas Fijas',
+                          icon: Icons.star_border_rounded,
+                          accentColor: const Color(0xFF94A3B8),
+                          isDark: isDark,
+                          width: isSmall ? animConstraints.maxWidth : (animConstraints.maxWidth - 8) / 2,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+
+                // Controls for Comet Animation
+                if (_currentAnimationType == 'comets') ...[
                   const SizedBox(height: 14),
                   Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
                   const SizedBox(height: 12),
@@ -598,7 +700,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                       trackHeight: 3,
                     ),
                     child: Slider(
-                      value: _currentCometCount.toDouble(),
+                      value: _currentCometCount.toDouble().clamp(0.0, 4.0),
                       min: 0,
                       max: 4,
                       divisions: 4,
@@ -653,7 +755,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                       trackHeight: 3,
                     ),
                     child: Slider(
-                      value: _currentCometFrequency.toDouble(),
+                      value: _currentCometFrequency.toDouble().clamp(1.0, 3.0),
                       min: 1,
                       max: 3,
                       divisions: 2,
@@ -664,6 +766,124 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                         });
                       },
                     ),
+                  ),
+                ] else if (_currentAnimationType == 'nebula') ...[
+                  const SizedBox(height: 14),
+                  Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.grain_rounded, size: 15, color: Color(0xFF8B5CF6)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Intensidad y Brillo de Nebulosa',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _currentCometCount == 0 ? 'Sutil' : (_currentCometCount <= 2 ? 'Etérea' : 'Intensa'),
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFA78BFA)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: const Color(0xFF8B5CF6),
+                      thumbColor: const Color(0xFF8B5CF6),
+                      overlayColor: const Color(0xFF8B5CF6).withOpacity(0.2),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: _currentCometCount.toDouble().clamp(0.0, 4.0),
+                      min: 0,
+                      max: 4,
+                      divisions: 4,
+                      onChanged: (val) {
+                        setState(() {
+                          _currentCometCount = val.round();
+                          _updateActiveTemplateState();
+                        });
+                      },
+                    ),
+                  ),
+                ] else if (_currentAnimationType == 'blackhole') ...[
+                  const SizedBox(height: 14),
+                  Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.radio_button_checked_rounded, size: 15, color: Color(0xFF06B6D4)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Velocidad de Giro del Vórtice',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06B6D4).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          _currentCometFrequency == 1 ? 'Órbita Lenta' : (_currentCometFrequency == 2 ? 'Equilibrada' : 'Vórtice Relativista'),
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: const Color(0xFF06B6D4),
+                      thumbColor: const Color(0xFF06B6D4),
+                      overlayColor: const Color(0xFF06B6D4).withOpacity(0.2),
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: _currentCometFrequency.toDouble().clamp(1.0, 3.0),
+                      min: 1,
+                      max: 3,
+                      divisions: 2,
+                      onChanged: (val) {
+                        setState(() {
+                          _currentCometFrequency = val.round();
+                          _updateActiveTemplateState();
+                        });
+                      },
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    '✨ Modo de bajo consumo: estrellas fijas con centelleo tranquilo sin movimiento de cometas o vórtices.',
+                    style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                   ),
                 ],
               ],
@@ -891,6 +1111,115 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 
   // --- COSMIC CONFIGURATION LABELS & HELPERS ---
+  String _getAnimationTypeBadge(String type) {
+    switch (type) {
+      case 'nebula':
+        return 'NEBULOSA ACTIVA';
+      case 'blackhole':
+        return 'AGUJERO NEGRO';
+      case 'fixed':
+        return 'ESTRELLAS FIJAS';
+      case 'comets':
+      default:
+        return 'COMETAS ACTIVOS';
+    }
+  }
+
+  Widget _buildThemeOption({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF10B981).withOpacity(0.16)
+              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF10B981) : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+            width: isSelected ? 1.6 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? const Color(0xFF10B981) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+            const SizedBox(width: 7),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? const Color(0xFF10B981) : (isDark ? Colors.white : const Color(0xFF1E293B)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimationCard({
+    required String keyId,
+    required String title,
+    required IconData icon,
+    required Color accentColor,
+    required bool isDark,
+    required double width,
+  }) {
+    final isSelected = _currentAnimationType == keyId;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _currentAnimationType = keyId;
+          _currentAnimated = keyId != 'fixed';
+          _updateActiveTemplateState();
+        });
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accentColor.withOpacity(isDark ? 0.20 : 0.12)
+              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? accentColor : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+            width: isSelected ? 1.6 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: isSelected ? accentColor : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected ? accentColor : (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155)),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, size: 14, color: accentColor),
+          ],
+        ),
+      ),
+    );
+  }
   String _getCometCountLabel(int count) {
     switch (count) {
       case 0:
@@ -1340,6 +1669,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                                   isSuspension: isSuspension,
                                   isAiSentinel: isAiSentinel,
                                   isAnimated: _currentAnimated,
+                                  animationType: _currentAnimationType,
                                   cometCount: _currentCometCount,
                                   cometFrequency: _currentCometFrequency,
                                 ),
@@ -1702,13 +2032,14 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 }
 
-// Custom Painter for the Interactive Cosmic Email Preview Canvas with Full-Canvas Starfield & Configurable Shooting Comets
+// Custom Painter for the Interactive Cosmic Email Preview Canvas with Full-Canvas Starfield & Configurable Space Animations
 class CosmicEmailPreviewPainter extends CustomPainter {
   final double progress;
   final bool isDark;
   final bool isSuspension;
   final bool isAiSentinel;
   final bool isAnimated;
+  final String animationType;
   final int cometCount;
   final int cometFrequency;
 
@@ -1718,6 +2049,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     required this.isSuspension,
     this.isAiSentinel = false,
     required this.isAnimated,
+    this.animationType = 'comets',
     this.cometCount = 1,
     this.cometFrequency = 1,
   });
@@ -1786,10 +2118,11 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     canvas.drawCircle(Offset(size.width * 0.50, size.height * 0.90), 160, aura3Paint);
 
     // 2. Dense Celestial Starfield Across the Whole Canvas
+    final bool enableTwinkle = isAnimated && animationType != 'fixed';
     for (int i = 0; i < _denseStars.length; i++) {
       final p = _denseStars[i];
       final pos = Offset(p.dx * size.width, p.dy * size.height);
-      final double twinkle = isAnimated
+      final double twinkle = enableTwinkle
           ? (0.35 + 0.65 * math.sin(progress * math.pi * 2 + i * 1.35).abs())
           : 0.85;
 
@@ -1819,7 +2152,215 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       canvas.drawCircle(pos, radius, starPaint);
     }
 
-    // 3. Dynamic Shooting Comets (Respecting cometCount & cometFrequency)
+    // 3. Dynamic Space Animations based on animationType
+    if (animationType == 'nebula') {
+      _drawNebula(canvas, size);
+    } else if (animationType == 'blackhole') {
+      _drawBlackHole(canvas, size);
+    } else if (animationType == 'comets') {
+      _drawComets(canvas, size);
+    }
+    // 'fixed': Serene fixed celestial starfield without motion trails
+  }
+
+  // --- NEBULA COSMICA: Organic drifting interstellar clouds & stardust ---
+  void _drawNebula(Canvas canvas, Size size) {
+    // Oscillating pulse dynamics
+    final pulse1 = isAnimated ? (1.0 + 0.15 * math.sin(progress * 2 * math.pi)) : 1.0;
+    final pulse2 = isAnimated ? (1.0 + 0.18 * math.cos(progress * 2 * math.pi * 1.2)) : 1.0;
+    final pulse3 = isAnimated ? (1.0 + 0.12 * math.sin(progress * 2 * math.pi * 0.8 + 1.0)) : 1.0;
+
+    // Nebula 1: Ethereal Violet / Magenta Gas Cloud (Upper Left Flank)
+    final c1 = Offset(size.width * 0.18, size.height * 0.22);
+    final r1 = (110.0 * pulse1).clamp(60.0, 200.0);
+    final paint1 = Paint()
+      ..shader = RadialGradient(
+        colors: isDark
+            ? [
+                const Color(0xFF8B5CF6).withOpacity(0.32),
+                const Color(0xFFEC4899).withOpacity(0.18),
+                const Color(0xFF3B82F6).withOpacity(0.06),
+                Colors.transparent,
+              ]
+            : [
+                const Color(0xFF8B5CF6).withOpacity(0.18),
+                const Color(0xFFEC4899).withOpacity(0.10),
+                Colors.transparent,
+              ],
+        stops: const [0.0, 0.45, 0.75, 1.0],
+      ).createShader(Rect.fromCircle(center: c1, radius: r1));
+    canvas.drawCircle(c1, r1, paint1);
+
+    // Nebula 2: Glowing Emerald / Cyan Interstellar Cloud (Lower Right Flank)
+    final c2 = Offset(size.width * 0.82, size.height * 0.76);
+    final r2 = (125.0 * pulse2).clamp(70.0, 220.0);
+    final paint2 = Paint()
+      ..shader = RadialGradient(
+        colors: isDark
+            ? [
+                const Color(0xFF10B981).withOpacity(0.30),
+                const Color(0xFF06B6D4).withOpacity(0.18),
+                const Color(0xFF0284C7).withOpacity(0.06),
+                Colors.transparent,
+              ]
+            : [
+                const Color(0xFF10B981).withOpacity(0.16),
+                const Color(0xFF06B6D4).withOpacity(0.10),
+                Colors.transparent,
+              ],
+        stops: const [0.0, 0.45, 0.75, 1.0],
+      ).createShader(Rect.fromCircle(center: c2, radius: r2));
+    canvas.drawCircle(c2, r2, paint2);
+
+    // Nebula 3: Deep Stellar Blue / Indigo Cloud (Top Center Horizon)
+    final c3 = Offset(size.width * 0.52, size.height * 0.10);
+    final r3 = (95.0 * pulse3).clamp(50.0, 180.0);
+    final paint3 = Paint()
+      ..shader = RadialGradient(
+        colors: isDark
+            ? [
+                const Color(0xFF3B82F6).withOpacity(0.28),
+                const Color(0xFF6366F1).withOpacity(0.15),
+                Colors.transparent,
+              ]
+            : [
+                const Color(0xFF3B82F6).withOpacity(0.14),
+                const Color(0xFF6366F1).withOpacity(0.08),
+                Colors.transparent,
+              ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromCircle(center: c3, radius: r3));
+    canvas.drawCircle(c3, r3, paint3);
+
+    // Floating Stardust Particles drifting along cosmic currents
+    const stardustCount = 14;
+    for (int i = 0; i < stardustCount; i++) {
+      final angle = (isAnimated ? (progress * 2 * math.pi) : 0.0) + (i * (2 * math.pi / stardustCount));
+      final orbitR = 30.0 + (i % 4) * 22.0;
+      final center = (i % 2 == 0) ? c1 : c2;
+      final pPos = Offset(
+        center.dx + math.cos(angle) * orbitR,
+        center.dy + math.sin(angle) * orbitR * 0.65,
+      );
+      final dustPaint = Paint()
+        ..color = (i % 3 == 0
+                ? const Color(0xFF38BDF8)
+                : (i % 3 == 1 ? const Color(0xFFF472B6) : const Color(0xFF34D399)))
+            .withOpacity((0.35 + 0.45 * math.sin(angle)).clamp(0.15, 0.85));
+      canvas.drawCircle(pPos, (i % 2 == 0) ? 1.6 : 1.1, dustPaint);
+    }
+  }
+
+  // --- AGUJERO NEGRO & VORTICE: Gravitational vortex, relativistic accretion disk & photon ring ---
+  void _drawBlackHole(Canvas canvas, Size size) {
+    final bhCenter = Offset(
+      size.width > 500 ? size.width * 0.82 : size.width * 0.76,
+      size.width > 500 ? size.height * 0.20 : 54.0,
+    );
+
+    // 1. Gravitational Lensing Outer Halo (Deep spacetime distortion glow)
+    const lensRadius = 85.0;
+    final lensPaint = Paint()
+      ..shader = RadialGradient(
+        colors: isDark
+            ? [
+                const Color(0xFF8B5CF6).withOpacity(0.35),
+                const Color(0xFF06B6D4).withOpacity(0.20),
+                const Color(0xFFF59E0B).withOpacity(0.10),
+                Colors.transparent,
+              ]
+            : [
+                const Color(0xFF6366F1).withOpacity(0.20),
+                const Color(0xFF0284C7).withOpacity(0.12),
+                Colors.transparent,
+              ],
+        stops: const [0.0, 0.45, 0.75, 1.0],
+      ).createShader(Rect.fromCircle(center: bhCenter, radius: lensRadius));
+    canvas.drawCircle(bhCenter, lensRadius, lensPaint);
+
+    // 2. Relativistic Rotating Accretion Disk (Slanted elliptical plasma disk)
+    canvas.save();
+    canvas.translate(bhCenter.dx, bhCenter.dy);
+    // Slant disk to 22 degrees and flatten into relativistic perspective
+    canvas.rotate(-0.35);
+    canvas.scale(1.0, 0.38);
+
+    // Spinning plasma rays / spiral accretion streams
+    final diskRot = isAnimated ? (progress * 2 * math.pi) : 0.0;
+    canvas.rotate(diskRot);
+
+    const diskRadius = 65.0;
+    final plasmaPaint = Paint()
+      ..shader = SweepGradient(
+        colors: const [
+          Color(0xFFF59E0B), // Radiant Amber
+          Color(0xFFDC2626), // Relativistic Crimson
+          Color(0xFF8B5CF6), // Purple redshift
+          Color(0xFF38BDF8), // Cyan blueshift
+          Color(0xFFF59E0B), // Radiant Amber
+        ],
+        stops: const [0.0, 0.28, 0.55, 0.82, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: diskRadius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+
+    canvas.drawCircle(Offset.zero, 36.0, plasmaPaint);
+
+    // Accretion Disk Highlights / Bright Relativistic Beaming
+    final highlightPaint = Paint()
+      ..color = Colors.white.withOpacity(0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5;
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset.zero, radius: 36.0),
+      0.0,
+      math.pi * 0.75,
+      false,
+      highlightPaint,
+    );
+
+    canvas.restore();
+
+    // 3. Photon Sphere Ring (Intense luminous razor-sharp aura)
+    final photonPaint = Paint()
+      ..color = const Color(0xFF38BDF8).withOpacity(0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4;
+    canvas.drawCircle(bhCenter, 18.0, photonPaint);
+
+    final photonGlow = Paint()
+      ..color = Colors.white.withOpacity(0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(bhCenter, 17.2, photonGlow);
+
+    // 4. The Event Horizon (Pitch-black absolute singularity)
+    final horizonPaint = Paint()
+      ..color = const Color(0xFF030712)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(bhCenter, 16.5, horizonPaint);
+
+    // 5. Infalling Matter Streams (Vortices spiraling in)
+    if (isAnimated) {
+      for (int i = 0; i < 6; i++) {
+        final streamProgress = (progress + (i / 6.0)) % 1.0;
+        final spiralAngle = diskRot + (i * (math.pi / 3.0)) + (streamProgress * 2 * math.pi);
+        final spiralDist = 18.0 + (1.0 - streamProgress) * 45.0;
+        final p = Offset(
+          bhCenter.dx + math.cos(spiralAngle) * spiralDist,
+          bhCenter.dy + math.sin(spiralAngle) * spiralDist * 0.42,
+        );
+        final particlePaint = Paint()
+          ..color = (i % 2 == 0 ? const Color(0xFFFDE68A) : const Color(0xFF67E8F9))
+              .withOpacity((streamProgress * 0.9).clamp(0.1, 0.9));
+        canvas.drawCircle(p, 1.8 * streamProgress + 0.6, particlePaint);
+      }
+    }
+  }
+
+  // --- COMETAS Y ESTRELLAS: Sweeping luminous shooting comets ---
+  void _drawComets(Canvas canvas, Size size) {
     if (isAnimated && cometCount > 0) {
       // Frequency multiplier: 1 = calm / long pause (0.75), 2 = balanced (1.0), 3 = dynamic (1.35)
       final freqMult = cometFrequency == 1 ? 0.75 : (cometFrequency == 2 ? 1.0 : 1.35);
@@ -1950,6 +2491,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         oldDelegate.isSuspension != isSuspension ||
         oldDelegate.isAiSentinel != isAiSentinel ||
         oldDelegate.isAnimated != isAnimated ||
+        oldDelegate.animationType != animationType ||
         oldDelegate.cometCount != cometCount ||
         oldDelegate.cometFrequency != cometFrequency;
   }

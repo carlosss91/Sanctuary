@@ -315,6 +315,16 @@ class _TrayectoriaSidebarState extends State<TrayectoriaSidebar> {
                 const SizedBox(height: 4),
 
                 _buildNavItem(
+                  icon: Icons.radar_outlined,
+                  title: 'AI Sentinel',
+                  itemKey: 'AiSentinel',
+                  isDark: isDark,
+                  isActive: widget.activeItem == 'AiSentinel',
+                  badge: 'IA',
+                ),
+                const SizedBox(height: 4),
+
+                _buildNavItem(
                   icon: Icons.school_outlined,
                   title: 'Gestión de Alumnos',
                   itemKey: 'Alumnos',

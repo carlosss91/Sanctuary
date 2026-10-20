@@ -217,7 +217,10 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              runSpacing: 4,
                               children: [
                                 const Text(
                                   'AI Sentinel',
@@ -227,7 +230,6 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                                     letterSpacing: -0.2,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
@@ -255,8 +257,7 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                                     ],
                                   ),
                                 ),
-                                if (unreadCount > 0) ...[
-                                  const SizedBox(width: 6),
+                                if (unreadCount > 0)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
@@ -268,7 +269,6 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                                       style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
                                     ),
                                   ),
-                                ],
                               ],
                             ),
                             const SizedBox(height: 2),
@@ -284,29 +284,48 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 6),
 
-                      // Scan Now Button
-                      ElevatedButton.icon(
-                        onPressed: _isScanning ? null : _runScan,
-                        icon: _isScanning
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.bolt_rounded, size: 16),
-                        label: Text(
-                          isNarrow ? (_isScanning ? '...' : 'Escanear') : (_isScanning ? 'Rastreando...' : 'Escanear Ahora'),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      // Scan Button: compact lightning-bolt button on mobile to save horizontal space
+                      if (isNarrow)
+                        IconButton(
+                          tooltip: _isScanning ? 'Rastreando boletines...' : 'Escanear Ahora',
+                          onPressed: _isScanning ? null : _runScan,
+                          icon: _isScanning
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.bolt_rounded, size: 20, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            padding: const EdgeInsets.all(9),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: _isScanning ? null : _runScan,
+                          icon: _isScanning
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.bolt_rounded, size: 16),
+                          label: Text(
+                            _isScanning ? 'Rastreando...' : 'Escanear Ahora',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: EdgeInsets.symmetric(horizontal: isNarrow ? 10 : 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
                       const SizedBox(width: 6),
 
                       // Settings Gear Button

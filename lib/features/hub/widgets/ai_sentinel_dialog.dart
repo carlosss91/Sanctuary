@@ -452,7 +452,7 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
 
                   // Footer Actions
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF0F172A) : Colors.white,
                       border: Border(
@@ -461,44 +461,99 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
                         ),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            widget.onTriggerScan();
-                          },
-                          icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                          label: const Text('Escanear Ahora', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.emerald,
-                            side: const BorderSide(color: AppTheme.emerald),
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Cancelar'),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _isSaving ? null : _save,
-                          icon: _isSaving
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.save_rounded, size: 16),
-                          label: Text(_isSaving ? 'Guardando...' : 'Guardar Ajustes'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ],
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 490;
+                        if (isNarrow) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  widget.onTriggerScan();
+                                },
+                                icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                                label: const Text('Escanear Ahora', style: TextStyle(fontSize: 11.5)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.emerald,
+                                  side: const BorderSide(color: AppTheme.emerald),
+                                  padding: const EdgeInsets.symmetric(vertical: 9),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: _isSaving ? null : _save,
+                                    icon: _isSaving
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.save_rounded, size: 16),
+                                    label: Text(_isSaving ? 'Guardando...' : 'Guardar Ajustes'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.emerald,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                widget.onTriggerScan();
+                              },
+                              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                              label: const Text('Escanear Ahora', style: TextStyle(fontSize: 12)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.emerald,
+                                side: const BorderSide(color: AppTheme.emerald),
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Cancelar'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _isSaving ? null : _save,
+                              icon: _isSaving
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.save_rounded, size: 16),
+                              label: Text(_isSaving ? 'Guardando...' : 'Guardar Ajustes'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.emerald,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -1041,10 +1096,13 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
         ),
         const SizedBox(height: 18),
 
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             const Text('Google Gemini API Key:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const Spacer(),
             TextButton.icon(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1092,37 +1150,49 @@ class _AiSentinelDialogState extends State<AiSentinelDialog> with SingleTickerPr
         const SizedBox(height: 16),
 
         // Model Selector Header
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 6,
           children: [
-            const Text('Modelo de IA (Gemini):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
-              ),
-              child: Text(
-                _isCustomModel
-                    ? (_customModelCtrl.text.isNotEmpty ? _customModelCtrl.text : 'Personalizado')
-                    : _selectedModel,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Modelo de IA (Gemini):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.emerald.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    _isCustomModel
+                        ? (_customModelCtrl.text.isNotEmpty ? _customModelCtrl.text : 'Personalizado')
+                        : _selectedModel,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                  ),
+                ),
+              ],
             ),
-            const Spacer(),
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.emerald,
+                side: BorderSide(color: AppTheme.emerald.withOpacity(0.5)),
+                backgroundColor: AppTheme.emerald.withOpacity(0.08),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: _isLoadingModels
                   ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.emerald))
                   : const Icon(Icons.sync_rounded, size: 14, color: AppTheme.emerald),
               label: Text(
-                _isLoadingModels ? 'Sincronizando...' : 'Sincronizar con mi cuenta',
-                style: const TextStyle(fontSize: 11, color: AppTheme.emerald),
+                _isLoadingModels ? 'Sincronizando...' : 'Sincronizar Modelos',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
               ),
               onPressed: _isLoadingModels ? null : _fetchModelsFromGoogle,
             ),
