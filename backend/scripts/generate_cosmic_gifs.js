@@ -14,7 +14,7 @@ function drawDot(data, width, height, cx, cy, radius, [r, g, b], alpha = 1.0) {
       const dist = Math.hypot(x - cx, y - cy);
       if (dist <= radius * 1.6) {
         const intensity = Math.max(0, Math.min(1, 1 - (dist / (radius * 1.6)))) * alpha;
-        if (intensity > 0.04) {
+        if (intensity > 0.03) {
           const idx = (y * width + x) * 4;
           data[idx] = Math.round(data[idx] * (1 - intensity) + r * intensity);
           data[idx + 1] = Math.round(data[idx + 1] * (1 - intensity) + g * intensity);
@@ -50,64 +50,132 @@ function drawNebulaGas(data, width, height, cx, cy, rx, ry, [r, g, b], maxAlpha 
 
 // Helper: draw luminous shooting comet with radiant tail
 function drawComet(data, width, height, hx, hy, tx, ty, headColor, tailColor, headRadius) {
-  const steps = 32;
+  const steps = 36;
   for (let s = 0; s <= steps; s++) {
     const t = s / steps;
     const px = hx * (1 - t) + tx * t;
     const py = hy * (1 - t) + ty * t;
-    const tailAlpha = (1 - t) * 0.88;
-    const radius = headRadius * (1 - t * 0.70);
+    const tailAlpha = (1 - t) * 0.92;
+    const radius = headRadius * (1 - t * 0.72);
     const cr = Math.round(headColor[0] * (1 - t) + tailColor[0] * t);
     const cg = Math.round(headColor[1] * (1 - t) + tailColor[1] * t);
     const cb = Math.round(headColor[2] * (1 - t) + tailColor[2] * t);
     drawDot(data, width, height, px, py, radius, [cr, cg, cb], tailAlpha);
   }
   // Glowing incandescent nucleus
-  drawDot(data, width, height, hx, hy, headRadius * 1.45, [255, 255, 255], 1.0);
+  drawDot(data, width, height, hx, hy, headRadius * 1.5, [255, 255, 255], 1.0);
+}
+
+// Helper: draw full relativistic black hole with accretion disk, event horizon & lensing
+function drawBlackHoleInstance(data, width, height, bhX, bhY, scale, progress, spinDir, isDark) {
+  const rScale = scale || 1.0;
+
+  // 1. Spacetime gravitational lensing well (especially critical in light mode for stark contrast)
+  if (!isDark) {
+    drawNebulaGas(data, width, height, bhX, bhY, 52 * rScale, 36 * rScale, [15, 23, 42], 0.75);
+    drawNebulaGas(data, width, height, bhX, bhY, 36 * rScale, 24 * rScale, [2, 6, 23], 0.85);
+  } else {
+    drawNebulaGas(data, width, height, bhX, bhY, 58 * rScale, 38 * rScale, [139, 92, 246], 0.32);
+    drawNebulaGas(data, width, height, bhX, bhY, 44 * rScale, 28 * rScale, [6, 182, 212], 0.28);
+  }
+
+  // 2. Relativistic rotating plasma accretion disk
+  const diskSteps = 54;
+  const rotBase = progress * Math.PI * 2 * spinDir;
+  for (let i = 0; i < diskSteps; i++) {
+    const theta = rotBase + (i * Math.PI * 2) / diskSteps;
+    const rx = (32 + Math.sin(theta * 2) * 4) * rScale;
+    const ry = (13 + Math.cos(theta * 2) * 2) * rScale;
+    const px = bhX + Math.cos(theta) * rx;
+    const py = bhY + Math.sin(theta) * ry;
+
+    const norm = (i / diskSteps);
+    let plasmaColor;
+    if (norm < 0.33) {
+      plasmaColor = isDark ? [245, 158, 11] : [217, 119, 6]; // Amber
+    } else if (norm < 0.66) {
+      plasmaColor = isDark ? [56, 189, 248] : [2, 132, 199]; // Cyan
+    } else {
+      plasmaColor = isDark ? [239, 68, 68] : [185, 28, 28]; // Crimson
+    }
+    drawDot(data, width, height, px, py, 2.4 * rScale, plasmaColor, 0.92);
+  }
+
+  // 3. Infalling matter streams spiraling into event horizon
+  for (let s = 0; s < 5; s++) {
+    const streamProg = (progress + s / 5.0) % 1.0;
+    const spiralAngle = rotBase * 1.4 + (s * Math.PI * 2) / 5.0 + streamProg * Math.PI * 2;
+    const dist = (10 + (1.0 - streamProg) * 26) * rScale;
+    const sx = bhX + Math.cos(spiralAngle) * dist;
+    const sy = bhY + Math.sin(spiralAngle) * dist * 0.42;
+    drawDot(data, width, height, sx, sy, (1.6 * streamProg + 0.5) * rScale, isDark ? [253, 230, 138] : [217, 119, 6], 0.95);
+  }
+
+  // 4. Luminous Photon Sphere Ring
+  for (let a = 0; a < 28; a++) {
+    const rad = (a * Math.PI * 2) / 28;
+    const px = bhX + Math.cos(rad) * (11 * rScale);
+    const py = bhY + Math.sin(rad) * (10 * rScale);
+    drawDot(data, width, height, px, py, 1.6 * rScale, isDark ? [56, 189, 248] : [2, 132, 199], 0.95);
+  }
+
+  // 5. Pitch-black Event Horizon core
+  const coreR = Math.round(9 * rScale);
+  for (let y = Math.max(0, Math.floor(bhY - coreR)); y <= Math.min(height - 1, Math.ceil(bhY + coreR)); y++) {
+    for (let x = Math.max(0, Math.floor(bhX - coreR)); x <= Math.min(width - 1, Math.ceil(bhX + coreR)); x++) {
+      if (Math.hypot(x - bhX, y - bhY) <= coreR) {
+        const idx = (y * width + x) * 4;
+        data[idx] = 3;
+        data[idx + 1] = 7;
+        data[idx + 2] = 18;
+        data[idx + 3] = 255;
+      }
+    }
+  }
 }
 
 // Shared celestial stars set (deterministic distribution)
 const sharedSkyStars = [
-  { x: 30, y: 40, r: 2.2, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.1 },
-  { x: 75, y: 90, r: 2.6, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 1.4 },
-  { x: 120, y: 35, r: 1.6, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 2.7 },
-  { x: 165, y: 110, r: 2.4, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 0.8 },
-  { x: 210, y: 45, r: 1.8, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 3.2 },
-  { x: 260, y: 80, r: 2.8, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 1.9 },
-  { x: 310, y: 30, r: 1.9, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 4.1 },
-  { x: 360, y: 105, r: 2.5, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 2.3 },
-  { x: 410, y: 50, r: 1.7, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 0.5 },
-  { x: 450, y: 95, r: 2.3, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 3.7 },
+  { x: 25, y: 35, r: 2.2, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.1 },
+  { x: 65, y: 90, r: 2.6, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 1.4 },
+  { x: 110, y: 35, r: 1.6, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 2.7 },
+  { x: 155, y: 110, r: 2.4, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 0.8 },
+  { x: 200, y: 45, r: 1.8, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 3.2 },
+  { x: 250, y: 80, r: 2.8, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 1.9 },
+  { x: 300, y: 30, r: 1.9, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 4.1 },
+  { x: 350, y: 105, r: 2.5, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 2.3 },
+  { x: 400, y: 50, r: 1.7, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 0.5 },
+  { x: 445, y: 95, r: 2.3, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 3.7 },
 
-  { x: 45, y: 160, r: 1.9, colorDark: [167, 139, 250], colorLight: [124, 58, 237], phase: 1.1 },
-  { x: 95, y: 210, r: 2.4, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 2.9 },
-  { x: 140, y: 175, r: 1.5, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.3 },
-  { x: 190, y: 230, r: 2.7, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 3.5 },
-  { x: 240, y: 165, r: 2.0, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 1.6 },
-  { x: 290, y: 220, r: 1.8, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 4.3 },
-  { x: 340, y: 170, r: 2.5, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 2.0 },
-  { x: 390, y: 225, r: 1.9, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.7 },
-  { x: 440, y: 180, r: 2.3, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 3.0 },
+  { x: 35, y: 160, r: 1.9, colorDark: [167, 139, 250], colorLight: [124, 58, 237], phase: 1.1 },
+  { x: 85, y: 210, r: 2.4, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 2.9 },
+  { x: 130, y: 175, r: 1.5, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.3 },
+  { x: 180, y: 230, r: 2.7, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 3.5 },
+  { x: 230, y: 165, r: 2.0, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 1.6 },
+  { x: 280, y: 220, r: 1.8, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 4.3 },
+  { x: 330, y: 170, r: 2.5, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 2.0 },
+  { x: 380, y: 225, r: 1.9, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.7 },
+  { x: 435, y: 180, r: 2.3, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 3.0 },
 
-  { x: 35, y: 280, r: 2.1, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 1.8 },
-  { x: 80, y: 340, r: 2.6, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 3.6 },
-  { x: 130, y: 295, r: 1.7, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 0.9 },
-  { x: 175, y: 350, r: 2.3, colorDark: [245, 158, 11], colorLight: [2, 132, 199], phase: 2.4 },
-  { x: 225, y: 300, r: 1.9, colorDark: [56, 189, 248], colorLight: [124, 58, 237], phase: 4.5 },
-  { x: 275, y: 360, r: 2.8, colorDark: [255, 255, 255], colorLight: [217, 119, 6], phase: 1.3 },
-  { x: 325, y: 305, r: 1.6, colorDark: [167, 139, 250], colorLight: [124, 58, 237], phase: 3.1 },
-  { x: 375, y: 355, r: 2.4, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 0.4 },
-  { x: 425, y: 310, r: 2.0, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 2.8 },
+  { x: 30, y: 280, r: 2.1, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 1.8 },
+  { x: 75, y: 340, r: 2.6, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 3.6 },
+  { x: 125, y: 295, r: 1.7, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 0.9 },
+  { x: 170, y: 350, r: 2.3, colorDark: [245, 158, 11], colorLight: [2, 132, 199], phase: 2.4 },
+  { x: 220, y: 300, r: 1.9, colorDark: [56, 189, 248], colorLight: [124, 58, 237], phase: 4.5 },
+  { x: 270, y: 360, r: 2.8, colorDark: [255, 255, 255], colorLight: [217, 119, 6], phase: 1.3 },
+  { x: 320, y: 305, r: 1.6, colorDark: [167, 139, 250], colorLight: [124, 58, 237], phase: 3.1 },
+  { x: 370, y: 355, r: 2.4, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 0.4 },
+  { x: 420, y: 310, r: 2.0, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 2.8 },
 
-  { x: 50, y: 410, r: 2.2, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 1.5 },
-  { x: 100, y: 450, r: 1.9, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 3.3 },
-  { x: 150, y: 415, r: 2.5, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 0.6 },
-  { x: 200, y: 455, r: 1.7, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 2.2 },
-  { x: 250, y: 420, r: 2.3, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 4.0 },
-  { x: 300, y: 450, r: 1.8, colorDark: [245, 158, 11], colorLight: [2, 132, 199], phase: 1.7 },
-  { x: 350, y: 415, r: 2.7, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 3.8 },
-  { x: 400, y: 455, r: 2.0, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 0.2 },
-  { x: 445, y: 420, r: 2.4, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 2.5 },
+  { x: 40, y: 410, r: 2.2, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 1.5 },
+  { x: 90, y: 450, r: 1.9, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 3.3 },
+  { x: 140, y: 415, r: 2.5, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 0.6 },
+  { x: 190, y: 455, r: 1.7, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 2.2 },
+  { x: 240, y: 420, r: 2.3, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 4.0 },
+  { x: 290, y: 450, r: 1.8, colorDark: [245, 158, 11], colorLight: [2, 132, 199], phase: 1.7 },
+  { x: 340, y: 415, r: 2.7, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 3.8 },
+  { x: 390, y: 455, r: 2.0, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 0.2 },
+  { x: 440, y: 420, r: 2.4, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 2.5 },
 ];
 
 const sharedBannerStars = [
@@ -123,32 +191,23 @@ const sharedBannerStars = [
   { x: 460, y: 30, r: 2.5, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 3.6 },
   { x: 505, y: 55, r: 2.2, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 1.9 },
   { x: 535, y: 25, r: 1.8, colorDark: [245, 158, 11], colorLight: [124, 58, 237], phase: 4.5 },
-  { x: 95, y: 70, r: 1.3, colorDark: [255, 255, 255], colorLight: [100, 116, 139], phase: 2.0 },
-  { x: 185, y: 50, r: 1.4, colorDark: [253, 230, 138], colorLight: [100, 116, 139], phase: 3.5 },
-  { x: 285, y: 72, r: 1.3, colorDark: [56, 189, 248], colorLight: [100, 116, 139], phase: 1.0 },
-  { x: 385, y: 48, r: 1.5, colorDark: [245, 158, 11], colorLight: [100, 116, 139], phase: 4.8 },
-  { x: 480, y: 68, r: 1.3, colorDark: [16, 185, 129], colorLight: [100, 116, 139], phase: 0.2 },
 ];
 
 const sharedSideStars = [
-  { x: 25, y: 25, r: 2.2, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.2 },
-  { x: 75, y: 55, r: 2.6, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 1.5 },
-  { x: 35, y: 85, r: 1.8, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 2.8 },
-  { x: 80, y: 120, r: 2.4, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 0.9 },
-  { x: 30, y: 155, r: 1.9, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 3.4 },
-  { x: 70, y: 190, r: 2.8, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 1.8 },
-  { x: 25, y: 225, r: 2.1, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 4.1 },
-  { x: 80, y: 260, r: 2.5, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 2.3 },
-  { x: 35, y: 295, r: 1.9, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 0.6 },
-  { x: 75, y: 330, r: 2.7, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 3.2 },
-  { x: 25, y: 365, r: 2.0, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 1.4 },
-  { x: 85, y: 400, r: 2.6, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 4.4 },
-  { x: 30, y: 435, r: 1.9, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 2.1 },
-  { x: 80, y: 470, r: 2.7, colorDark: [253, 230, 138], colorLight: [2, 132, 199], phase: 0.5 },
-  { x: 35, y: 505, r: 2.2, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 3.7 },
-  { x: 75, y: 540, r: 2.4, colorDark: [16, 185, 129], colorLight: [217, 119, 6], phase: 1.1 },
-  { x: 25, y: 575, r: 2.0, colorDark: [245, 158, 11], colorLight: [2, 132, 199], phase: 2.9 },
-  { x: 80, y: 610, r: 2.7, colorDark: [255, 255, 255], colorLight: [5, 150, 105], phase: 0.3 },
+  { x: 25, y: 35, r: 2.2, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 0.2 },
+  { x: 75, y: 70, r: 2.6, colorDark: [255, 255, 255], colorLight: [2, 132, 199], phase: 1.5 },
+  { x: 35, y: 110, r: 1.8, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 2.8 },
+  { x: 80, y: 150, r: 2.4, colorDark: [253, 230, 138], colorLight: [217, 119, 6], phase: 0.9 },
+  { x: 30, y: 220, r: 1.9, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 3.4 },
+  { x: 70, y: 260, r: 2.8, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 1.8 },
+  { x: 25, y: 300, r: 2.1, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 4.1 },
+  { x: 80, y: 340, r: 2.5, colorDark: [56, 189, 248], colorLight: [2, 132, 199], phase: 2.3 },
+  { x: 35, y: 380, r: 1.9, colorDark: [253, 230, 138], colorLight: [5, 150, 105], phase: 0.6 },
+  { x: 75, y: 420, r: 2.7, colorDark: [255, 255, 255], colorLight: [124, 58, 237], phase: 3.2 },
+  { x: 25, y: 510, r: 2.0, colorDark: [16, 185, 129], colorLight: [2, 132, 199], phase: 1.4 },
+  { x: 85, y: 550, r: 2.6, colorDark: [245, 158, 11], colorLight: [217, 119, 6], phase: 4.4 },
+  { x: 30, y: 590, r: 1.9, colorDark: [56, 189, 248], colorLight: [5, 150, 105], phase: 2.1 },
+  { x: 80, y: 625, r: 2.7, colorDark: [253, 230, 138], colorLight: [2, 132, 199], phase: 0.5 },
 ];
 
 // ==========================================
@@ -170,14 +229,40 @@ function createCosmicSkyTile({ width = 480, height = 480, isDark = true, totalFr
       data[idx + 3] = 255;
     }
 
+    // Stars twinkling across the entire sky
     for (const s of sharedSkyStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    const palette = quantize(data, 32);
+    // Shooting comets flanking the left and right sides so they don't get hidden behind the card!
+    // Left flank comet:
+    if (progress < 0.60) {
+      const t = progress / 0.60;
+      const hx = -20 + t * 150;
+      const hy = 50 + t * 140;
+      const tx = hx - 70;
+      const ty = hy - 45;
+      const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
+      const cometTail = isDark ? [56, 189, 248] : [217, 119, 6];
+      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.2);
+    }
+
+    // Right flank comet:
+    if (progress >= 0.40) {
+      const t = (progress - 0.40) / 0.60;
+      const hx = 350 + t * 150;
+      const hy = 240 + t * 140;
+      const tx = hx - 70;
+      const ty = hy - 45;
+      const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
+      const cometTail = isDark ? [16, 185, 129] : [5, 150, 105];
+      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.0);
+    }
+
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -205,7 +290,7 @@ function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFram
     for (const s of sharedBannerStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
@@ -213,15 +298,15 @@ function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFram
     if (cometActive) {
       const t = progress / 0.65;
       const hx = -40 + t * (width + 120);
-      const hy = 12 + t * 48;
+      const hy = 14 + t * 44;
       const tx = hx - 90;
-      const ty = hy - 32;
+      const ty = hy - 30;
       const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
-      const cometTail = isDark ? [56, 189, 248] : [5, 150, 105];
-      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.2);
+      const cometTail = isDark ? [56, 189, 248] : [217, 119, 6];
+      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.4);
     }
 
-    const palette = quantize(data, 40);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -230,7 +315,7 @@ function createCosmicBanner({ width = 560, height = 90, isDark = true, totalFram
   return Buffer.from(gif.bytes());
 }
 
-function createSideStars({ width = 110, height = 650, isDark = true, totalFrames = 24, delay = 100 }) {
+function createCosmicSide({ width = 110, height = 650, isDark = true, totalFrames = 24, delay = 100 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
 
@@ -246,14 +331,39 @@ function createSideStars({ width = 110, height = 650, isDark = true, totalFrames
       data[idx + 3] = 255;
     }
 
+    // Twinkling stars flanking the side column
     for (const s of sharedSideStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    const palette = quantize(data, 32);
+    // 1. Upper shooting comet streaming down the lateral wing
+    if (progress < 0.60) {
+      const t = progress / 0.60;
+      const hx = -15 + t * 140;
+      const hy = 25 + t * 240;
+      const tx = hx - 55;
+      const ty = hy - 85;
+      const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
+      const cometTail = isDark ? [56, 189, 248] : [217, 119, 6];
+      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.2);
+    }
+
+    // 2. Lower shooting comet streaming down the lateral wing
+    if (progress >= 0.42) {
+      const t = (progress - 0.42) / 0.58;
+      const hx = -15 + t * 140;
+      const hy = 330 + t * 250;
+      const tx = hx - 55;
+      const ty = hy - 85;
+      const cometHead = isDark ? [255, 255, 255] : [2, 132, 199];
+      const cometTail = isDark ? [16, 185, 129] : [5, 150, 105];
+      drawComet(data, width, height, hx, hy, tx, ty, cometHead, cometTail, 3.0);
+    }
+
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -281,35 +391,44 @@ function createNebulaSkyTile({ width = 480, height = 480, isDark = true, totalFr
       data[idx + 3] = 255;
     }
 
-    // Breathing pulse for nebula cloud layers
     const p1 = 0.85 + 0.25 * Math.sin(progress * Math.PI * 2);
     const p2 = 0.85 + 0.25 * Math.cos(progress * Math.PI * 2);
 
-    // Nebula Layer 1: Ethereal Violet/Pink Cloud (upper left)
-    drawNebulaGas(data, width, height, 110, 120, 130 * p1, 100 * p1, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.35 : 0.34);
-    drawNebulaGas(data, width, height, 135, 145, 80 * p1, 65 * p1, isDark ? [236, 72, 153] : [190, 24, 93], isDark ? 0.28 : 0.28);
+    // Left Flank Nebula: Violet/Pink Cloud (x: 80, y: 160) - completely visible beside central card!
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 80, 160, 110 * p1, 100 * p1, [30, 41, 59], 0.38);
+    }
+    drawNebulaGas(data, width, height, 80, 160, 100 * p1, 90 * p1, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.52);
+    drawNebulaGas(data, width, height, 95, 175, 65 * p1, 55 * p1, isDark ? [236, 72, 153] : [190, 24, 93], isDark ? 0.32 : 0.44);
 
-    // Nebula Layer 2: Emerald / Cyan Cloud (lower right)
-    drawNebulaGas(data, width, height, 370, 360, 140 * p2, 110 * p2, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.32 : 0.32);
-    drawNebulaGas(data, width, height, 345, 335, 85 * p2, 70 * p2, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.26 : 0.26);
+    // Right Flank Nebula: Emerald/Cyan Cloud (x: 400, y: 320) - completely visible beside central card!
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 400, 320, 110 * p2, 100 * p2, [15, 23, 42], 0.36);
+    }
+    drawNebulaGas(data, width, height, 400, 320, 100 * p2, 90 * p2, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.36 : 0.50);
+    drawNebulaGas(data, width, height, 385, 305, 65 * p2, 55 * p2, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.30 : 0.42);
 
     // Twinkling canopy stars
     for (const s of sharedSkyStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    // Floating Stardust orbiting within nebula
-    for (let i = 0; i < 12; i++) {
-      const angle = progress * Math.PI * 2 + (i * Math.PI * 2) / 12;
-      const ox = (i % 2 === 0 ? 110 : 370) + Math.cos(angle) * (35 + (i % 4) * 15);
-      const oy = (i % 2 === 0 ? 120 : 360) + Math.sin(angle) * (25 + (i % 4) * 10);
-      drawDot(data, width, height, ox, oy, 1.8, isDark ? [255, 255, 255] : [217, 119, 6], 0.75);
+    // Swirling stardust on both flanks
+    for (let i = 0; i < 10; i++) {
+      const angle = progress * Math.PI * 2 + (i * Math.PI * 2) / 10;
+      const ox1 = 80 + Math.cos(angle) * (30 + (i % 3) * 12);
+      const oy1 = 160 + Math.sin(angle) * (25 + (i % 3) * 10);
+      drawDot(data, width, height, ox1, oy1, 2.0, isDark ? [255, 255, 255] : [217, 119, 6], 0.85);
+
+      const ox2 = 400 + Math.cos(-angle) * (30 + (i % 3) * 12);
+      const oy2 = 320 + Math.sin(-angle) * (25 + (i % 3) * 10);
+      drawDot(data, width, height, ox2, oy2, 2.0, isDark ? [255, 255, 255] : [2, 132, 199], 0.85);
     }
 
-    const palette = quantize(data, 48);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -334,27 +453,29 @@ function createNebulaBanner({ width = 560, height = 90, isDark = true, totalFram
       data[idx + 3] = 255;
     }
 
-    // Drifting horizontal nebula veil across canopy
     const shift = Math.sin(progress * Math.PI * 2) * 25;
-    drawNebulaGas(data, width, height, 140 + shift, 45, 160, 42, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.36);
-    drawNebulaGas(data, width, height, 380 - shift, 45, 180, 40, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.34 : 0.34);
-    drawNebulaGas(data, width, height, 260 + shift * 0.5, 45, 120, 36, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.25 : 0.28);
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 140 + shift, 45, 170, 44, [30, 41, 59], 0.35);
+      drawNebulaGas(data, width, height, 400 - shift, 45, 180, 42, [15, 23, 42], 0.35);
+    }
+    drawNebulaGas(data, width, height, 140 + shift, 45, 160, 42, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.50);
+    drawNebulaGas(data, width, height, 400 - shift, 45, 180, 40, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.34 : 0.48);
+    drawNebulaGas(data, width, height, 270 + shift * 0.5, 45, 120, 36, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.28 : 0.40);
 
     for (const s of sharedBannerStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    // Luminous drifting stardust
     for (let i = 0; i < 14; i++) {
       const px = ((progress + i / 14) % 1.0) * width;
       const py = 20 + Math.sin(progress * Math.PI * 2 + i) * 28;
-      drawDot(data, width, height, px, py, 1.8, isDark ? [253, 230, 138] : [217, 119, 6], 0.75);
+      drawDot(data, width, height, px, py, 2.0, isDark ? [253, 230, 138] : [217, 119, 6], 0.85);
     }
 
-    const palette = quantize(data, 48);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -380,17 +501,42 @@ function createNebulaSide({ width = 110, height = 650, isDark = true, totalFrame
     }
 
     const p = Math.sin(progress * Math.PI * 2);
-    drawNebulaGas(data, width, height, 55, 160 + p * 15, 55, 120, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.30 : 0.32);
-    drawNebulaGas(data, width, height, 55, 450 - p * 15, 55, 130, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.28 : 0.30);
 
+    // 1. Upper Flank Nebula: Royal Violet / Pink
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 55, 175 + p * 15, 52, 115, [30, 41, 59], 0.42);
+    }
+    drawNebulaGas(data, width, height, 55, 175 + p * 15, 50, 110, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.54);
+    drawNebulaGas(data, width, height, 55, 175 + p * 15, 36, 75, isDark ? [236, 72, 153] : [190, 24, 93], isDark ? 0.32 : 0.46);
+
+    // 2. Lower Flank Nebula: Emerald / Cyan
+    if (!isDark) {
+      drawNebulaGas(data, width, height, 55, 475 - p * 15, 52, 120, [15, 23, 42], 0.40);
+    }
+    drawNebulaGas(data, width, height, 55, 475 - p * 15, 50, 115, isDark ? [16, 185, 129] : [4, 120, 87], isDark ? 0.36 : 0.52);
+    drawNebulaGas(data, width, height, 55, 475 - p * 15, 36, 80, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.30 : 0.44);
+
+    // Orbiting stardust in both clouds
+    for (let i = 0; i < 6; i++) {
+      const angle = progress * Math.PI * 2 + (i * Math.PI * 2) / 6;
+      const ox1 = 55 + Math.cos(angle) * 26;
+      const oy1 = (175 + p * 15) + Math.sin(angle) * 35;
+      drawDot(data, width, height, ox1, oy1, 2.2, isDark ? [255, 255, 255] : [217, 119, 6], 0.88);
+
+      const ox2 = 55 + Math.cos(-angle) * 26;
+      const oy2 = (475 - p * 15) + Math.sin(-angle) * 35;
+      drawDot(data, width, height, ox2, oy2, 2.2, isDark ? [255, 255, 255] : [2, 132, 199], 0.88);
+    }
+
+    // Twinkling stars flanking the column
     for (const s of sharedSideStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    const palette = quantize(data, 36);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -418,24 +564,19 @@ function createBlackHoleSkyTile({ width = 480, height = 480, isDark = true, tota
       data[idx + 3] = 255;
     }
 
-    // Outer gravitational lensing ripples
-    const p = Math.sin(progress * Math.PI * 2);
-    if (!isDark) {
-      drawNebulaGas(data, width, height, 240, 240, 140, 140, [15, 23, 42], 0.46);
-      drawNebulaGas(data, width, height, 240, 240, 95, 95, [30, 41, 59], 0.35);
-    }
-    drawNebulaGas(data, width, height, 240, 240, 180 + p * 10, 180 + p * 10, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.16 : 0.22);
-    drawNebulaGas(data, width, height, 240, 240, 120 + p * 6, 120 + p * 6, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.18 : 0.24);
+    // Place Black Holes on the FLANKS (left: 75, right: 405) so they are completely visible around the central card!
+    drawBlackHoleInstance(data, width, height, 75, 170, 0.92, progress, 1.0, isDark);
+    drawBlackHoleInstance(data, width, height, 405, 320, 0.88, progress, -1.0, isDark);
 
-    // Stars drawn inward by gravitational curvature
+    // Stars twinkling across the wide sky
     for (const s of sharedSkyStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    const palette = quantize(data, 36);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -447,7 +588,7 @@ function createBlackHoleSkyTile({ width = 480, height = 480, isDark = true, tota
 function createBlackHoleBanner({ width = 560, height = 90, isDark = true, totalFrames = 24, delay = 100 }) {
   const gif = GIFEncoder();
   const bgColor = isDark ? [5, 8, 14] : [214, 228, 240];
-  const bhX = 430;
+  const bhX = 440;
   const bhY = 45;
 
   for (let f = 0; f < totalFrames; f++) {
@@ -466,75 +607,14 @@ function createBlackHoleBanner({ width = 560, height = 90, isDark = true, totalF
     for (const s of sharedBannerStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    // Spacetime well in light mode behind accretion disk so the vortex pops against the light sky!
-    if (!isDark) {
-      drawNebulaGas(data, width, height, bhX, bhY, 78, 48, [15, 23, 42], 0.52);
-      drawNebulaGas(data, width, height, bhX, bhY, 54, 32, [30, 41, 59], 0.38);
-    }
+    // Single majestic black hole in upper canopy
+    drawBlackHoleInstance(data, width, height, bhX, bhY, 1.05, progress, 1.0, isDark);
 
-    // 1. Gravitational lensing halo around black hole
-    drawNebulaGas(data, width, height, bhX, bhY, 80, 50, isDark ? [139, 92, 246] : [109, 40, 217], isDark ? 0.38 : 0.28);
-    drawNebulaGas(data, width, height, bhX, bhY, 65, 38, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.32 : 0.24);
-
-    // 2. Relativistic rotating plasma accretion disk
-    const diskSteps = 60;
-    const rotBase = progress * Math.PI * 2;
-    for (let i = 0; i < diskSteps; i++) {
-      const theta = rotBase + (i * Math.PI * 2) / diskSteps;
-      const rx = 44 + Math.sin(theta * 2) * 5;
-      const ry = 16 + Math.cos(theta * 2) * 2;
-      const px = bhX + Math.cos(theta) * rx;
-      const py = bhY + Math.sin(theta) * ry;
-
-      // Color sweep: Amber -> Cyan -> Crimson -> Amber
-      const norm = (i / diskSteps);
-      let plasmaColor;
-      if (norm < 0.33) {
-        plasmaColor = isDark ? [245, 158, 11] : [217, 119, 6]; // Amber
-      } else if (norm < 0.66) {
-        plasmaColor = isDark ? [56, 189, 248] : [2, 132, 199]; // Cyan
-      } else {
-        plasmaColor = isDark ? [220, 38, 38] : [185, 28, 28]; // Crimson
-      }
-      drawDot(data, width, height, px, py, 2.8, plasmaColor, 0.90);
-    }
-
-    // 3. Infalling matter spiraling into event horizon
-    for (let s = 0; s < 6; s++) {
-      const streamProg = (progress + s / 6.0) % 1.0;
-      const spiralAngle = rotBase * 1.5 + (s * Math.PI) / 3.0 + streamProg * Math.PI * 2;
-      const dist = 14 + (1.0 - streamProg) * 36;
-      const sx = bhX + Math.cos(spiralAngle) * dist;
-      const sy = bhY + Math.sin(spiralAngle) * dist * 0.38;
-      drawDot(data, width, height, sx, sy, 2.0 * streamProg + 0.6, isDark ? [253, 230, 138] : [217, 119, 6], 0.95);
-    }
-
-    // 4. Luminous Photon Sphere Ring
-    for (let a = 0; a < 36; a++) {
-      const rad = (a * Math.PI * 2) / 36;
-      const px = bhX + Math.cos(rad) * 14;
-      const py = bhY + Math.sin(rad) * 14;
-      drawDot(data, width, height, px, py, 1.8, isDark ? [56, 189, 248] : [2, 132, 199], 0.95);
-    }
-
-    // 5. Pitch-black event horizon core
-    for (let y = Math.max(0, bhY - 12); y <= Math.min(height - 1, bhY + 12); y++) {
-      for (let x = Math.max(0, bhX - 12); x <= Math.min(width - 1, bhX + 12); x++) {
-        if (Math.hypot(x - bhX, y - bhY) <= 12) {
-          const idx = (y * width + x) * 4;
-          data[idx] = 3;
-          data[idx + 1] = 7;
-          data[idx + 2] = 18;
-          data[idx + 3] = 255;
-        }
-      }
-    }
-
-    const palette = quantize(data, 48);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -559,20 +639,22 @@ function createBlackHoleSide({ width = 110, height = 650, isDark = true, totalFr
       data[idx + 3] = 255;
     }
 
-    const p = Math.sin(progress * Math.PI * 2);
-    if (!isDark) {
-      drawNebulaGas(data, width, height, 55, 300 + p * 20, 55, 120, [15, 23, 42], 0.44);
-    }
-    drawNebulaGas(data, width, height, 55, 300 + p * 20, 55, 140, isDark ? [6, 182, 212] : [2, 132, 199], isDark ? 0.28 : 0.24);
+    // PROMINENT BLACK HOLES PLACED DIRECTLY ON THE SIDES OF THE MESSAGE!
+    // Black Hole 1: Upper lateral side
+    drawBlackHoleInstance(data, width, height, 55, 175, 0.95, progress, 1.0, isDark);
 
+    // Black Hole 2: Lower lateral side (counter-rotating binary companion)
+    drawBlackHoleInstance(data, width, height, 55, 475, 0.88, progress, -1.0, isDark);
+
+    // Stars twinkling around the black holes along the column
     for (const s of sharedSideStars) {
       const pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 2 + s.phase);
       const curRadius = s.r * (0.8 + 0.35 * pulse);
-      const curAlpha = 0.35 + 0.65 * pulse;
+      const curAlpha = 0.40 + 0.60 * pulse;
       drawDot(data, width, height, s.x, s.y, curRadius, isDark ? s.colorDark : s.colorLight, curAlpha);
     }
 
-    const palette = quantize(data, 36);
+    const palette = quantize(data, 64);
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
   }
@@ -611,11 +693,11 @@ for (const outDir of targetDirs) {
   fs.writeFileSync(path.join(outDir, 'cosmic-banner-light.gif'), bannerLight);
   console.log('  -> cosmic-banner-light.gif:', bannerLight.length, 'bytes');
 
-  const sideDark = createSideStars({ isDark: true });
+  const sideDark = createCosmicSide({ isDark: true });
   fs.writeFileSync(path.join(outDir, 'cosmic-side-dark.gif'), sideDark);
   console.log('  -> cosmic-side-dark.gif:', sideDark.length, 'bytes');
 
-  const sideLight = createSideStars({ isDark: false });
+  const sideLight = createCosmicSide({ isDark: false });
   fs.writeFileSync(path.join(outDir, 'cosmic-side-light.gif'), sideLight);
   console.log('  -> cosmic-side-light.gif:', sideLight.length, 'bytes');
 

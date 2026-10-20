@@ -1543,9 +1543,10 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       sideName = previewIsDark ? 'blackhole-side-dark.gif' : 'blackhole-side-light.gif';
     }
 
-    final skyUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$skyName';
-    final bannerUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$bannerName';
-    final sideUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$sideName';
+    const cacheBust = '20261020_v4';
+    final skyUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$skyName?v=$cacheBust';
+    final bannerUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$bannerName?v=$cacheBust';
+    final sideUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$sideName?v=$cacheBust';
 
     return Stack(
       children: [
@@ -1561,34 +1562,28 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
           ),
         ),
 
-        // 2. Side Ambient Cosmic Columns (flanking the card)
+        // 2. Side Ambient Cosmic Columns (flanking the message card on left and right)
         if (_currentAnimated) ...[
           Positioned(
             left: 0,
             top: 0,
             bottom: 0,
-            width: 50,
-            child: Opacity(
-              opacity: 0.65,
-              child: Image.network(
-                sideUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
+            width: 100,
+            child: Image.network(
+              sideUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
           Positioned(
             right: 0,
             top: 0,
             bottom: 0,
-            width: 50,
-            child: Opacity(
-              opacity: 0.65,
-              child: Image.network(
-                sideUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
+            width: 100,
+            child: Image.network(
+              sideUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
         ],
@@ -2329,33 +2324,33 @@ class CosmicEmailPreviewPainter extends CustomPainter {
   ];
 
   static const List<_BlackHoleSlot> _blackHoleSlots = [
-    _BlackHoleSlot(relX: 0.82, relY: 0.18, scale: 1.0, spinDir: 1.0),   // Slot 1: Upper-right primary
-    _BlackHoleSlot(relX: 0.18, relY: 0.78, scale: 0.84, spinDir: -1.0),  // Slot 2: Lower-left binary partner
-    _BlackHoleSlot(relX: 0.16, relY: 0.28, scale: 0.72, spinDir: 1.0),   // Slot 3: Upper-left companion
-    _BlackHoleSlot(relX: 0.84, relY: 0.68, scale: 0.68, spinDir: -1.0),  // Slot 4: Lower-right companion
+    _BlackHoleSlot(relX: 0.86, relY: 0.22, scale: 1.0, spinDir: 1.0),   // Slot 1: Upper-right lateral flank
+    _BlackHoleSlot(relX: 0.14, relY: 0.78, scale: 0.88, spinDir: -1.0),  // Slot 2: Lower-left lateral flank
+    _BlackHoleSlot(relX: 0.14, relY: 0.24, scale: 0.80, spinDir: 1.0),   // Slot 3: Upper-left lateral flank
+    _BlackHoleSlot(relX: 0.86, relY: 0.72, scale: 0.76, spinDir: -1.0),  // Slot 4: Lower-right lateral flank
   ];
 
   static const List<_NebulaSlot> _nebulaSlots = [
     _NebulaSlot(
-      relX: 0.18, relY: 0.22,
+      relX: 0.14, relY: 0.22,
       darkPrimary: Color(0xFF8B5CF6), darkSecondary: Color(0xFFEC4899),
       lightPrimary: Color(0xFF7C3AED), lightSecondary: Color(0xFFDB2777),
       baseRadius: 125.0,
     ),
     _NebulaSlot(
-      relX: 0.82, relY: 0.76,
+      relX: 0.86, relY: 0.76,
       darkPrimary: Color(0xFF10B981), darkSecondary: Color(0xFF06B6D4),
       lightPrimary: Color(0xFF059669), lightSecondary: Color(0xFF0284C7),
       baseRadius: 130.0,
     ),
     _NebulaSlot(
-      relX: 0.52, relY: 0.12,
+      relX: 0.86, relY: 0.22,
       darkPrimary: Color(0xFF3B82F6), darkSecondary: Color(0xFF6366F1),
       lightPrimary: Color(0xFF2563EB), lightSecondary: Color(0xFF4F46E5),
       baseRadius: 110.0,
     ),
     _NebulaSlot(
-      relX: 0.24, relY: 0.70,
+      relX: 0.14, relY: 0.74,
       darkPrimary: Color(0xFFF59E0B), darkSecondary: Color(0xFFD97706),
       lightPrimary: Color(0xFFD97706), lightSecondary: Color(0xFFB45309),
       baseRadius: 120.0,
