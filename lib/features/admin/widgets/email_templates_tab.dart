@@ -1528,109 +1528,7 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
     );
   }
 
-  Widget _buildGifSimulationBackground(bool previewIsDark) {
-    String skyName = previewIsDark ? 'cosmic-sky-dark.gif' : 'cosmic-sky-light.gif';
-    String bannerName = previewIsDark ? 'cosmic-banner-dark.gif' : 'cosmic-banner-light.gif';
-    String sideName = previewIsDark ? 'cosmic-side-dark.gif' : 'cosmic-side-light.gif';
 
-    if (_currentAnimationType == 'nebula') {
-      skyName = previewIsDark ? 'nebula-sky-dark.gif' : 'nebula-sky-light.gif';
-      bannerName = previewIsDark ? 'nebula-banner-dark.gif' : 'nebula-banner-light.gif';
-      sideName = previewIsDark ? 'nebula-side-dark.gif' : 'nebula-side-light.gif';
-    } else if (_currentAnimationType == 'blackhole') {
-      skyName = previewIsDark ? 'blackhole-sky-dark.gif' : 'blackhole-sky-light.gif';
-      bannerName = previewIsDark ? 'blackhole-banner-dark.gif' : 'blackhole-banner-light.gif';
-      sideName = previewIsDark ? 'blackhole-side-dark.gif' : 'blackhole-side-light.gif';
-    }
-
-    const cacheBust = '20261020_v4';
-    final skyUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$skyName?v=$cacheBust';
-    final bannerUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$bannerName?v=$cacheBust';
-    final sideUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$sideName?v=$cacheBust';
-
-    return Stack(
-      children: [
-        // 1. Tiled / Fitted GIF Starfield
-        Positioned.fill(
-          child: Image.network(
-            skyUrl,
-            fit: BoxFit.cover,
-            repeat: ImageRepeat.repeat,
-            errorBuilder: (_, __, ___) => Container(
-              color: previewIsDark ? const Color(0xFF05080E) : const Color(0xFFD6E4F0),
-            ),
-          ),
-        ),
-
-        // 2. Side Ambient Cosmic Columns (flanking the message card on left and right)
-        if (_currentAnimated) ...[
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 100,
-            child: Image.network(
-              sideUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 100,
-            child: Image.network(
-              sideUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            ),
-          ),
-        ],
-
-        // 3. Top Majestic Canopy Comet Banner (if cometCount >= 1)
-        if (_currentAnimated && _currentCometCount > 0)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 75,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Image.network(
-                  bannerUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-          ),
-
-        // 4. Bottom Canopy Comet Banner (if cometCount >= 2)
-        if (_currentAnimated && _currentCometCount > 1)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 75,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Transform.flip(
-                  flipY: true,
-                  child: Image.network(
-                    bannerUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 
   // --- INTERACTIVE COSMIC EMAIL LIVE PREVIEW ---
   Widget _buildPreviewCard(bool isDark) {
@@ -1833,25 +1731,28 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                 ),
                 child: Stack(
                   children: [
-                    // Dynamic Engine Background (Canvas Pro or Universal GIF Simulation)
+                    // Dynamic Engine Background (Unified Celestial Canvas with Pro 60fps & GIF 14fps Cadence)
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: _previewMode == 'canvas'
-                            ? CustomPaint(
-                                painter: CosmicEmailPreviewPainter(
-                                  progress: _currentAnimated ? _animController.value : 0.0,
-                                  isDark: previewIsDark,
-                                  isSuspension: isSuspension,
-                                  isAiSentinel: isAiSentinel,
-                                  isAnimated: _currentAnimated,
-                                  animationType: _currentAnimationType,
-                                  cometCount: _currentCometCount,
-                                  density: _currentDensity,
-                                  cometFrequency: _currentCometFrequency,
-                                ),
-                              )
-                            : _buildGifSimulationBackground(previewIsDark),
+                        child: CustomPaint(
+                          painter: CosmicEmailPreviewPainter(
+                            progress: _currentAnimated
+                                ? (_previewMode == 'gif'
+                                    ? ((_animController.value * 14).floor() / 14.0) // 14 FPS frame-stepped cadence of webmail GIF
+                                    : _animController.value)
+                                : 0.0,
+                            isDark: previewIsDark,
+                            isSuspension: isSuspension,
+                            isAiSentinel: isAiSentinel,
+                            isAnimated: _currentAnimated,
+                            animationType: _currentAnimationType,
+                            cometCount: _currentCometCount,
+                            density: _currentDensity,
+                            cometFrequency: _currentCometFrequency,
+                            isGifMode: _previewMode == 'gif',
+                          ),
+                        ),
                       ),
                     ),
 
@@ -1860,10 +1761,10 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                       top: 10,
                       left: 12,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(6),
+                          color: Colors.black.withOpacity(0.60),
+                          borderRadius: BorderRadius.circular(7),
                           border: Border.all(color: Colors.white12),
                         ),
                         child: Row(
@@ -1871,14 +1772,14 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                           children: [
                             Icon(
                               _previewMode == 'canvas' ? Icons.brush_outlined : Icons.gif_box_outlined,
-                              size: 11,
+                              size: 11.5,
                               color: _previewMode == 'canvas' ? const Color(0xFF38BDF8) : const Color(0xFF10B981),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 5),
                             Text(
                               _previewMode == 'canvas'
-                                  ? 'Motor Vectorial Pro (Canvas 60fps)'
-                                  : 'Motor Universal (GIF ~47KB · Gmail)',
+                                  ? 'Motor Vectorial Pro (Canvas 60fps · Fluido)'
+                                  : 'Motor Universal (GIF 14fps · Simulación Webmail)',
                               style: TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
@@ -2254,6 +2155,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
   final int cometCount;
   final int density;
   final int cometFrequency;
+  final bool isGifMode;
 
   CosmicEmailPreviewPainter({
     required this.progress,
@@ -2265,6 +2167,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     this.cometCount = 1,
     this.density = 2,
     this.cometFrequency = 1,
+    this.isGifMode = false,
   });
 
   // Pre-calculated deterministic celestial distribution spanning all quadrants & center
@@ -2386,32 +2289,36 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: Offset(size.width * 0.50, size.height * 0.90), radius: 160));
     canvas.drawCircle(Offset(size.width * 0.50, size.height * 0.90), 160, aura3Paint);
 
-    // 2. Dense Celestial Starfield Across the Whole Canvas & Center
+    // 2. Dense Celestial Starfield Across the Whole Canvas & Center (scales with density & frequency)
     final bool enableTwinkle = isAnimated && animationType != 'fixed';
+    final double twinkleSpeed = cometFrequency == 1 ? 0.70 : (cometFrequency == 2 ? 1.0 : 1.65);
+    final double starScale = 0.85 + (density / 4.0) * 0.45;
+
     for (int i = 0; i < _denseStars.length; i++) {
       final p = _denseStars[i];
       final pos = Offset(p.dx * size.width, p.dy * size.height);
       final double twinkle = enableTwinkle
-          ? (0.35 + 0.65 * math.sin(progress * math.pi * 2 + i * 1.35).abs())
+          ? (0.35 + 0.65 * math.sin(progress * math.pi * 2 * twinkleSpeed + i * 1.35).abs())
           : 0.85;
 
       Color starColor;
       final mod = i % 5;
       if (mod == 0) {
-        starColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFB45309); // Amber
+        starColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706); // Amber Gold
       } else if (mod == 1) {
-        starColor = isDark ? Colors.white : const Color(0xFF0369A1); // Deep Sapphire
+        starColor = isDark ? Colors.white : const Color(0xFF0284C7); // Deep Sapphire
       } else if (mod == 2) {
-        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7); // Azure
+        starColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1); // Azure Blue
       } else if (mod == 3) {
-        starColor = isDark ? const Color(0xFF10B981) : const Color(0xFF047857); // Emerald
+        starColor = isDark ? const Color(0xFF10B981) : const Color(0xFF047857); // Jade Emerald
       } else {
-        starColor = isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9); // Violet
+        starColor = isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9); // Royal Violet
       }
 
-      final radius = (i % 3 == 0) ? 2.4 : ((i % 2 == 0) ? 1.8 : 1.2);
+      final double baseRadius = (i % 3 == 0) ? 2.4 : ((i % 2 == 0) ? 1.7 : 1.1);
+      final double radius = baseRadius * starScale;
 
-      // Subtle halo for prominent stars
+      // Halo for prominent stars
       if (radius > 1.8) {
         final haloPaint = Paint()..color = starColor.withOpacity(twinkle * (isDark ? 0.35 : 0.28));
         canvas.drawCircle(pos, radius * 2.2, haloPaint);
@@ -2444,15 +2351,29 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       final center = Offset(size.width * slot.relX, size.height * slot.relY);
 
       final pulse = 1.0 + 0.16 * math.sin(progress * 2 * math.pi * freqMult + s * 1.5);
-      final r = (slot.baseRadius * (0.8 + 0.15 * density) * pulse).clamp(50.0, 240.0);
+      final r = (slot.baseRadius * (0.75 + 0.20 * density) * pulse).clamp(50.0, 260.0);
+
+      // Light Mode: Add deep contrast interstellar dust foundation
+      if (!isDark) {
+        final dustBasePaint = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFF1E293B).withOpacity((0.36 * densityMult).clamp(0.18, 0.55)),
+              const Color(0xFF0F172A).withOpacity((0.20 * densityMult).clamp(0.10, 0.35)),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.55, 1.0],
+          ).createShader(Rect.fromCircle(center: center, radius: r * 1.05));
+        canvas.drawCircle(center, r * 1.05, dustBasePaint);
+      }
 
       final Paint gasPaint = Paint();
       if (isDark) {
         gasPaint.shader = RadialGradient(
           colors: [
-            slot.darkPrimary.withOpacity((0.26 * densityMult).clamp(0.12, 0.45)),
-            slot.darkSecondary.withOpacity((0.16 * densityMult).clamp(0.08, 0.32)),
-            slot.darkPrimary.withOpacity(0.05),
+            slot.darkPrimary.withOpacity((0.32 * densityMult).clamp(0.15, 0.52)),
+            slot.darkSecondary.withOpacity((0.20 * densityMult).clamp(0.10, 0.38)),
+            slot.darkPrimary.withOpacity(0.06),
             Colors.transparent,
           ],
           stops: const [0.0, 0.45, 0.75, 1.0],
@@ -2461,9 +2382,9 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         // High-contrast saturated chromatic gas clouds for Light Theme
         gasPaint.shader = RadialGradient(
           colors: [
-            slot.lightPrimary.withOpacity((0.28 * densityMult).clamp(0.18, 0.50)),
-            slot.lightSecondary.withOpacity((0.18 * densityMult).clamp(0.10, 0.35)),
-            slot.lightPrimary.withOpacity(0.06),
+            slot.lightPrimary.withOpacity((0.38 * densityMult).clamp(0.22, 0.62)),
+            slot.lightSecondary.withOpacity((0.24 * densityMult).clamp(0.14, 0.45)),
+            slot.lightPrimary.withOpacity(0.08),
             Colors.transparent,
           ],
           stops: const [0.0, 0.45, 0.75, 1.0],
@@ -2472,20 +2393,20 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       canvas.drawCircle(center, r, gasPaint);
 
       // Orbiting stardust for each active nebula cloud
-      final dustCount = (density * 3).clamp(3, 12);
+      final dustCount = (density * 3).clamp(3, 14);
       for (int i = 0; i < dustCount; i++) {
         final angle = (progress * 2 * math.pi * freqMult) + (i * (2 * math.pi / dustCount)) + (s * 0.8);
-        final orbitR = 25.0 + (i % 3) * 18.0;
+        final orbitR = 25.0 + (i % 3) * 20.0;
         final pPos = Offset(
           center.dx + math.cos(angle) * orbitR,
           center.dy + math.sin(angle) * orbitR * 0.65,
         );
         final Color dustColor = isDark
             ? (i % 2 == 0 ? slot.darkPrimary : slot.darkSecondary)
-            : (i % 2 == 0 ? slot.lightPrimary : slot.lightSecondary);
+            : (i % 2 == 0 ? const Color(0xFFD97706) : slot.lightPrimary);
         final dustPaint = Paint()
-          ..color = dustColor.withOpacity((0.35 + 0.55 * math.sin(angle)).clamp(0.2, 0.9));
-        canvas.drawCircle(pPos, (i % 2 == 0) ? 1.6 : 1.1, dustPaint);
+          ..color = dustColor.withOpacity((0.40 + 0.60 * math.sin(angle)).clamp(0.25, 0.95));
+        canvas.drawCircle(pPos, (i % 2 == 0) ? 2.0 : 1.3, dustPaint);
       }
     }
   }
@@ -2526,13 +2447,13 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     // 1. Gravitational Spacetime Lensing Well
     if (!isDark) {
       // Light Mode: Deep dark spacetime well behind the accretion disk so the vortex pops against the light sky!
-      final wellRadius = 78.0 * scale * (0.85 + 0.15 * densityMult);
+      final wellRadius = (72.0 + density * 8.0) * scale;
       final wellPaint = Paint()
         ..shader = RadialGradient(
           colors: [
-            const Color(0xFF0F172A).withOpacity((0.48 * densityMult).clamp(0.25, 0.65)),
-            const Color(0xFF1E293B).withOpacity((0.30 * densityMult).clamp(0.15, 0.45)),
-            const Color(0xFF334155).withOpacity(0.10),
+            const Color(0xFF0F172A).withOpacity((0.55 * densityMult).clamp(0.35, 0.75)),
+            const Color(0xFF1E293B).withOpacity((0.35 * densityMult).clamp(0.20, 0.50)),
+            const Color(0xFF334155).withOpacity(0.12),
             Colors.transparent,
           ],
           stops: const [0.0, 0.45, 0.75, 1.0],
@@ -2542,8 +2463,8 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       final haloPaint = Paint()
         ..shader = RadialGradient(
           colors: [
-            const Color(0xFF7C3AED).withOpacity(0.25 * densityMult),
-            const Color(0xFF0284C7).withOpacity(0.15 * densityMult),
+            const Color(0xFF7C3AED).withOpacity(0.28 * densityMult),
+            const Color(0xFF0284C7).withOpacity(0.18 * densityMult),
             Colors.transparent,
           ],
           stops: const [0.0, 0.6, 1.0],
@@ -2551,12 +2472,12 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       canvas.drawCircle(bhCenter, wellRadius * 1.15, haloPaint);
     } else {
       // Dark Mode: Luminous gravitational warping aura
-      final lensRadius = 65.0 * scale * (0.85 + 0.15 * densityMult);
+      final lensRadius = (65.0 + density * 7.0) * scale;
       final lensPaint = Paint()
         ..shader = RadialGradient(
           colors: [
-            const Color(0xFF8B5CF6).withOpacity((0.28 * densityMult).clamp(0.15, 0.48)),
-            const Color(0xFF06B6D4).withOpacity((0.18 * densityMult).clamp(0.10, 0.35)),
+            const Color(0xFF8B5CF6).withOpacity((0.32 * densityMult).clamp(0.18, 0.52)),
+            const Color(0xFF06B6D4).withOpacity((0.20 * densityMult).clamp(0.12, 0.38)),
             const Color(0xFFF59E0B).withOpacity((0.08 * densityMult).clamp(0.04, 0.20)),
             Colors.transparent,
           ],
@@ -2663,146 +2584,166 @@ class CosmicEmailPreviewPainter extends CustomPainter {
   // --- COMETAS Y ESTRELLAS: Sweeping luminous shooting comets with density scaling ---
   void _drawComets(Canvas canvas, Size size) {
     if (isAnimated && cometCount > 0) {
-      final freqMult = cometFrequency == 1 ? 0.75 : (cometFrequency == 2 ? 1.0 : 1.35);
-      final double widthScale = 1.2 + density * 0.6;
-      final double headRadius = 2.2 + density * 0.6;
-      final double tailLen = 50.0 + density * 16.0;
+      final freqMult = cometFrequency == 1 ? 0.65 : (cometFrequency == 2 ? 1.0 : 1.7);
+      final double widthScale = 1.4 + density * 0.8;
+      final double headRadius = 2.4 + density * 0.8;
+      final double tailLen = 70.0 + density * 28.0;
 
-      // Comet 1: Sweeps majestically across upper sky
+      // Comet 1: Sweeps majestically from top-left across the upper sky to mid-right
       if (cometCount >= 1) {
-        final c1Raw = (progress * 1.1 * freqMult) % 1.0;
-        if (c1Raw < 0.45) {
-          final norm = c1Raw / 0.45;
-          final startX = -60.0 + norm * (size.width + 160);
-          final startY = 16.0 + norm * (size.height * 0.32);
-          final endX = startX - tailLen;
-          final endY = startY - (tailLen * 0.32);
+        final c1Raw = (progress * freqMult) % 1.0;
+        final startX = -120.0 + c1Raw * (size.width + 240.0);
+        final startY = (size.height * 0.05) + c1Raw * (size.height * 0.38);
+        final endX = startX - tailLen;
+        final endY = startY - (tailLen * 0.28);
 
-          final cometPaint = Paint()
-            ..shader = uiGradient(
-              from: Offset(startX, startY),
-              to: Offset(endX, endY),
-              colors: [
-                Colors.white,
-                (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.85),
-                Colors.transparent,
-              ],
-            )
-            ..strokeWidth = widthScale
-            ..strokeCap = StrokeCap.round;
-
-          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), cometPaint);
-          canvas.drawCircle(Offset(startX, startY), headRadius, Paint()..color = Colors.white);
-        }
+        _drawSingleComet(
+          canvas: canvas,
+          startX: startX,
+          startY: startY,
+          endX: endX,
+          endY: endY,
+          widthScale: widthScale,
+          headRadius: headRadius,
+          tailLen: tailLen,
+          primaryColor: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+          secondaryColor: isDark ? const Color(0xFF10B981) : const Color(0xFFD97706),
+        );
       }
 
-      // Comet 2: Warm amber comet sweeping across lower sky
+      // Comet 2: Warm amber comet sweeping from right-to-left across the lower sky
       if (cometCount >= 2) {
-        final c2Raw = ((progress + 0.52) * 0.95 * freqMult) % 1.0;
-        if (c2Raw < 0.42) {
-          final norm = c2Raw / 0.42;
-          final startX = size.width + 60 - norm * (size.width + 160);
-          final startY = size.height * 0.65 + norm * (size.height * 0.28);
-          final endX = startX + tailLen;
-          final endY = startY - (tailLen * 0.31);
+        final c2Raw = (progress * freqMult + 0.48) % 1.0;
+        final startX = (size.width + 120.0) - c2Raw * (size.width + 240.0);
+        final startY = (size.height * 0.60) + c2Raw * (size.height * 0.30);
+        final endX = startX + tailLen;
+        final endY = startY - (tailLen * 0.26);
 
-          final comet2Paint = Paint()
-            ..shader = uiGradient(
-              from: Offset(startX, startY),
-              to: Offset(endX, endY),
-              colors: [
-                const Color(0xFFFDE68A),
-                (isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706)).withOpacity(0.85),
-                Colors.transparent,
-              ],
-            )
-            ..strokeWidth = widthScale
-            ..strokeCap = StrokeCap.round;
-
-          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet2Paint);
-          canvas.drawCircle(Offset(startX, startY), headRadius, Paint()..color = const Color(0xFFFDE68A));
-        }
+        _drawSingleComet(
+          canvas: canvas,
+          startX: startX,
+          startY: startY,
+          endX: endX,
+          endY: endY,
+          widthScale: widthScale,
+          headRadius: headRadius,
+          tailLen: tailLen,
+          primaryColor: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
+          secondaryColor: isDark ? const Color(0xFFEF4444) : const Color(0xFFB45309),
+        );
       }
 
-      // Comet 3: Emerald / Violet comet along upper-right
+      // Comet 3: Luminous high canopy comet streaking across the top
       if (cometCount >= 3) {
-        final c3Raw = ((progress + 0.25) * 1.3 * freqMult) % 1.0;
-        if (c3Raw < 0.38) {
-          final norm = c3Raw / 0.38;
-          final startX = size.width * 0.15 + norm * (size.width * 0.85);
-          final startY = 10.0 + norm * 40.0;
-          final endX = startX - (tailLen * 0.85);
-          final endY = startY - (tailLen * 0.25);
+        final c3Raw = (progress * freqMult * 1.35 + 0.22) % 1.0;
+        final startX = -100.0 + c3Raw * (size.width + 200.0);
+        final startY = 12.0 + c3Raw * (size.height * 0.22);
+        final endX = startX - (tailLen * 0.85);
+        final endY = startY - (tailLen * 0.22);
 
-          final comet3Paint = Paint()
-            ..shader = uiGradient(
-              from: Offset(startX, startY),
-              to: Offset(endX, endY),
-              colors: [
-                Colors.white,
-                (isAiSentinel
-                        ? (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))
-                        : (isDark ? const Color(0xFF10B981) : const Color(0xFF059669)))
-                    .withOpacity(0.85),
-                Colors.transparent,
-              ],
-            )
-            ..strokeWidth = widthScale * 0.9
-            ..strokeCap = StrokeCap.round;
-
-          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet3Paint);
-          canvas.drawCircle(Offset(startX, startY), headRadius * 0.9, Paint()..color = Colors.white);
-        }
+        _drawSingleComet(
+          canvas: canvas,
+          startX: startX,
+          startY: startY,
+          endX: endX,
+          endY: endY,
+          widthScale: widthScale * 0.9,
+          headRadius: headRadius * 0.9,
+          tailLen: tailLen * 0.85,
+          primaryColor: isAiSentinel
+              ? (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))
+              : (isDark ? const Color(0xFF10B981) : const Color(0xFF059669)),
+          secondaryColor: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+        );
       }
 
-      // Comet 4: Diagonal comet across lower sky
+      // Comet 4: Diagonal comet crossing across the mid-lower flanks
       if (cometCount >= 4) {
-        final c4Raw = ((progress + 0.78) * 1.2 * freqMult) % 1.0;
-        if (c4Raw < 0.40) {
-          final norm = c4Raw / 0.40;
-          final startX = -30.0 + norm * (size.width + 100);
-          final startY = size.height * 0.78 + norm * (size.height * 0.18);
-          final endX = startX - (tailLen * 0.85);
-          final endY = startY - (tailLen * 0.26);
+        final c4Raw = (progress * freqMult * 1.25 + 0.72) % 1.0;
+        final startX = (size.width + 100.0) - c4Raw * (size.width + 200.0);
+        final startY = (size.height * 0.38) + c4Raw * (size.height * 0.52);
+        final endX = startX + (tailLen * 0.85);
+        final endY = startY - (tailLen * 0.24);
 
-          final comet4Paint = Paint()
-            ..shader = uiGradient(
-              from: Offset(startX, startY),
-              to: Offset(endX, endY),
-              colors: [
-                Colors.white,
-                (isDark ? const Color(0xFFEC4899) : const Color(0xFFDB2777)).withOpacity(0.80),
-                Colors.transparent,
-              ],
-            )
-            ..strokeWidth = widthScale * 0.9
-            ..strokeCap = StrokeCap.round;
-
-          canvas.drawLine(Offset(startX, startY), Offset(endX, endY), comet4Paint);
-          canvas.drawCircle(Offset(startX, startY), headRadius * 0.9, Paint()..color = Colors.white);
-        }
+        _drawSingleComet(
+          canvas: canvas,
+          startX: startX,
+          startY: startY,
+          endX: endX,
+          endY: endY,
+          widthScale: widthScale * 0.9,
+          headRadius: headRadius * 0.9,
+          tailLen: tailLen * 0.85,
+          primaryColor: isDark ? const Color(0xFFEC4899) : const Color(0xFFDB2777),
+          secondaryColor: isDark ? const Color(0xFF8B5CF6) : const Color(0xFF7C3AED),
+        );
       }
     } else if (!isAnimated && cometCount > 0) {
-      final tailLen = 45.0 + density * 12.0;
-      final comet1 = Paint()
-        ..shader = uiGradient(
-          from: Offset(size.width * 0.26, size.height * 0.09),
-          to: Offset(size.width * 0.26 - tailLen, size.height * 0.09 - tailLen * 0.35),
-          colors: [
-            Colors.white,
-            (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)).withOpacity(0.80),
-            Colors.transparent,
-          ],
-        )
-        ..strokeWidth = 1.6 + density * 0.5
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(size.width * 0.26, size.height * 0.09),
-        Offset(size.width * 0.26 - tailLen, size.height * 0.09 - tailLen * 0.35),
-        comet1,
+      // Fixed Mode: Serene comet frozen in high sky
+      final tailLen = 50.0 + density * 15.0;
+      _drawSingleComet(
+        canvas: canvas,
+        startX: size.width * 0.28,
+        startY: size.height * 0.10,
+        endX: size.width * 0.28 - tailLen,
+        endY: size.height * 0.10 - tailLen * 0.32,
+        widthScale: 2.0 + density * 0.5,
+        headRadius: 3.2,
+        tailLen: tailLen,
+        primaryColor: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+        secondaryColor: isDark ? const Color(0xFF10B981) : const Color(0xFFD97706),
       );
-      canvas.drawCircle(Offset(size.width * 0.26, size.height * 0.09), 2.8, Paint()..color = Colors.white);
     }
+  }
+
+  void _drawSingleComet({
+    required Canvas canvas,
+    required double startX,
+    required double startY,
+    required double endX,
+    required double endY,
+    required double widthScale,
+    required double headRadius,
+    required double tailLen,
+    required Color primaryColor,
+    required Color secondaryColor,
+  }) {
+    // 1. Luminous tail gradient
+    final cometPaint = Paint()
+      ..shader = uiGradient(
+        from: Offset(startX, startY),
+        to: Offset(endX, endY),
+        colors: [
+          Colors.white,
+          primaryColor.withOpacity(0.90),
+          secondaryColor.withOpacity(0.70),
+          Colors.transparent,
+        ],
+      )
+      ..strokeWidth = widthScale
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(startX, startY), Offset(endX, endY), cometPaint);
+
+    // 2. Trailing stardust sparkles along the tail
+    final numSparks = (density * 3).clamp(3, 12);
+    for (int i = 1; i <= numSparks; i++) {
+      final t = i / (numSparks + 1.0);
+      final sx = startX * (1 - t) + endX * t;
+      final sy = startY * (1 - t) + endY * t;
+      final sparkR = (headRadius * 0.45 * (1 - t * 0.5)).clamp(0.8, 2.2);
+      final sparkColor = i % 2 == 0 ? secondaryColor : primaryColor;
+      final sparkPaint = Paint()..color = sparkColor.withOpacity((1 - t) * 0.85);
+      canvas.drawCircle(Offset(sx, sy), sparkR, sparkPaint);
+    }
+
+    // 3. Glowing incandescent nucleus head
+    final haloPaint = Paint()
+      ..color = primaryColor.withOpacity(isDark ? 0.55 : 0.45)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawCircle(Offset(startX, startY), headRadius * 1.8, haloPaint);
+
+    final headPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(startX, startY), headRadius, headPaint);
   }
 
   Shader uiGradient({required Offset from, required Offset to, required List<Color> colors}) {
@@ -2819,7 +2760,8 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         oldDelegate.animationType != animationType ||
         oldDelegate.cometCount != cometCount ||
         oldDelegate.density != density ||
-        oldDelegate.cometFrequency != cometFrequency;
+        oldDelegate.cometFrequency != cometFrequency ||
+        oldDelegate.isGifMode != isGifMode;
   }
 }
 
