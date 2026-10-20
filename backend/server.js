@@ -230,6 +230,7 @@ function getDefaultEmailTemplates() {
     activation: {
       theme: 'dark',
       animated: true,
+      animationType: 'comets',
       cometCount: 1,
       cometFrequency: 1,
       subject: 'Activa tu cuenta en Sanctuary 🪐',
@@ -241,6 +242,7 @@ function getDefaultEmailTemplates() {
     suspension: {
       theme: 'dark',
       animated: true,
+      animationType: 'comets',
       cometCount: 1,
       cometFrequency: 1,
       subject: 'Aviso de Suspensión de Cuenta · Sanctuary ⚠️',
@@ -252,6 +254,7 @@ function getDefaultEmailTemplates() {
     announcement: {
       theme: 'dark',
       animated: true,
+      animationType: 'comets',
       cometCount: 1,
       cometFrequency: 1,
       subject: 'Novedades y Anuncios · Sanctuary Suite 🪐',
@@ -263,6 +266,7 @@ function getDefaultEmailTemplates() {
     ai_sentinel: {
       theme: 'dark',
       animated: true,
+      animationType: 'comets',
       cometCount: 1,
       cometFrequency: 1,
       subject: 'Alerta AI Sentinel: Nuevas Convocatorias Oficiales · Sanctuary 🪐',
@@ -297,6 +301,7 @@ function buildSanctuaryEmailHtml({
   templateType = 'activation',
   theme = 'dark',
   animated = true,
+  animationType = 'comets',
   cometCount = 1,
   cometFrequency = 1,
   subject = 'Sanctuary Suite 🪐',
@@ -322,11 +327,12 @@ function buildSanctuaryEmailHtml({
   const finalBody = body || defs.body;
   const finalCta = ctaText !== undefined && ctaText !== null ? ctaText : defs.ctaText;
   const finalFooter = footerNote !== undefined && footerNote !== null ? footerNote : defs.footerNote;
+  const finalAnimationType = animationType || defs.animationType || 'comets';
   const finalCometCount = cometCount !== undefined && cometCount !== null ? parseInt(cometCount, 10) : (defs.cometCount !== undefined ? defs.cometCount : 1);
   const finalCometFreq = cometFrequency !== undefined && cometFrequency !== null ? parseInt(cometFrequency, 10) : (defs.cometFrequency !== undefined ? defs.cometFrequency : 1);
 
-  const showTopBanner = animated && finalCometCount > 0;
-  const showBottomBanner = animated && finalCometCount > 1;
+  const showTopBanner = animated && finalAnimationType !== 'fixed' && finalCometCount > 0;
+  const showBottomBanner = animated && finalAnimationType !== 'fixed' && finalCometCount > 1;
 
   // Solid & gradient button attributes tailored per template to guarantee high contrast across all mail clients
   let btnSolidColor = '#10B981';
@@ -366,9 +372,24 @@ function buildSanctuaryEmailHtml({
   // Official Sanctuary logo and Animated Cosmic Assets
   const assetBaseUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets';
   const logoUrl = `${assetBaseUrl}/icon-192.png`;
-  const skyGifUrl = animated ? `${assetBaseUrl}/${isDark ? 'cosmic-sky-dark.gif' : 'cosmic-sky-light.gif'}` : '';
-  const bannerGifUrl = animated ? `${assetBaseUrl}/${isDark ? 'cosmic-banner-dark.gif' : 'cosmic-banner-light.gif'}` : '';
-  const sideGifUrl = animated ? `${assetBaseUrl}/${isDark ? 'cosmic-side-dark.gif' : 'cosmic-side-light.gif'}` : '';
+
+  let skyGifName = isDark ? 'cosmic-sky-dark.gif' : 'cosmic-sky-light.gif';
+  let bannerGifName = isDark ? 'cosmic-banner-dark.gif' : 'cosmic-banner-light.gif';
+  let sideGifName = isDark ? 'cosmic-side-dark.gif' : 'cosmic-side-light.gif';
+
+  if (finalAnimationType === 'nebula') {
+    skyGifName = isDark ? 'nebula-sky-dark.gif' : 'nebula-sky-light.gif';
+    bannerGifName = isDark ? 'nebula-banner-dark.gif' : 'nebula-banner-light.gif';
+    sideGifName = isDark ? 'nebula-side-dark.gif' : 'nebula-side-light.gif';
+  } else if (finalAnimationType === 'blackhole') {
+    skyGifName = isDark ? 'blackhole-sky-dark.gif' : 'blackhole-sky-light.gif';
+    bannerGifName = isDark ? 'blackhole-banner-dark.gif' : 'blackhole-banner-light.gif';
+    sideGifName = isDark ? 'blackhole-side-dark.gif' : 'blackhole-side-light.gif';
+  }
+
+  const skyGifUrl = animated ? `${assetBaseUrl}/${skyGifName}` : '';
+  const bannerGifUrl = animated && finalAnimationType !== 'fixed' ? `${assetBaseUrl}/${bannerGifName}` : '';
+  const sideGifUrl = animated && finalAnimationType !== 'fixed' ? `${assetBaseUrl}/${sideGifName}` : '';
 
   // Atmospheric background colors: rich cosmic void in dark mode, radiant celestial twilight in light mode
   const outerBg = isDark ? '#05080E' : '#D6E4F0';
@@ -644,6 +665,9 @@ function buildActivationEmailHtml({ username, fullName, activationCode, activati
     templateType: 'activation',
     theme: cfg.theme || 'dark',
     animated: cfg.animated !== false,
+    animationType: cfg.animationType || 'comets',
+    cometCount: cfg.cometCount,
+    cometFrequency: cfg.cometFrequency,
     subject: cfg.subject || 'Activa tu cuenta en Sanctuary 🪐',
     title: cfg.title,
     body: cfg.body,
@@ -2010,6 +2034,9 @@ app.post('/api/admin/email/preview', (req, res) => {
       templateType = 'activation',
       theme = 'dark',
       animated = true,
+      animationType = 'comets',
+      cometCount = 1,
+      cometFrequency = 1,
       subject = 'Sanctuary Suite 🪐',
       title,
       body,
@@ -2026,6 +2053,9 @@ app.post('/api/admin/email/preview', (req, res) => {
       templateType,
       theme,
       animated: animated !== false,
+      animationType,
+      cometCount,
+      cometFrequency,
       subject,
       title,
       body,
@@ -2052,6 +2082,7 @@ app.post('/api/admin/email/send-template', async (req, res) => {
       templateType = 'activation',
       theme,
       animated,
+      animationType,
       subject,
       title,
       body,
@@ -2076,6 +2107,7 @@ app.post('/api/admin/email/send-template', async (req, res) => {
 
     const finalTheme = theme || baseConfig.theme || 'dark';
     const finalAnimated = animated !== undefined ? animated : (baseConfig.animated !== false);
+    const finalAnimationType = animationType || baseConfig.animationType || 'comets';
     const finalSubject = subject || baseConfig.subject || 'Sanctuary Suite 🪐';
     const finalTitle = title || baseConfig.title;
     const finalBody = body || baseConfig.body;
@@ -2092,6 +2124,7 @@ app.post('/api/admin/email/send-template', async (req, res) => {
       templateType,
       theme: finalTheme,
       animated: finalAnimated,
+      animationType: finalAnimationType,
       cometCount: finalCometCount,
       cometFrequency: finalCometFreq,
       subject: finalSubject,
@@ -3696,6 +3729,9 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
           templateType: 'ai_sentinel',
           theme: sentinelTpl.theme || 'dark',
           animated: sentinelTpl.animated !== false,
+          animationType: sentinelTpl.animationType || 'comets',
+          cometCount: sentinelTpl.cometCount,
+          cometFrequency: sentinelTpl.cometFrequency,
           subject: mailSubject,
           title: sentinelTpl.title || `Vigilancia Oficial Automatizada (${placeTitle})`,
           body: sentinelTpl.body || `El motor inteligente AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) o publicación(es) relevante(s) para ${placeTitle}:`,

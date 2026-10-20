@@ -654,230 +654,170 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                   },
                 ),
 
-                // Controls for Comet Animation
-                if (_currentAnimationType == 'comets') ...[
+                // Homogenized Cosmic Animation Controls (Cometas, Nebulosa, Agujero Negro)
+                if (_currentAnimationType != 'fixed') ...[
                   const SizedBox(height: 14),
                   Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
                   const SizedBox(height: 12),
 
-                  // Slider 1: Cantidad de Cometas
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+                  // Slider 1: Cantidad / Densidad
+                  Builder(
+                    builder: (context) {
+                      Color accent;
+                      IconData icon;
+                      String title;
+                      if (_currentAnimationType == 'nebula') {
+                        accent = const Color(0xFF8B5CF6);
+                        icon = Icons.grain_rounded;
+                        title = 'Densidad y Capas de Nebulosa';
+                      } else if (_currentAnimationType == 'blackhole') {
+                        accent = const Color(0xFF06B6D4);
+                        icon = Icons.radio_button_checked_rounded;
+                        title = 'Densidad de Materia y Disco';
+                      } else {
+                        accent = const Color(0xFFF59E0B);
+                        icon = Icons.auto_awesome;
+                        title = 'Cantidad de Cometas';
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.auto_awesome, size: 15, color: Color(0xFFF59E0B)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Cantidad de Cometas',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(icon, size: 15, color: accent),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    title,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: accent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: accent.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  _getAnimationCountLabel(_currentAnimationType, _currentCometCount),
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: accent),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: accent,
+                              thumbColor: accent,
+                              overlayColor: accent.withOpacity(0.2),
+                              trackHeight: 3,
+                            ),
+                            child: Slider(
+                              value: _currentCometCount.toDouble().clamp(0.0, 4.0),
+                              min: 0,
+                              max: 4,
+                              divisions: 4,
+                              onChanged: (val) {
+                                setState(() {
+                                  _currentCometCount = val.round();
+                                  _updateActiveTemplateState();
+                                });
+                              },
                             ),
                           ),
                         ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          _getCometCountLabel(_currentCometCount),
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFFF59E0B),
-                      thumbColor: const Color(0xFFF59E0B),
-                      overlayColor: const Color(0xFFF59E0B).withOpacity(0.2),
-                      trackHeight: 3,
-                    ),
-                    child: Slider(
-                      value: _currentCometCount.toDouble().clamp(0.0, 4.0),
-                      min: 0,
-                      max: 4,
-                      divisions: 4,
-                      onChanged: (val) {
-                        setState(() {
-                          _currentCometCount = val.round();
-                          _updateActiveTemplateState();
-                        });
-                      },
-                    ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 6),
 
-                  // Slider 2: Frecuencia / Ritmo de Aparición
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.speed_rounded, size: 15, color: Color(0xFF38BDF8)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Frecuencia y Ritmo',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF38BDF8).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          _getCometFrequencyLabel(_currentCometFrequency),
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF38BDF8),
-                      thumbColor: const Color(0xFF38BDF8),
-                      overlayColor: const Color(0xFF38BDF8).withOpacity(0.2),
-                      trackHeight: 3,
-                    ),
-                    child: Slider(
-                      value: _currentCometFrequency.toDouble().clamp(1.0, 3.0),
-                      min: 1,
-                      max: 3,
-                      divisions: 2,
-                      onChanged: (val) {
-                        setState(() {
-                          _currentCometFrequency = val.round();
-                          _updateActiveTemplateState();
-                        });
-                      },
-                    ),
-                  ),
-                ] else if (_currentAnimationType == 'nebula') ...[
-                  const SizedBox(height: 14),
-                  Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
-                  const SizedBox(height: 12),
+                  // Slider 2: Frecuencia y Ritmo / Velocidad
+                  Builder(
+                    builder: (context) {
+                      Color freqAccent;
+                      IconData freqIcon;
+                      String freqTitle;
+                      if (_currentAnimationType == 'nebula') {
+                        freqAccent = const Color(0xFFEC4899);
+                        freqIcon = Icons.all_inclusive_rounded;
+                        freqTitle = 'Ritmo y Pulsación Cósmica';
+                      } else if (_currentAnimationType == 'blackhole') {
+                        freqAccent = const Color(0xFF38BDF8);
+                        freqIcon = Icons.rotate_right_rounded;
+                        freqTitle = 'Velocidad de Giro del Vórtice';
+                      } else {
+                        freqAccent = const Color(0xFF38BDF8);
+                        freqIcon = Icons.speed_rounded;
+                        freqTitle = 'Frecuencia y Ritmo';
+                      }
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.grain_rounded, size: 15, color: Color(0xFF8B5CF6)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Intensidad y Brillo de Nebulosa',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(freqIcon, size: 15, color: freqAccent),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    freqTitle,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: freqAccent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: freqAccent.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  _getAnimationFrequencyLabel(_currentAnimationType, _currentCometFrequency),
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: freqAccent),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: freqAccent,
+                              thumbColor: freqAccent,
+                              overlayColor: freqAccent.withOpacity(0.2),
+                              trackHeight: 3,
+                            ),
+                            child: Slider(
+                              value: _currentCometFrequency.toDouble().clamp(1.0, 3.0),
+                              min: 1,
+                              max: 3,
+                              divisions: 2,
+                              onChanged: (val) {
+                                setState(() {
+                                  _currentCometFrequency = val.round();
+                                  _updateActiveTemplateState();
+                                });
+                              },
                             ),
                           ),
                         ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          _currentCometCount == 0 ? 'Sutil' : (_currentCometCount <= 2 ? 'Etérea' : 'Intensa'),
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFA78BFA)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF8B5CF6),
-                      thumbColor: const Color(0xFF8B5CF6),
-                      overlayColor: const Color(0xFF8B5CF6).withOpacity(0.2),
-                      trackHeight: 3,
-                    ),
-                    child: Slider(
-                      value: _currentCometCount.toDouble().clamp(0.0, 4.0),
-                      min: 0,
-                      max: 4,
-                      divisions: 4,
-                      onChanged: (val) {
-                        setState(() {
-                          _currentCometCount = val.round();
-                          _updateActiveTemplateState();
-                        });
-                      },
-                    ),
-                  ),
-                ] else if (_currentAnimationType == 'blackhole') ...[
-                  const SizedBox(height: 14),
-                  Divider(color: isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0), height: 1),
-                  const SizedBox(height: 12),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.radio_button_checked_rounded, size: 15, color: Color(0xFF06B6D4)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Velocidad de Giro del Vórtice',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          _currentCometFrequency == 1 ? 'Órbita Lenta' : (_currentCometFrequency == 2 ? 'Equilibrada' : 'Vórtice Relativista'),
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF06B6D4),
-                      thumbColor: const Color(0xFF06B6D4),
-                      overlayColor: const Color(0xFF06B6D4).withOpacity(0.2),
-                      trackHeight: 3,
-                    ),
-                    child: Slider(
-                      value: _currentCometFrequency.toDouble().clamp(1.0, 3.0),
-                      min: 1,
-                      max: 3,
-                      divisions: 2,
-                      onChanged: (val) {
-                        setState(() {
-                          _currentCometFrequency = val.round();
-                          _updateActiveTemplateState();
-                        });
-                      },
-                    ),
+                      );
+                    },
                   ),
                 ] else ...[
                   const SizedBox(height: 10),
@@ -1220,35 +1160,95 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       ),
     );
   }
-  String _getCometCountLabel(int count) {
-    switch (count) {
-      case 0:
-        return '0 · Desactivado (Solo estrellas)';
-      case 1:
-        return '1 · Sutil (Recomendado)';
-      case 2:
-        return '2 · Equilibrado';
-      case 3:
-        return '3 · Dinámico';
-      case 4:
-        return '4 · Lluvia Cósmica';
-      default:
-        return '$count cometas';
+  String _getAnimationCountLabel(String type, int count) {
+    if (type == 'nebula') {
+      switch (count) {
+        case 0:
+          return '0 · Desactivado (Estrellas puras)';
+        case 1:
+          return '1 · Nube Sutil (Recomendado)';
+        case 2:
+          return '2 · Nebulosa Bicolor';
+        case 3:
+          return '3 · Manto Tricolor Denso';
+        case 4:
+          return '4 · Tormenta Cósmica Masiva';
+        default:
+          return '$count capas';
+      }
+    } else if (type == 'blackhole') {
+      switch (count) {
+        case 0:
+          return '0 · Singularidad Silenciosa';
+        case 1:
+          return '1 · Vórtice Sutil (3 corrientes)';
+        case 2:
+          return '2 · Disco Activo (6 corrientes)';
+        case 3:
+          return '3 · Acreción Intensa (9 corrientes)';
+        case 4:
+          return '4 · Cuásar Relativista (12 corrientes)';
+        default:
+          return '$count niveles';
+      }
+    } else {
+      switch (count) {
+        case 0:
+          return '0 · Desactivado (Solo estrellas)';
+        case 1:
+          return '1 · Sutil (Recomendado)';
+        case 2:
+          return '2 · Equilibrado';
+        case 3:
+          return '3 · Dinámico';
+        case 4:
+          return '4 · Lluvia Cósmica';
+        default:
+          return '$count cometas';
+      }
     }
   }
 
-  String _getCometFrequencyLabel(int freq) {
-    switch (freq) {
-      case 1:
-        return '1 · Pausado y Relajado (Recomendado)';
-      case 2:
-        return '2 · Cadencia Normal';
-      case 3:
-        return '3 · Frecuente / Dinámico';
-      default:
-        return '$freq';
+  String _getAnimationFrequencyLabel(String type, int freq) {
+    if (type == 'nebula') {
+      switch (freq) {
+        case 1:
+          return '1 · Pulso Lento y Relajado';
+        case 2:
+          return '2 · Expansión Rítmica Normal';
+        case 3:
+          return '3 · Mareas Estelares Dinámicas';
+        default:
+          return '$freq';
+      }
+    } else if (type == 'blackhole') {
+      switch (freq) {
+        case 1:
+          return '1 · Rotación Relajada';
+        case 2:
+          return '2 · Giro Equilibrado';
+        case 3:
+          return '3 · Vórtice Ultrarrápido';
+        default:
+          return '$freq';
+      }
+    } else {
+      switch (freq) {
+        case 1:
+          return '1 · Pausado y Relajado (Recomendado)';
+        case 2:
+          return '2 · Cadencia Normal';
+        case 3:
+          return '3 · Frecuente / Dinámico';
+        default:
+          return '$freq';
+      }
     }
   }
+
+  String _getCometCountLabel(int count) => _getAnimationCountLabel('comets', count);
+
+  String _getCometFrequencyLabel(int freq) => _getAnimationFrequencyLabel('comets', freq);
 
   void _showCosmicRenderingInfoDialog(BuildContext context, bool isDark) {
     showDialog(
@@ -1406,15 +1406,23 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
   }
 
   Widget _buildGifSimulationBackground(bool previewIsDark) {
-    final skyUrl = previewIsDark
-        ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-sky-dark.gif'
-        : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-sky-light.gif';
-    final bannerUrl = previewIsDark
-        ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-banner-dark.gif'
-        : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-banner-light.gif';
-    final sideUrl = previewIsDark
-        ? 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-side-dark.gif'
-        : 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/cosmic-side-light.gif';
+    String skyName = previewIsDark ? 'cosmic-sky-dark.gif' : 'cosmic-sky-light.gif';
+    String bannerName = previewIsDark ? 'cosmic-banner-dark.gif' : 'cosmic-banner-light.gif';
+    String sideName = previewIsDark ? 'cosmic-side-dark.gif' : 'cosmic-side-light.gif';
+
+    if (_currentAnimationType == 'nebula') {
+      skyName = previewIsDark ? 'nebula-sky-dark.gif' : 'nebula-sky-light.gif';
+      bannerName = previewIsDark ? 'nebula-banner-dark.gif' : 'nebula-banner-light.gif';
+      sideName = previewIsDark ? 'nebula-side-dark.gif' : 'nebula-side-light.gif';
+    } else if (_currentAnimationType == 'blackhole') {
+      skyName = previewIsDark ? 'blackhole-sky-dark.gif' : 'blackhole-sky-light.gif';
+      bannerName = previewIsDark ? 'blackhole-banner-dark.gif' : 'blackhole-banner-light.gif';
+      sideName = previewIsDark ? 'blackhole-side-dark.gif' : 'blackhole-side-light.gif';
+    }
+
+    final skyUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$skyName';
+    final bannerUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$bannerName';
+    final sideUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/$sideName';
 
     return Stack(
       children: [
@@ -1555,56 +1563,70 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Dual-Engine switcher, info button and theme badge
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+          // Responsive Header with Dual-Engine switcher, info button and theme badge
+          LayoutBuilder(
+            builder: (context, headerConstraints) {
+              final isNarrow = headerConstraints.maxWidth < 620;
+
+              final themeBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: (previewIsDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: previewIsDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      previewIsDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                      size: 13,
+                      color: previewIsDark ? const Color(0xFF38BDF8) : const Color(0xFFF59E0B),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      previewIsDark ? '🌙 Modo Oscuro' : '☀️ Modo Claro',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: previewIsDark ? Colors.white70 : const Color(0xFF334155),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              final engineControls = Row(
+                mainAxisSize: isNarrow ? MainAxisSize.max : MainAxisSize.min,
                 children: [
-                  const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF10B981)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Vista Previa en Tiempo Real',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  Flexible(
+                    fit: isNarrow ? FlexFit.tight : FlexFit.loose,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'canvas',
+                          label: Text('🔮 Canvas Pro', style: TextStyle(fontSize: 11)),
+                        ),
+                        ButtonSegment(
+                          value: 'gif',
+                          label: Text('🌌 GIF Universal', style: TextStyle(fontSize: 11)),
+                        ),
+                      ],
+                      selected: {_previewMode},
+                      onSelectionChanged: (val) {
+                        setState(() {
+                          _previewMode = val.first;
+                        });
+                      },
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                     ),
                   ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Engine Toggle: Canvas Pro vs GIF Universal
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'canvas',
-                        label: Text('🔮 Canvas Pro', style: TextStyle(fontSize: 11)),
-                      ),
-                      ButtonSegment(
-                        value: 'gif',
-                        label: Text('🌌 GIF Universal', style: TextStyle(fontSize: 11)),
-                      ),
-                    ],
-                    selected: {_previewMode},
-                    onSelectionChanged: (val) {
-                      setState(() {
-                        _previewMode = val.first;
-                      });
-                    },
-                    style: ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
                   const SizedBox(width: 8),
-                  // Info Button for Dual Engine Explanation
                   Tooltip(
                     message: '¿Por qué hay 2 motores de renderizado?',
                     child: InkWell(
@@ -1621,26 +1643,62 @@ class _EmailTemplatesTabState extends State<EmailTemplatesTab> with SingleTicker
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Theme badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: (previewIsDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      previewIsDark ? '🌙 Oscuro' : '☀️ Claro',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: previewIsDark ? Colors.white70 : const Color(0xFF334155),
-                      ),
-                    ),
-                  ),
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 8),
+                    themeBadge,
+                  ],
                 ],
-              ),
-            ],
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF10B981)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Vista Previa en Tiempo Real',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    engineControls,
+                    const SizedBox(height: 8),
+                    // Theme badge placed cleanly underneath the engine controls on mobile
+                    themeBadge,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF10B981)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Vista Previa en Tiempo Real',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  engineControls,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
 
@@ -2165,77 +2223,114 @@ class CosmicEmailPreviewPainter extends CustomPainter {
 
   // --- NEBULA COSMICA: Organic drifting interstellar clouds & stardust ---
   void _drawNebula(Canvas canvas, Size size) {
-    // Oscillating pulse dynamics
-    final pulse1 = isAnimated ? (1.0 + 0.15 * math.sin(progress * 2 * math.pi)) : 1.0;
-    final pulse2 = isAnimated ? (1.0 + 0.18 * math.cos(progress * 2 * math.pi * 1.2)) : 1.0;
-    final pulse3 = isAnimated ? (1.0 + 0.12 * math.sin(progress * 2 * math.pi * 0.8 + 1.0)) : 1.0;
+    // If count == 0, keep quiet starry background with minimal stardust
+    if (!isAnimated || cometCount <= 0) return;
 
-    // Nebula 1: Ethereal Violet / Magenta Gas Cloud (Upper Left Flank)
+    // Frequency multiplier: 1 = calm / slow pulse (0.6), 2 = balanced (1.0), 3 = dynamic (1.8)
+    final freqMult = cometFrequency == 1 ? 0.6 : (cometFrequency == 2 ? 1.0 : 1.8);
+
+    // Oscillating pulse dynamics modulated by frequency
+    final pulse1 = 1.0 + 0.16 * math.sin(progress * 2 * math.pi * freqMult);
+    final pulse2 = 1.0 + 0.18 * math.cos(progress * 2 * math.pi * 1.2 * freqMult);
+    final pulse3 = 1.0 + 0.14 * math.sin(progress * 2 * math.pi * 0.85 * freqMult + 1.0);
+    final pulseCore = 1.0 + 0.20 * math.sin(progress * 2 * math.pi * 1.5 * freqMult + 0.5);
+
+    // Nebula 1: Ethereal Violet / Magenta Gas Cloud (Upper Left Flank) - activated at cometCount >= 1
+    if (cometCount >= 1) {
+      final c1 = Offset(size.width * 0.18, size.height * 0.22);
+      final r1 = (110.0 * pulse1).clamp(60.0, 210.0);
+      final alphaMult = cometCount == 1 ? 0.75 : 1.0;
+      final paint1 = Paint()
+        ..shader = RadialGradient(
+          colors: isDark
+              ? [
+                  const Color(0xFF8B5CF6).withOpacity(0.32 * alphaMult),
+                  const Color(0xFFEC4899).withOpacity(0.18 * alphaMult),
+                  const Color(0xFF3B82F6).withOpacity(0.06 * alphaMult),
+                  Colors.transparent,
+                ]
+              : [
+                  const Color(0xFF8B5CF6).withOpacity(0.18 * alphaMult),
+                  const Color(0xFFEC4899).withOpacity(0.10 * alphaMult),
+                  Colors.transparent,
+                ],
+          stops: const [0.0, 0.45, 0.75, 1.0],
+        ).createShader(Rect.fromCircle(center: c1, radius: r1));
+      canvas.drawCircle(c1, r1, paint1);
+    }
+
+    // Nebula 2: Glowing Emerald / Cyan Interstellar Cloud (Lower Right Flank) - activated at cometCount >= 2
+    if (cometCount >= 2) {
+      final c2 = Offset(size.width * 0.82, size.height * 0.76);
+      final r2 = (125.0 * pulse2).clamp(70.0, 230.0);
+      final paint2 = Paint()
+        ..shader = RadialGradient(
+          colors: isDark
+              ? [
+                  const Color(0xFF10B981).withOpacity(0.30),
+                  const Color(0xFF06B6D4).withOpacity(0.18),
+                  const Color(0xFF0284C7).withOpacity(0.06),
+                  Colors.transparent,
+                ]
+              : [
+                  const Color(0xFF10B981).withOpacity(0.16),
+                  const Color(0xFF06B6D4).withOpacity(0.10),
+                  Colors.transparent,
+                ],
+          stops: const [0.0, 0.45, 0.75, 1.0],
+        ).createShader(Rect.fromCircle(center: c2, radius: r2));
+      canvas.drawCircle(c2, r2, paint2);
+    }
+
+    // Nebula 3: Deep Stellar Blue / Indigo Cloud (Top Center Horizon) - activated at cometCount >= 3
+    if (cometCount >= 3) {
+      final c3 = Offset(size.width * 0.52, size.height * 0.10);
+      final r3 = (95.0 * pulse3).clamp(50.0, 190.0);
+      final paint3 = Paint()
+        ..shader = RadialGradient(
+          colors: isDark
+              ? [
+                  const Color(0xFF3B82F6).withOpacity(0.28),
+                  const Color(0xFF6366F1).withOpacity(0.15),
+                  Colors.transparent,
+                ]
+              : [
+                  const Color(0xFF3B82F6).withOpacity(0.14),
+                  const Color(0xFF6366F1).withOpacity(0.08),
+                  Colors.transparent,
+                ],
+          stops: const [0.0, 0.55, 1.0],
+        ).createShader(Rect.fromCircle(center: c3, radius: r3));
+      canvas.drawCircle(c3, r3, paint3);
+    }
+
+    // Nebula 4: Hyper-Stellar Amber/Gold Heart (Central Zenith Glow) - activated at cometCount >= 4
+    if (cometCount >= 4) {
+      final c4 = Offset(size.width * 0.35, size.height * 0.50);
+      final r4 = (140.0 * pulseCore).clamp(75.0, 240.0);
+      final paint4 = Paint()
+        ..shader = RadialGradient(
+          colors: isDark
+              ? [
+                  const Color(0xFFF59E0B).withOpacity(0.22),
+                  const Color(0xFF8B5CF6).withOpacity(0.12),
+                  Colors.transparent,
+                ]
+              : [
+                  const Color(0xFFF59E0B).withOpacity(0.12),
+                  Colors.transparent,
+                ],
+          stops: const [0.0, 0.50, 1.0],
+        ).createShader(Rect.fromCircle(center: c4, radius: r4));
+      canvas.drawCircle(c4, r4, paint4);
+    }
+
+    // Floating Stardust Particles drifting along cosmic currents (scaled by cometCount)
+    final stardustCount = cometCount * 5; // 5, 10, 15, 20 stardust particles
     final c1 = Offset(size.width * 0.18, size.height * 0.22);
-    final r1 = (110.0 * pulse1).clamp(60.0, 200.0);
-    final paint1 = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [
-                const Color(0xFF8B5CF6).withOpacity(0.32),
-                const Color(0xFFEC4899).withOpacity(0.18),
-                const Color(0xFF3B82F6).withOpacity(0.06),
-                Colors.transparent,
-              ]
-            : [
-                const Color(0xFF8B5CF6).withOpacity(0.18),
-                const Color(0xFFEC4899).withOpacity(0.10),
-                Colors.transparent,
-              ],
-        stops: const [0.0, 0.45, 0.75, 1.0],
-      ).createShader(Rect.fromCircle(center: c1, radius: r1));
-    canvas.drawCircle(c1, r1, paint1);
-
-    // Nebula 2: Glowing Emerald / Cyan Interstellar Cloud (Lower Right Flank)
     final c2 = Offset(size.width * 0.82, size.height * 0.76);
-    final r2 = (125.0 * pulse2).clamp(70.0, 220.0);
-    final paint2 = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [
-                const Color(0xFF10B981).withOpacity(0.30),
-                const Color(0xFF06B6D4).withOpacity(0.18),
-                const Color(0xFF0284C7).withOpacity(0.06),
-                Colors.transparent,
-              ]
-            : [
-                const Color(0xFF10B981).withOpacity(0.16),
-                const Color(0xFF06B6D4).withOpacity(0.10),
-                Colors.transparent,
-              ],
-        stops: const [0.0, 0.45, 0.75, 1.0],
-      ).createShader(Rect.fromCircle(center: c2, radius: r2));
-    canvas.drawCircle(c2, r2, paint2);
-
-    // Nebula 3: Deep Stellar Blue / Indigo Cloud (Top Center Horizon)
-    final c3 = Offset(size.width * 0.52, size.height * 0.10);
-    final r3 = (95.0 * pulse3).clamp(50.0, 180.0);
-    final paint3 = Paint()
-      ..shader = RadialGradient(
-        colors: isDark
-            ? [
-                const Color(0xFF3B82F6).withOpacity(0.28),
-                const Color(0xFF6366F1).withOpacity(0.15),
-                Colors.transparent,
-              ]
-            : [
-                const Color(0xFF3B82F6).withOpacity(0.14),
-                const Color(0xFF6366F1).withOpacity(0.08),
-                Colors.transparent,
-              ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(Rect.fromCircle(center: c3, radius: r3));
-    canvas.drawCircle(c3, r3, paint3);
-
-    // Floating Stardust Particles drifting along cosmic currents
-    const stardustCount = 14;
     for (int i = 0; i < stardustCount; i++) {
-      final angle = (isAnimated ? (progress * 2 * math.pi) : 0.0) + (i * (2 * math.pi / stardustCount));
+      final angle = (progress * 2 * math.pi * freqMult) + (i * (2 * math.pi / stardustCount));
       final orbitR = 30.0 + (i % 4) * 22.0;
       final center = (i % 2 == 0) ? c1 : c2;
       final pPos = Offset(
@@ -2258,20 +2353,26 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       size.width > 500 ? size.height * 0.20 : 54.0,
     );
 
+    // Speed multiplier from cometFrequency: 1 = slow rotation (0.6), 2 = balanced (1.0), 3 = relativistic warp (2.0)
+    final freqMult = cometFrequency == 1 ? 0.6 : (cometFrequency == 2 ? 1.0 : 2.0);
+
+    // Size / Intensity scaling from cometCount (0 = dormant singularity, 4 = quasar level)
+    final countMult = cometCount / 4.0; // 0.0 to 1.0
+
     // 1. Gravitational Lensing Outer Halo (Deep spacetime distortion glow)
-    const lensRadius = 85.0;
+    final lensRadius = 60.0 + cometCount * 7.0;
     final lensPaint = Paint()
       ..shader = RadialGradient(
         colors: isDark
             ? [
-                const Color(0xFF8B5CF6).withOpacity(0.35),
-                const Color(0xFF06B6D4).withOpacity(0.20),
-                const Color(0xFFF59E0B).withOpacity(0.10),
+                const Color(0xFF8B5CF6).withOpacity((0.20 + 0.20 * countMult).clamp(0.1, 0.45)),
+                const Color(0xFF06B6D4).withOpacity((0.10 + 0.15 * countMult).clamp(0.05, 0.3)),
+                const Color(0xFFF59E0B).withOpacity((0.05 + 0.10 * countMult).clamp(0.0, 0.2)),
                 Colors.transparent,
               ]
             : [
-                const Color(0xFF6366F1).withOpacity(0.20),
-                const Color(0xFF0284C7).withOpacity(0.12),
+                const Color(0xFF6366F1).withOpacity((0.12 + 0.12 * countMult).clamp(0.05, 0.25)),
+                const Color(0xFF0284C7).withOpacity(0.08),
                 Colors.transparent,
               ],
         stops: const [0.0, 0.45, 0.75, 1.0],
@@ -2285,11 +2386,14 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     canvas.rotate(-0.35);
     canvas.scale(1.0, 0.38);
 
-    // Spinning plasma rays / spiral accretion streams
-    final diskRot = isAnimated ? (progress * 2 * math.pi) : 0.0;
+    // Spinning plasma rays / spiral accretion streams modulated by freqMult
+    final diskRot = isAnimated ? (progress * 2 * math.pi * freqMult) : 0.0;
     canvas.rotate(diskRot);
 
-    const diskRadius = 65.0;
+    final diskRadius = 40.0 + cometCount * 7.0;
+    final strokeWidth = (14.0 + cometCount * 2.5).clamp(12.0, 24.0);
+    final diskCenterRadius = 26.0 + cometCount * 3.0;
+
     final plasmaPaint = Paint()
       ..shader = SweepGradient(
         colors: const [
@@ -2302,10 +2406,10 @@ class CosmicEmailPreviewPainter extends CustomPainter {
         stops: const [0.0, 0.28, 0.55, 0.82, 1.0],
       ).createShader(Rect.fromCircle(center: Offset.zero, radius: diskRadius))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 22.0
+      ..strokeWidth = strokeWidth
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
 
-    canvas.drawCircle(Offset.zero, 36.0, plasmaPaint);
+    canvas.drawCircle(Offset.zero, diskCenterRadius, plasmaPaint);
 
     // Accretion Disk Highlights / Bright Relativistic Beaming
     final highlightPaint = Paint()
@@ -2313,7 +2417,7 @@ class CosmicEmailPreviewPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5;
     canvas.drawArc(
-      Rect.fromCircle(center: Offset.zero, radius: 36.0),
+      Rect.fromCircle(center: Offset.zero, radius: diskCenterRadius),
       0.0,
       math.pi * 0.75,
       false,
@@ -2323,30 +2427,33 @@ class CosmicEmailPreviewPainter extends CustomPainter {
     canvas.restore();
 
     // 3. Photon Sphere Ring (Intense luminous razor-sharp aura)
+    final photonRadius = 15.0 + cometCount * 0.8;
     final photonPaint = Paint()
       ..color = const Color(0xFF38BDF8).withOpacity(0.95)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.4;
-    canvas.drawCircle(bhCenter, 18.0, photonPaint);
+    canvas.drawCircle(bhCenter, photonRadius, photonPaint);
 
     final photonGlow = Paint()
       ..color = Colors.white.withOpacity(0.75)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-    canvas.drawCircle(bhCenter, 17.2, photonGlow);
+    canvas.drawCircle(bhCenter, photonRadius - 0.8, photonGlow);
 
     // 4. The Event Horizon (Pitch-black absolute singularity)
+    final horizonRadius = photonRadius - 1.5;
     final horizonPaint = Paint()
       ..color = const Color(0xFF030712)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(bhCenter, 16.5, horizonPaint);
+    canvas.drawCircle(bhCenter, horizonRadius, horizonPaint);
 
-    // 5. Infalling Matter Streams (Vortices spiraling in)
-    if (isAnimated) {
-      for (int i = 0; i < 6; i++) {
-        final streamProgress = (progress + (i / 6.0)) % 1.0;
-        final spiralAngle = diskRot + (i * (math.pi / 3.0)) + (streamProgress * 2 * math.pi);
-        final spiralDist = 18.0 + (1.0 - streamProgress) * 45.0;
+    // 5. Infalling Matter Streams (Vortices spiraling in, modulated by cometCount and freqMult)
+    if (isAnimated && cometCount > 0) {
+      final numStreams = cometCount * 3; // 3, 6, 9, 12 streams
+      for (int i = 0; i < numStreams; i++) {
+        final streamProgress = (progress * freqMult + (i / numStreams.toDouble())) % 1.0;
+        final spiralAngle = diskRot + (i * (2 * math.pi / numStreams)) + (streamProgress * 2 * math.pi);
+        final spiralDist = horizonRadius + 2.0 + (1.0 - streamProgress) * (diskRadius - horizonRadius);
         final p = Offset(
           bhCenter.dx + math.cos(spiralAngle) * spiralDist,
           bhCenter.dy + math.sin(spiralAngle) * spiralDist * 0.42,

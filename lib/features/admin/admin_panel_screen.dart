@@ -1282,151 +1282,270 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       roleLabel = 'Docente';
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    final avatarWidget = Stack(
+      children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: roleColor.withOpacity(0.2),
+          backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
+          child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+              ? Text(
+                  user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
+                  style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 16),
+                )
+              : null,
+        ),
+        if (user.isBanned)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+              child: const Icon(Icons.close, size: 10, color: Colors.white),
+            ),
+          ),
+      ],
+    );
+
+    final roleBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: user.isBanned
-              ? Colors.redAccent.withOpacity(0.5)
-              : (isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
-          width: user.isBanned ? 1.5 : 1.0,
+        color: roleColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: roleColor.withOpacity(0.4)),
+      ),
+      child: Text(roleLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: roleColor)),
+    );
+
+    final statusBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: (user.isBanned ? Colors.redAccent : AppTheme.emerald).withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        user.isBanned ? 'Suspendido' : 'Activo',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: user.isBanned ? Colors.redAccent : AppTheme.emerald,
         ),
       ),
-      child: Row(
-        children: [
-          // Avatar
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: roleColor.withOpacity(0.2),
-                backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty ? NetworkImage(user.avatarUrl!) : null,
-                child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
-                    ? Text(
-                        user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
-                        style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 16),
-                      )
-                    : null,
-              ),
-              if (user.isBanned)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                    child: const Icon(Icons.close, size: 10, color: Colors.white),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 14),
+    );
 
-          // User details
-          Expanded(
+    final rootBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF06B6D4).withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
+      ),
+      child: const Text('ROOT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4))),
+    );
+
+    Widget buildActionButtons({bool isMobile = false}) {
+      return Row(
+        mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment: isMobile ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          // Edit button
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueAccent),
+            tooltip: 'Editar usuario y rol',
+            onPressed: () => _showEditUserDialog(user),
+          ),
+          const SizedBox(width: 2),
+          // Ban / Unban button
+          IconButton(
+            icon: Icon(
+              user.isBanned ? Icons.lock_open_rounded : Icons.block_rounded,
+              size: 18,
+              color: user.isBanned ? AppTheme.emerald : Colors.orange,
+            ),
+            tooltip: isRootAdmin ? 'Cuenta principal protegida' : (user.isBanned ? 'Reactivar usuario' : 'Suspender/Banear'),
+            onPressed: isRootAdmin ? null : () => _toggleBanUser(user),
+          ),
+          const SizedBox(width: 2),
+          // Delete button
+          IconButton(
+            icon: Icon(Icons.delete_outline_rounded, size: 18, color: isRootAdmin ? Colors.grey : Colors.redAccent),
+            tooltip: isRootAdmin ? 'No se puede eliminar al admin principal' : 'Eliminar usuario',
+            onPressed: isRootAdmin ? null : () => _deleteUser(user),
+          ),
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 620;
+
+        if (isMobile) {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: user.isBanned
+                    ? Colors.redAccent.withOpacity(0.5)
+                    : (isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
+                width: user.isBanned ? 1.5 : 1.0,
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Top section: Avatar and User Identity
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      user.fullName ?? user.username,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        decoration: user.isBanned ? TextDecoration.lineThrough : null,
+                    avatarWidget,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: [
+                              Text(
+                                user.fullName ?? user.username,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  decoration: user.isBanned ? TextDecoration.lineThrough : null,
+                                ),
+                              ),
+                              Text(
+                                '@${user.username}',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                              if (isRootAdmin) rootBadge,
+                            ],
+                          ),
+                          if (user.email != null && user.email!.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                const Icon(Icons.mail_outline, size: 12, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    user.email!,
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text('@${user.username}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    if (isRootAdmin) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
-                        ),
-                        child: const Text('ROOT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF06B6D4))),
-                      ),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10),
+                // Bottom section: Badges + Action Buttons on separate dedicated row
+                Divider(
+                  color: isDark ? const Color(0xFF334155).withOpacity(0.4) : const Color(0xFFE2E8F0),
+                  height: 1,
+                ),
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    if (user.email != null && user.email!.isNotEmpty) ...[
-                      const Icon(Icons.mail_outline, size: 12, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(user.email!, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      const SizedBox(width: 12),
-                    ],
-                    // Role badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: roleColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: roleColor.withOpacity(0.4)),
-                      ),
-                      child: Text(roleLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: roleColor)),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        roleBadge,
+                        statusBadge,
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    // Ban / Active status badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: (user.isBanned ? Colors.redAccent : AppTheme.emerald).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        user.isBanned ? 'Suspendido' : 'Activo',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: user.isBanned ? Colors.redAccent : AppTheme.emerald,
-                        ),
-                      ),
-                    ),
+                    const Spacer(),
+                    buildActionButtons(isMobile: true),
                   ],
                 ),
               ],
             ),
-          ),
+          );
+        }
 
-          // Actions Buttons
-          Row(
-            mainAxisSize: MainAxisSize.min,
+        // Desktop / Tablet layout (>= 620px)
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withOpacity(0.85) : Colors.white.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: user.isBanned
+                  ? Colors.redAccent.withOpacity(0.5)
+                  : (isDark ? const Color(0xFF334155).withOpacity(0.6) : const Color(0xFFE2E8F0)),
+              width: user.isBanned ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
             children: [
-              // Edit button
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blueAccent),
-                tooltip: 'Editar usuario y rol',
-                onPressed: () => _showEditUserDialog(user),
-              ),
-              // Ban / Unban button
-              IconButton(
-                icon: Icon(
-                  user.isBanned ? Icons.lock_open_rounded : Icons.block_rounded,
-                  size: 18,
-                  color: user.isBanned ? AppTheme.emerald : Colors.orange,
+              avatarWidget,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            user.fullName ?? user.username,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              decoration: user.isBanned ? TextDecoration.lineThrough : null,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('@${user.username}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        if (isRootAdmin) ...[
+                          const SizedBox(width: 6),
+                          rootBadge,
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (user.email != null && user.email!.isNotEmpty) ...[
+                          const Icon(Icons.mail_outline, size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              user.email!,
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        roleBadge,
+                        const SizedBox(width: 8),
+                        statusBadge,
+                      ],
+                    ),
+                  ],
                 ),
-                tooltip: isRootAdmin ? 'Cuenta principal protegida' : (user.isBanned ? 'Reactivar usuario' : 'Suspender/Banear'),
-                onPressed: isRootAdmin ? null : () => _toggleBanUser(user),
               ),
-              // Delete button
-              IconButton(
-                icon: Icon(Icons.delete_outline_rounded, size: 18, color: isRootAdmin ? Colors.grey : Colors.redAccent),
-                tooltip: isRootAdmin ? 'No se puede eliminar al admin principal' : 'Eliminar usuario',
-                onPressed: isRootAdmin ? null : () => _deleteUser(user),
-              ),
+              const SizedBox(width: 8),
+              buildActionButtons(isMobile: false),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
