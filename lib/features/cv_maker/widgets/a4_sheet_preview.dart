@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/cv_profile_model.dart';
+export 'watermark_painter.dart';
+import 'watermark_painter.dart';
 
 class A4SheetPreview extends StatefulWidget {
   final CvProfileModel profile;
@@ -1589,8 +1591,3 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     );
   }
 }
-
-// ==============================================================================
-// WATERMARK PATTERN PAINTER (Exported from watermark_painter.dart)
-// ==============================================================================
-export 'watermark_painter.dart';
