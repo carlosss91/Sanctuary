@@ -33,15 +33,32 @@ class PdfExportService {
     );
   }
 
-  static Future<Uint8List> generatePdfBytes(CvProfileModel profile) async {
+  static Future<Uint8List> generatePdfBytes(CvProfileModel rawProfile) async {
+    // 1. Sanitize all text fields so dashes (–, —), bullets (•), and quotes never show as [X] boxes in PDF
+    final profile = _sanitizeProfileForPdf(rawProfile);
     final safeName = profile.fullName.trim().isEmpty ? 'Curriculum' : profile.fullName.trim();
     final jsonPayload = base64Encode(utf8.encode(jsonEncode(profile.toJson())));
+
+    // 2. Load Google Fonts if available for true Unicode rendering, fallback safely
+    pw.ThemeData? docTheme;
+    try {
+      final baseFont = await PdfGoogleFonts.interRegular().timeout(const Duration(milliseconds: 1500));
+      final boldFont = await PdfGoogleFonts.interBold().timeout(const Duration(milliseconds: 1500));
+      docTheme = pw.ThemeData.withFont(
+        base: baseFont,
+        bold: boldFont,
+      );
+    } catch (_) {
+      // Fallback safely to standard Helvetica (all text sanitized for WinAnsi)
+    }
+
     final doc = pw.Document(
       title: 'Curriculum Vitae - $safeName',
       author: safeName,
       creator: 'Sanctuary Platform',
       subject: 'SanctuaryCV::$jsonPayload',
       keywords: 'SanctuaryCV,Curriculum,CV',
+      theme: docTheme,
     );
 
     final isEn = profile.isEnglishVersion;
@@ -56,49 +73,82 @@ class PdfExportService {
     final pw.MemoryImage? photoImage =
         photoBytes != null ? pw.MemoryImage(photoBytes) : null;
 
-    // Pre-render watermarks identical to the A4 Sheet Preview
+    // Pre-render watermarks with exact dimensions matching A4SheetPreview
     pw.MemoryImage? sidebarWatermarkImg;
     pw.MemoryImage? bannerWatermarkImg;
+    pw.MemoryImage? pillWatermarkImg;
+    pw.MemoryImage? modernBannerWatermarkImg;
     pw.MemoryImage? techHeroWatermarkImg;
 
     if (profile.showWatermark &&
         profile.watermarkPattern != 'none' &&
         profile.watermarkOpacity > 0) {
       try {
+        // Sidebar watermark for sidebar_dark template (185 x 806 pt logical)
         final sidebarBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: profile.watermarkOpacity,
           density: profile.watermarkDensity,
           randomness: profile.watermarkRandomness,
           customWatermarkUrl: profile.customWatermarkUrl,
-          width: 350,
-          height: 1612,
+          width: 185,
+          height: 806,
         );
         if (sidebarBytes != null) {
           sidebarWatermarkImg = pw.MemoryImage(sidebarBytes);
         }
 
+        // Header Banner watermark for sidebar_dark (358 x 54 pt logical; height <= 60 triggers horizontal gear chain)
         final bannerBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: profile.watermarkOpacity,
           density: profile.watermarkDensity,
           randomness: profile.watermarkRandomness,
           customWatermarkUrl: profile.customWatermarkUrl,
-          width: 1120,
-          height: 240,
+          width: 358,
+          height: 54,
         );
         if (bannerBytes != null) {
           bannerWatermarkImg = pw.MemoryImage(bannerBytes);
         }
 
+        // Section Pill watermark for sidebar_dark (358 x 22 pt logical; height <= 60 triggers horizontal gear chain)
+        final pillBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: profile.watermarkOpacity,
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 358,
+          height: 22,
+        );
+        if (pillBytes != null) {
+          pillWatermarkImg = pw.MemoryImage(pillBytes);
+        }
+
+        // Wide Header Banner watermark for modern_header template (559 x 120 pt logical)
+        final modernBannerBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: profile.watermarkOpacity,
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 559,
+          height: 120,
+        );
+        if (modernBannerBytes != null) {
+          modernBannerWatermarkImg = pw.MemoryImage(modernBannerBytes);
+        }
+
+        // Hero Card watermark for tech_cards template (559 x 80 pt logical)
         final techHeroBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: (profile.watermarkOpacity * 0.75).clamp(0.0, 1.0),
           density: profile.watermarkDensity,
           randomness: profile.watermarkRandomness,
           customWatermarkUrl: profile.customWatermarkUrl,
-          width: 1120,
-          height: 180,
+          width: 559,
+          height: 80,
         );
         if (techHeroBytes != null) {
           techHeroWatermarkImg = pw.MemoryImage(techHeroBytes);
@@ -124,7 +174,7 @@ class PdfExportService {
                 bgCardColor,
                 borderColor,
                 isEn,
-                bannerWatermarkImg: bannerWatermarkImg,
+                bannerWatermarkImg: modernBannerWatermarkImg,
               );
             case 'minimalist':
               return _buildMinimalistLayout(
@@ -159,6 +209,7 @@ class PdfExportService {
                 isEn,
                 sidebarWatermarkImg: sidebarWatermarkImg,
                 bannerWatermarkImg: bannerWatermarkImg,
+                pillWatermarkImg: pillWatermarkImg,
               );
           }
         },
@@ -288,20 +339,21 @@ class PdfExportService {
     bool isEn, {
     pw.MemoryImage? sidebarWatermarkImg,
     pw.MemoryImage? bannerWatermarkImg,
+    pw.MemoryImage? pillWatermarkImg,
   }) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // Left Column (Sidebar)
+        // Left Column (Sidebar: 185pt wide matching A4 preview)
         pw.Container(
-          width: 175,
+          width: 185,
           decoration: pw.BoxDecoration(
             color: accentColor,
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
           ),
           child: pw.ClipRRect(
-            horizontalRadius: 8,
-            verticalRadius: 8,
+            horizontalRadius: 10,
+            verticalRadius: 10,
             child: pw.Stack(
               children: [
                 if (sidebarWatermarkImg != null)
@@ -356,7 +408,7 @@ class PdfExportService {
           ),
         ),
 
-        pw.SizedBox(width: 14),
+        pw.SizedBox(width: 16),
 
         // Right Column
         pw.Expanded(
@@ -420,7 +472,7 @@ class PdfExportService {
               _buildSectionPill(
                 isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL',
                 accentColor,
-                bannerWatermarkImg,
+                pillWatermarkImg,
               ),
               pw.SizedBox(height: 8),
 
@@ -468,7 +520,7 @@ class PdfExportService {
               _buildSectionPill(
                 isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES',
                 accentColor,
-                bannerWatermarkImg,
+                pillWatermarkImg,
               ),
               pw.SizedBox(height: 8),
 
@@ -1305,11 +1357,11 @@ class PdfExportService {
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(
         color: color,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
       ),
       child: pw.ClipRRect(
-        horizontalRadius: 10,
-        verticalRadius: 10,
+        horizontalRadius: 12,
+        verticalRadius: 12,
         child: pw.Stack(
           alignment: pw.Alignment.center,
           children: [
@@ -1471,5 +1523,80 @@ class PdfExportService {
       return PdfColor(r / 255.0, g / 255.0, b / 255.0);
     }
     return PdfColor.fromInt(0xFF0D9488);
+  }
+
+  // ==============================================================================
+  // UNICODE SANITIZATION FOR PDF EXPORT
+  // ==============================================================================
+  /// Sanitizes text to eliminate missing glyph boxes ([X] / .notdef) in PDF export.
+  /// Translates Unicode bullets, dashes, non-standard quotes, and spaces into
+  /// standard characters guaranteed to render cleanly in all PDF viewers.
+  static String _cleanPdfText(String text) {
+    if (text.isEmpty) return text;
+    var result = text;
+    // Strip invisible zero-width characters
+    result = result.replaceAll(RegExp(r'[\u200B\u200C\u200D\uFEFF\u200E\u200F]'), '');
+    // Replace non-breaking spaces with standard space
+    result = result.replaceAll('\u00A0', ' ');
+    // Bullets & list dots -> standard ASCII dash with space
+    result = result.replaceAll(
+      RegExp(r'[\u2022\u2023\u2043\u2219\u25AA\u25AB\u25CF\u25CB\u25B6\u25B8\u25E6\u25D8\u25D9\u204C\u204D]'),
+      '- ',
+    );
+    // Dashes & hyphens (en-dash \u2013, em-dash \u2014, figure dash \u2012, minus \u2212, horizontal bar \u2015, etc.) -> standard ASCII hyphen
+    result = result.replaceAll(
+      RegExp(r'[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]'),
+      '-',
+    );
+    // Double spaces after bullet replacement: "-  " -> "- "
+    result = result.replaceAll('-  ', '- ');
+    // Typographic quotes -> standard ASCII
+    result = result.replaceAll(RegExp(r'[\u201C\u201D\u00AB\u00BB\u201E\u201F]'), '"');
+    result = result.replaceAll(RegExp(r'[\u2018\u2019\u201A\u201B]'), "'");
+    // Common symbols
+    result = result.replaceAll('…', '...');
+    result = result.replaceAll('→', '->');
+    result = result.replaceAll('←', '<-');
+    result = result.replaceAll(RegExp(r'[✓✔]'), 'v');
+    return result;
+  }
+
+  /// Returns a clean copy of the profile with all text properties sanitized for PDF.
+  static CvProfileModel _sanitizeProfileForPdf(CvProfileModel p) {
+    return p.copyWith(
+      fullName: _cleanPdfText(p.fullName),
+      jobTitle: _cleanPdfText(p.jobTitle),
+      moduleBadge: _cleanPdfText(p.moduleBadge),
+      workshopTitle: _cleanPdfText(p.workshopTitle),
+      phone: _cleanPdfText(p.phone),
+      email: _cleanPdfText(p.email),
+      location: _cleanPdfText(p.location),
+      availability: _cleanPdfText(p.availability),
+      drivingLicense: _cleanPdfText(p.drivingLicense),
+      summary: _cleanPdfText(p.summary),
+      skills: p.skills.map(_cleanPdfText).toList(),
+      skillItems: p.skillItems
+          .map((s) => s.copyWith(
+                name: _cleanPdfText(s.name),
+                description: _cleanPdfText(s.description),
+              ))
+          .toList(),
+      experiences: p.experiences
+          .map((e) => e.copyWith(
+                jobTitle: _cleanPdfText(e.jobTitle),
+                company: _cleanPdfText(e.company),
+                period: _cleanPdfText(e.period),
+                description: _cleanPdfText(e.description),
+              ))
+          .toList(),
+      educations: p.educations
+          .map((e) => e.copyWith(
+                degree: _cleanPdfText(e.degree),
+                institution: _cleanPdfText(e.institution),
+                period: _cleanPdfText(e.period),
+                details: _cleanPdfText(e.details),
+              ))
+          .toList(),
+    );
   }
 }

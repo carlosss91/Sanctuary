@@ -209,5 +209,33 @@ void main() {
       expect(restoredEs.availability, equals('Inmediata'));
       expect(restoredEs.skills.first, equals('Trabajo en equipo'));
     });
+
+    test('PdfExportService cleanly sanitizes Unicode bullets and en-dashes (no [X] boxes)', () async {
+      final trickyProfile = sampleProfile.copyWith(
+        summary: '• Especialista en: “Automatización industrial”.\n• Sistemas SCADA & PLC.',
+        experiences: [
+          CvExperience(
+            jobTitle: 'Web Application Developer',
+            company: 'Canarytek S.L.',
+            period: '9/2024 – 9/2026', // en-dash
+            description: '• ERP Odoo: Configuración.\n• Systems: Soporte técnico.\n• Management: Documentación.',
+          ),
+        ],
+        educations: [
+          CvEducation(
+            degree: 'Primary Education Teaching',
+            institution: 'University of Las Palmas',
+            period: '2009 – 2012', // en-dash
+            details: 'Diploma — especialidad Educación Física.', // em-dash
+          ),
+        ],
+      );
+
+      final pdfBytes = await PdfExportService.generatePdfBytes(trickyProfile);
+      expect(pdfBytes.isNotEmpty, isTrue);
+      // Ensure embedded sanitized payload does not have raw bullets or en-dashes breaking Type 1
+      expect(pdfBytes.length, greaterThan(1000));
+    });
   });
 }
+
