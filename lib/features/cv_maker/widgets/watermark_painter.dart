@@ -667,11 +667,16 @@ class WatermarkPainter extends CustomPainter {
     required double randomness,
     required double width,
     required double height,
+    Color? backgroundColor,
+    double borderRadius = 0.0,
     String? customWatermarkUrl,
     double pixelRatio = 2.0,
   }) async {
     final effectiveOpacity = opacity.clamp(0.0, 1.0);
-    if (pattern == 'none' || effectiveOpacity <= 0.0 || width <= 0 || height <= 0) {
+    if ((pattern == 'none' || effectiveOpacity <= 0.0) && backgroundColor == null) {
+      return null;
+    }
+    if (width <= 0 || height <= 0) {
       return null;
     }
 
@@ -695,6 +700,15 @@ class WatermarkPainter extends CustomPainter {
           final recorder = ui.PictureRecorder();
           final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, targetW.toDouble(), targetH.toDouble()));
 
+          if (backgroundColor != null) {
+            final rrect = RRect.fromRectAndRadius(
+              Rect.fromLTWH(0, 0, targetW.toDouble(), targetH.toDouble()),
+              Radius.circular(borderRadius * pixelRatio),
+            );
+            canvas.drawRRect(rrect, Paint()..color = backgroundColor);
+            canvas.clipRRect(rrect);
+          }
+
           final paint = Paint()
             ..colorFilter = ColorFilter.mode(
               Colors.white.withOpacity(effectiveOpacity),
@@ -716,21 +730,32 @@ class WatermarkPainter extends CustomPainter {
       }
     }
 
-    // Vector Pattern Watermark
+    // Vector Pattern Watermark or solid/rounded background
     try {
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, targetW.toDouble(), targetH.toDouble()));
 
       canvas.scale(pixelRatio, pixelRatio);
 
-      final painter = WatermarkPainter(
-        pattern: pattern,
-        opacity: effectiveOpacity,
-        density: density,
-        randomness: randomness,
-      );
+      if (backgroundColor != null) {
+        final rrect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, width, height),
+          Radius.circular(borderRadius),
+        );
+        canvas.drawRRect(rrect, Paint()..color = backgroundColor);
+        canvas.clipRRect(rrect);
+      }
 
-      painter.paint(canvas, Size(width, height));
+      if (pattern != 'none' && effectiveOpacity > 0.0) {
+        final painter = WatermarkPainter(
+          pattern: pattern,
+          opacity: effectiveOpacity,
+          density: density,
+          randomness: randomness,
+        );
+
+        painter.paint(canvas, Size(width, height));
+      }
 
       final pic = recorder.endRecording();
       final outImg = await pic.toImage(targetW, targetH);

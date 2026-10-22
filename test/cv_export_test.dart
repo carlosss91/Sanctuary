@@ -114,20 +114,22 @@ void main() {
       expect(docXml, contains('✉'));
       expect(docXml, contains('📍'));
 
-      // 5. Watermark drawings embedded
-      expect(docXml, contains('rIdWatermarkSidebar'));
-      expect(docXml, contains('rIdWatermarkBanner'));
+      // 5. Watermark drawings embedded (sidebar background in header1.xml for full-height coverage)
+      final headerFile = archive.findFile('word/header1.xml');
+      expect(headerFile, isNotNull);
+      final headerXml = utf8.decode(headerFile!.content as List<int>);
+      expect(headerXml, contains('rIdSidebarBg'));
+      expect(docXml, contains('rIdBannerBg'));
 
       // 6. Relationships contains media references
       final relsFile = archive.findFile('word/_rels/document.xml.rels');
       expect(relsFile, isNotNull);
       final relsXml = utf8.decode(relsFile!.content as List<int>);
-      expect(relsXml, contains('Target="media/watermark_sidebar.png"'));
-      expect(relsXml, contains('Target="media/watermark_banner.png"'));
+      expect(relsXml, contains('Target="media/banner_bg.png"'));
 
       // 7. Media files in archive
-      expect(archive.findFile('word/media/watermark_sidebar.png'), isNotNull);
-      expect(archive.findFile('word/media/watermark_banner.png'), isNotNull);
+      expect(archive.findFile('word/media/sidebar_bg.png'), isNotNull);
+      expect(archive.findFile('word/media/banner_bg.png'), isNotNull);
     });
   });
 
