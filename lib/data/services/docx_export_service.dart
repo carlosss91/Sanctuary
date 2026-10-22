@@ -4,6 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 import 'package:printing/printing.dart';
 import '../models/cv_profile_model.dart';
+import '../../features/cv_maker/widgets/watermark_painter.dart';
 
 class DocxExportService {
   static String _escapeXml(String input) {
@@ -20,26 +21,6 @@ class DocxExportService {
     final parts = profile.fullName.trim().split(' ');
     final initials = parts.where((p) => p.isNotEmpty).map((p) => p[0].toUpperCase()).take(2).join();
     return initials.isNotEmpty ? initials : 'CV';
-  }
-
-  static String _getWatermarkMotif(CvProfileModel profile) {
-    if (!profile.showWatermark || profile.watermarkPattern == 'none') return '';
-    switch (profile.watermarkPattern) {
-      case 'gears':
-        return '⚙';
-      case 'tools':
-        return '🛠';
-      case 'shield':
-        return '🛡';
-      case 'geometric':
-        return '❖';
-      case 'tech_dots':
-        return '✦';
-      case 'lines':
-        return '═';
-      default:
-        return '⚙';
-    }
   }
 
   static int _scaleSz(int baseHalfPoints, double scale) {
@@ -73,7 +54,12 @@ class DocxExportService {
     return null;
   }
 
-  static Uint8List generateDocxBytes(CvProfileModel profile, [Uint8List? preloadedPhotoBytes]) {
+  static Uint8List generateDocxBytes(
+    CvProfileModel profile, [
+    Uint8List? preloadedPhotoBytes,
+    Uint8List? sidebarWatermarkBytes,
+    Uint8List? bannerWatermarkBytes,
+  ]) {
     final archive = Archive();
     final isEn = profile.isEnglishVersion;
     final accentHex = profile.accentColor.replaceAll('#', '').toUpperCase();
@@ -101,6 +87,16 @@ class DocxExportService {
     final hasPhoto = photoBytes != null && photoBytes.isNotEmpty;
     if (hasPhoto) {
       archive.addFile(ArchiveFile('word/media/image1.$photoExtension', photoBytes.length, photoBytes));
+    }
+
+    final hasSidebarWatermark = sidebarWatermarkBytes != null && sidebarWatermarkBytes.isNotEmpty;
+    if (hasSidebarWatermark) {
+      archive.addFile(ArchiveFile('word/media/watermark_sidebar.png', sidebarWatermarkBytes.length, sidebarWatermarkBytes));
+    }
+
+    final hasBannerWatermark = bannerWatermarkBytes != null && bannerWatermarkBytes.isNotEmpty;
+    if (hasBannerWatermark) {
+      archive.addFile(ArchiveFile('word/media/watermark_banner.png', bannerWatermarkBytes.length, bannerWatermarkBytes));
     }
 
     // 1. [Content_Types].xml
@@ -131,6 +127,14 @@ class DocxExportService {
     if (hasPhoto) {
       docRelsXml.write('''
   <Relationship Id="rIdPhoto" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.$photoExtension"/>''');
+    }
+    if (hasSidebarWatermark) {
+      docRelsXml.write('''
+  <Relationship Id="rIdWatermarkSidebar" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/watermark_sidebar.png"/>''');
+    }
+    if (hasBannerWatermark) {
+      docRelsXml.write('''
+  <Relationship Id="rIdWatermarkBanner" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/watermark_banner.png"/>''');
     }
     docRelsXml.write('\n</Relationships>');
     archive.addFile(ArchiveFile('word/_rels/document.xml.rels', docRelsXml.length, utf8.encode(docRelsXml.toString())));
@@ -171,17 +175,17 @@ class DocxExportService {
     // Build layout based on active template
     switch (profile.template) {
       case 'modern_header':
-        _buildModernHeaderDocx(docXml, profile, accentHex, isEn, initials, hasPhoto);
+        _buildModernHeaderDocx(docXml, profile, accentHex, isEn, initials, hasPhoto, hasBannerWatermark);
         break;
       case 'minimalist':
         _buildMinimalistDocx(docXml, profile, accentHex, isEn, initials, hasPhoto);
         break;
       case 'tech_cards':
-        _buildTechCardsDocx(docXml, profile, accentHex, isEn, initials, hasPhoto);
+        _buildTechCardsDocx(docXml, profile, accentHex, isEn, initials, hasPhoto, hasBannerWatermark);
         break;
       case 'sidebar_dark':
       default:
-        _buildSidebarDarkDocx(docXml, profile, accentHex, isEn, initials, hasPhoto);
+        _buildSidebarDarkDocx(docXml, profile, accentHex, isEn, initials, hasPhoto, hasSidebarWatermark, hasBannerWatermark);
         break;
     }
 
@@ -211,47 +215,101 @@ class DocxExportService {
     bool isEn,
     String initials,
     bool hasPhoto,
+    bool hasSidebarWatermark,
+    bool hasBannerWatermark,
   ) {
     docXml.write('''
     <w:tbl>
       <w:tblPr>
         <w:tblW w:w="10466" w:type="dxa"/>
+        <w:tblLayout w:type="fixed"/>
+        <w:tblCellMar>
+          <w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>
+          <w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
+        </w:tblCellMar>
         <w:tblBorders>
           <w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/>
           <w:insideH w:val="none"/><w:insideV w:val="none"/>
         </w:tblBorders>
       </w:tblPr>
+      <w:tblGrid>
+        <w:gridCol w:w="3300"/>
+        <w:gridCol w:w="7166"/>
+      </w:tblGrid>
       <w:tr>
         <!-- LEFT COLUMN: ACCENT COLOR SHADING -->
         <w:tc>
           <w:tcPr>
-            <w:tcW w:w="3400" w:type="dxa"/>
+            <w:tcW w:w="3300" w:type="dxa"/>
             <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
             <w:tcMar>
-              <w:top w:w="240" w:type="dxa"/><w:bottom w:w="240" w:type="dxa"/>
-              <w:left w:w="240" w:type="dxa"/><w:right w:w="240" w:type="dxa"/>
+              <w:top w:w="280" w:type="dxa"/><w:bottom w:w="280" w:type="dxa"/>
+              <w:left w:w="260" w:type="dxa"/><w:right w:w="260" w:type="dxa"/>
             </w:tcMar>
           </w:tcPr>
 ''');
 
+    // Sidebar Watermark image anchored behind text if active
+    if (hasSidebarWatermark) {
+      docXml.write('''
+          <w:p>
+            <w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr>
+            <w:r>
+              <w:drawing>
+                <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">
+                  <wp:simplePos x="0" y="0"/>
+                  <wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH>
+                  <wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>
+                  <wp:extent cx="2095500" cy="10000000"/>
+                  <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                  <wp:wrapNone/>
+                  <wp:docPr id="998" name="SidebarWatermark"/>
+                  <wp:cNvGraphicFramePr/>
+                  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                      <pic:pic>
+                        <pic:nvPicPr>
+                          <pic:cNvPr id="998" name="SidebarWatermark"/>
+                          <pic:cNvPicPr/>
+                        </pic:nvPicPr>
+                        <pic:blipFill>
+                          <a:blip r:embed="rIdWatermarkSidebar"/>
+                          <a:stretch><a:fillRect/></a:stretch>
+                        </pic:blipFill>
+                        <pic:spPr>
+                          <a:xfrm><a:off x="0" y="0"/><a:ext cx="2095500" cy="10000000"/></a:xfrm>
+                          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                        </pic:spPr>
+                      </pic:pic>
+                    </a:graphicData>
+                  </a:graphic>
+                </wp:anchor>
+              </w:drawing>
+            </w:r>
+          </w:p>''');
+    }
+
     // Photo or initials (centered in sidebar with white border)
     _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: true, profile: profile, sizeDxa: 1100000, jc: 'center');
 
-    // Datos de Contacto
-    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', profile);
-    if (profile.phone.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'Tel' : 'Teléfono', profile.phone);
-    if (profile.email.isNotEmpty) _addWhiteSidebarItem(docXml, 'Email', profile.email);
-    if (profile.location.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'Location' : 'Ubicación', profile.location);
-    if (profile.availability.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'Disp.' : 'Disponibilidad', profile.availability);
-    if (profile.drivingLicense.isNotEmpty) _addWhiteSidebarItem(docXml, isEn ? 'License' : 'Permiso', profile.drivingLicense);
+    // Datos de Contacto - with white pill & crisp icons replacing text labels
+    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', accentHex, profile);
+    if (profile.phone.isNotEmpty) _addWhiteSidebarContactRow(docXml, '📞', profile.phone);
+    if (profile.email.isNotEmpty) _addWhiteSidebarContactRow(docXml, '✉', profile.email);
+    if (profile.location.isNotEmpty) _addWhiteSidebarContactRow(docXml, '📍', profile.location);
+    if (profile.availability.isNotEmpty) _addWhiteSidebarContactRow(docXml, '⏱', profile.availability);
+    if (profile.drivingLicense.isNotEmpty) _addWhiteSidebarContactRow(docXml, '🚗', profile.drivingLicense);
 
     // Sobre Mí
     if (profile.summary.trim().isNotEmpty) {
-      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', profile);
-      final summarySz = _scaleSz(16, profile.fontSizeScale);
+      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile);
+      final summarySz = _scaleSz(15, profile.fontSizeScale);
       docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="100"/></w:pPr>
+            <w:pPr>
+              <w:ind w:left="40" w:right="40"/>
+              <w:spacing w:before="40" w:after="80" w:line="240" w:lineRule="auto"/>
+            </w:pPr>
             <w:r><w:rPr><w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.summary)}</w:t>
             </w:r>
@@ -261,17 +319,20 @@ class DocxExportService {
     // Competencias
     final skillsList = _getSkillsList(profile);
     if (skillsList.isNotEmpty) {
-      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', profile);
+      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentHex, profile);
       for (final item in skillsList) {
         final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
-        final skillSz = _scaleSz(16, profile.fontSizeScale);
+        final skillSz = _scaleSz(15, profile.fontSizeScale);
         final descSz = _scaleSz(13, profile.fontSizeScale);
         docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:before="60" w:after="20"/></w:pPr>
+            <w:pPr>
+              <w:ind w:left="40"/>
+              <w:spacing w:before="50" w:after="10"/>
+            </w:pPr>
             <w:r>
               <w:rPr><w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
-              <w:t>${_escapeXml(item.name.toUpperCase())}  </w:t>
+              <w:t xml:space="preserve">${_escapeXml(item.name.toUpperCase())}  </w:t>
             </w:r>
             <w:r>
               <w:rPr><w:sz w:val="14"/><w:color w:val="FBBF24"/></w:rPr>
@@ -281,10 +342,13 @@ class DocxExportService {
         if (item.description.isNotEmpty) {
           docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="50"/></w:pPr>
+            <w:pPr>
+              <w:ind w:left="40"/>
+              <w:spacing w:after="40" w:line="220" w:lineRule="auto"/>
+            </w:pPr>
             <w:r>
               <w:rPr><w:sz w:val="$descSz"/><w:color w:val="E2E8F0"/></w:rPr>
-              <w:t>  ${_escapeXml(item.description)}</w:t>
+              <w:t>${_escapeXml(item.description)}</w:t>
             </w:r>
           </w:p>''');
         }
@@ -297,56 +361,112 @@ class DocxExportService {
         <!-- RIGHT COLUMN: MAIN CONTENT -->
         <w:tc>
           <w:tcPr>
-            <w:tcW w:w="7066" w:type="dxa"/>
+            <w:tcW w:w="7166" w:type="dxa"/>
             <w:tcMar>
-              <w:top w:w="240" w:type="dxa"/><w:bottom w:w="240" w:type="dxa"/>
-              <w:left w:w="300" w:type="dxa"/><w:right w:w="160" w:type="dxa"/>
+              <w:top w:w="280" w:type="dxa"/><w:bottom w:w="280" w:type="dxa"/>
+              <w:left w:w="320" w:type="dxa"/><w:right w:w="180" w:type="dxa"/>
             </w:tcMar>
           </w:tcPr>
 ''');
 
-    // Header Banner Box matching Screenshot 3
-    final motif = _getWatermarkMotif(profile);
-    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '';
-    final motifSuffix = motif.isNotEmpty ? '  $motif' : '';
-    final nameSz = _scaleSz(30, profile.fontSizeScale);
-    final jobSz = _scaleSz(18, profile.fontSizeScale);
+    // Header Banner Box matching Preview Card
+    final nameSz = _scaleSz(28, profile.fontSizeScale);
+    final jobSz = _scaleSz(17, profile.fontSizeScale);
 
     docXml.write('''
-          <w:p>
-            <w:pPr>
-              <w:jc w:val="center"/>
-              <w:spacing w:before="60" w:after="20"/>
-              <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr><w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/></w:rPr>
-              <w:t>  $motifPrefix${_escapeXml(profile.fullName.isNotEmpty ? profile.fullName.toUpperCase() : 'NOMBRE Y APELLIDOS')}$motifSuffix  </w:t>
-            </w:r>
-          </w:p>''');
+          <w:tbl>
+            <w:tblPr>
+              <w:tblW w:w="7166" w:type="dxa"/>
+              <w:tblLayout w:type="fixed"/>
+              <w:tblBorders>
+                <w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/>
+                <w:insideH w:val="none"/><w:insideV w:val="none"/>
+              </w:tblBorders>
+            </w:tblPr>
+            <w:tblGrid><w:gridCol w:w="7166"/></w:tblGrid>
+            <w:tr>
+              <w:tc>
+                <w:tcPr>
+                  <w:tcW w:w="7166" w:type="dxa"/>
+                  <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
+                  <w:tcMar>
+                    <w:top w:w="140" w:type="dxa"/><w:bottom w:w="140" w:type="dxa"/>
+                    <w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/>
+                  </w:tcMar>
+                </w:tcPr>''');
+
+    if (hasBannerWatermark) {
+      docXml.write('''
+                <w:p>
+                  <w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr>
+                  <w:r>
+                    <w:drawing>
+                      <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">
+                        <wp:simplePos x="0" y="0"/>
+                        <wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH>
+                        <wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>
+                        <wp:extent cx="4550000" cy="900000"/>
+                        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                        <wp:wrapNone/>
+                        <wp:docPr id="999" name="BannerWatermark"/>
+                        <wp:cNvGraphicFramePr/>
+                        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                            <pic:pic>
+                              <pic:nvPicPr>
+                                <pic:cNvPr id="999" name="BannerWatermark"/>
+                                <pic:cNvPicPr/>
+                              </pic:nvPicPr>
+                              <pic:blipFill>
+                                <a:blip r:embed="rIdWatermarkBanner"/>
+                                <a:stretch><a:fillRect/></a:stretch>
+                              </pic:blipFill>
+                              <pic:spPr>
+                                <a:xfrm><a:off x="0" y="0"/><a:ext cx="4550000" cy="900000"/></a:xfrm>
+                                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                              </pic:spPr>
+                            </pic:pic>
+                          </a:graphicData>
+                        </a:graphic>
+                      </wp:anchor>
+                    </w:drawing>
+                  </w:r>
+                </w:p>''');
+    }
+
+    docXml.write('''
+                <w:p>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="20"/></w:pPr>
+                  <w:r>
+                    <w:rPr><w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/></w:rPr>
+                    <w:t>${_escapeXml(profile.fullName.isNotEmpty ? profile.fullName.toUpperCase() : 'NOMBRE Y APELLIDOS')}</w:t>
+                  </w:r>
+                </w:p>''');
 
     if (profile.jobTitle.isNotEmpty) {
       docXml.write('''
-          <w:p>
-            <w:pPr>
-              <w:jc w:val="center"/>
-              <w:spacing w:before="0" w:after="160"/>
-              <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr><w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/></w:rPr>
-              <w:t>  $motifPrefix${_escapeXml(profile.jobTitle.toUpperCase())}$motifSuffix  </w:t>
-            </w:r>
-          </w:p>''');
+                <w:p>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="40"/></w:pPr>
+                  <w:r>
+                    <w:rPr><w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/></w:rPr>
+                    <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
+                  </w:r>
+                </w:p>''');
     }
 
-    // Experience with Boxed Recuadro Header matching Screenshot 3
+    docXml.write('''
+              </w:tc>
+            </w:tr>
+          </w:tbl>
+          <w:p><w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr></w:p>''');
+
+    // Experience with Boxed Recuadro Header
     _addBoxedSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile);
     for (final exp in profile.experiences) {
       _addDocxExperience(docXml, exp, accentHex);
     }
 
-    // Education & Certifications with Boxed Recuadro Header matching Screenshot 3
+    // Education & Certifications with Boxed Recuadro Header
     _addBoxedSectionHeader(docXml, isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES', accentHex, profile);
     for (final edu in profile.educations) {
       _addDocxEducation(docXml, edu, accentHex);
@@ -368,14 +488,20 @@ class DocxExportService {
     bool isEn,
     String initials,
     bool hasPhoto,
+    bool hasBannerWatermark,
   ) {
     // Top banner table with photo on left and details on right
     docXml.write('''
     <w:tbl>
       <w:tblPr>
         <w:tblW w:w="10466" w:type="dxa"/>
-        <w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/></w:tblBorders>
+        <w:tblLayout w:type="fixed"/>
+        <w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders>
       </w:tblPr>
+      <w:tblGrid>
+        <w:gridCol w:w="2200"/>
+        <w:gridCol w:w="8266"/>
+      </w:tblGrid>
       <w:tr>
         <!-- PHOTO CELL IN HEADER -->
         <w:tc>
@@ -422,8 +548,13 @@ class DocxExportService {
     <w:tbl>
       <w:tblPr>
         <w:tblW w:w="10466" w:type="dxa"/>
-        <w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/></w:tblBorders>
+        <w:tblLayout w:type="fixed"/>
+        <w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders>
       </w:tblPr>
+      <w:tblGrid>
+        <w:gridCol w:w="6000"/>
+        <w:gridCol w:w="4466"/>
+      </w:tblGrid>
       <w:tr>
         <!-- LEFT SUB-COLUMN: Experience & Profile -->
         <w:tc>
@@ -555,14 +686,20 @@ class DocxExportService {
     bool isEn,
     String initials,
     bool hasPhoto,
+    bool hasBannerWatermark,
   ) {
     // Header card with photo on left and details on right
     docXml.write('''
     <w:tbl>
       <w:tblPr>
         <w:tblW w:w="10466" w:type="dxa"/>
+        <w:tblLayout w:type="fixed"/>
         <w:tblBorders><w:top w:val="single" w:sz="6" w:color="CBD5E1"/><w:left w:val="single" w:sz="24" w:color="$accentHex"/><w:bottom w:val="single" w:sz="6" w:color="CBD5E1"/><w:right w:val="single" w:sz="6" w:color="CBD5E1"/></w:tblBorders>
       </w:tblPr>
+      <w:tblGrid>
+        <w:gridCol w:w="2000"/>
+        <w:gridCol w:w="8466"/>
+      </w:tblGrid>
       <w:tr>
         <!-- PHOTO CELL IN CARD -->
         <w:tc>
@@ -638,7 +775,7 @@ class DocxExportService {
       // Inline image drawing OpenXML with exact geometry and border
       docXml.write('''
           <w:p>
-            <w:pPr><w:jc w:val="$jc"/><w:spacing w:before="100" w:after="100"/></w:pPr>
+            <w:pPr><w:jc w:val="$jc"/><w:spacing w:before="80" w:after="80"/></w:pPr>
             <w:r>
               <w:drawing>
                 <wp:inline distT="0" distB="0" distL="0" distR="0">
@@ -673,78 +810,105 @@ class DocxExportService {
       // Initials frame
       docXml.write('''
           <w:p>
-            <w:pPr><w:jc w:val="$jc"/><w:spacing w:before="100" w:after="120"/></w:pPr>
+            <w:pPr><w:jc w:val="$jc"/><w:spacing w:before="80" w:after="100"/></w:pPr>
             <w:r>
               <w:rPr>
                 <w:b/><w:sz w:val="38"/>
-                <w:color w:val="${isWhite ? "FFFFFF" : accentHex}"/>
-                <w:shd w:fill="${isWhite ? "FFFFFF" : "E2E8F0"}" w:themeFillTint="${isWhite ? "33" : "FF"}"/>
+                <w:color w:val="${isWhite ? accentHex : "FFFFFF"}"/>
+                <w:shd w:val="clear" w:color="auto" w:fill="${isWhite ? "FFFFFF" : accentHex}"/>
               </w:rPr>
-              <w:t>  $initials  </w:t>
+              <w:t xml:space="preserve">  $initials  </w:t>
             </w:r>
           </w:p>''');
     }
   }
 
-  static void _addSidebarPill(StringBuffer docXml, String label, [CvProfileModel? profile]) {
-    final motif = profile != null ? _getWatermarkMotif(profile) : '';
-    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '';
-    final motifSuffix = motif.isNotEmpty ? '  $motif' : '';
-    final sz = profile != null ? _scaleSz(17, profile.fontSizeScale) : 17;
+  static void _addSidebarPill(StringBuffer docXml, String label, String accentHex, [CvProfileModel? profile]) {
+    final sz = profile != null ? _scaleSz(15, profile.fontSizeScale) : 15;
 
     docXml.write('''
           <w:p>
             <w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="80"/></w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/><w:shd w:fill="FFFFFF" w:themeFillTint="33"/></w:rPr>
-              <w:t>  $motifPrefix$label$motifSuffix  </w:t>
+              <w:rPr>
+                <w:b/>
+                <w:sz w:val="$sz"/>
+                <w:color w:val="$accentHex"/>
+                <w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/>
+              </w:rPr>
+              <w:t xml:space="preserve">   ${_escapeXml(label)}   </w:t>
             </w:r>
           </w:p>''');
   }
 
-  static void _addWhiteSidebarItem(StringBuffer docXml, String label, String value) {
+  static void _addWhiteSidebarContactRow(StringBuffer docXml, String iconSymbol, String value) {
+    if (value.trim().isEmpty) return;
     docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="FFFFFF"/></w:rPr><w:t>$label: </w:t></w:r>
-            <w:r><w:rPr><w:sz w:val="16"/><w:color w:val="FFFFFF"/></w:rPr><w:t>${_escapeXml(value)}</w:t></w:r>
+            <w:pPr>
+              <w:ind w:left="60"/>
+              <w:spacing w:before="20" w:after="40"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:sz w:val="18"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:t xml:space="preserve">$iconSymbol  </w:t>
+            </w:r>
+            <w:r>
+              <w:rPr><w:sz w:val="15"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:t>${_escapeXml(value)}</w:t>
+            </w:r>
           </w:p>''');
   }
 
   static void _addBoxedSectionHeader(StringBuffer docXml, String title, String accentHex, [CvProfileModel? profile]) {
-    final motif = profile != null ? _getWatermarkMotif(profile) : '';
-    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '';
-    final motifSuffix = motif.isNotEmpty ? '  $motif' : '';
-    final sz = profile != null ? _scaleSz(18, profile.fontSizeScale) : 18;
+    final sz = profile != null ? _scaleSz(17, profile.fontSizeScale) : 17;
 
     docXml.write('''
-          <w:p>
-            <w:pPr>
-              <w:jc w:val="center"/>
-              <w:spacing w:before="180" w:after="100"/>
-              <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/></w:rPr>
-              <w:t>  $motifPrefix${_escapeXml(title)}$motifSuffix  </w:t>
-            </w:r>
-          </w:p>''');
+          <w:tbl>
+            <w:tblPr>
+              <w:tblW w:w="7166" w:type="dxa"/>
+              <w:tblLayout w:type="fixed"/>
+              <w:tblBorders>
+                <w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/>
+                <w:insideH w:val="none"/><w:insideV w:val="none"/>
+              </w:tblBorders>
+            </w:tblPr>
+            <w:tblGrid><w:gridCol w:w="7166"/></w:tblGrid>
+            <w:tr>
+              <w:tc>
+                <w:tcPr>
+                  <w:tcW w:w="7166" w:type="dxa"/>
+                  <w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>
+                  <w:tcMar>
+                    <w:top w:w="70" w:type="dxa"/><w:bottom w:w="70" w:type="dxa"/>
+                    <w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/>
+                  </w:tcMar>
+                </w:tcPr>
+                <w:p>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="20" w:after="20"/></w:pPr>
+                  <w:r>
+                    <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/></w:rPr>
+                    <w:t>${_escapeXml(title.toUpperCase())}</w:t>
+                  </w:r>
+                </w:p>
+              </w:tc>
+            </w:tr>
+          </w:tbl>
+          <w:p><w:pPr><w:spacing w:before="0" w:after="80"/></w:pPr></w:p>''');
   }
 
   static void _addSectionHeader(StringBuffer docXml, String title, String accentHex, [CvProfileModel? profile]) {
-    final motif = profile != null ? _getWatermarkMotif(profile) : '';
-    final motifPrefix = motif.isNotEmpty ? '$motif  ' : '■  ';
-    final sz = profile != null ? _scaleSz(22, profile.fontSizeScale) : 22;
+    final sz = profile != null ? _scaleSz(21, profile.fontSizeScale) : 21;
 
     docXml.write('''
           <w:p>
             <w:pPr>
               <w:spacing w:before="180" w:after="80"/>
-              <w:pBdr><w:bottom w:val="single" w:sz="10" w:space="4" w:color="$accentHex"/></w:pBdr>
+              <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="4" w:color="$accentHex"/></w:pBdr>
             </w:pPr>
             <w:r>
               <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/></w:rPr>
-              <w:t>$motifPrefix${_escapeXml(title)}</w:t>
+              <w:t>${_escapeXml(title.toUpperCase())}</w:t>
             </w:r>
           </w:p>''');
   }
@@ -760,60 +924,96 @@ class DocxExportService {
   }
 
   static void _addDocxExperience(StringBuffer docXml, CvExperience exp, String accentHex) {
+    final title = exp.jobTitle.isNotEmpty ? exp.jobTitle.toUpperCase() : 'PUESTO / OFICIO';
     docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:before="60" w:after="20"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="0F172A"/></w:rPr>
-              <w:t>${_escapeXml(exp.jobTitle.isNotEmpty ? exp.jobTitle : "Puesto")}</w:t>
-            </w:r>
-            <w:r><w:t>   </w:t></w:r>
-            <w:r><w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/><w:shd w:fill="F1F5F9"/></w:rPr>
-              <w:t>  ${_escapeXml(exp.period)}  </w:t>
+            <w:pPr><w:spacing w:before="100" w:after="20"/></w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="19"/><w:color w:val="0F172A"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(title)}</w:t>
             </w:r>
           </w:p>
           <w:p>
-            <w:pPr><w:spacing w:after="30"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="17"/><w:color w:val="64748B"/></w:rPr>
-              <w:t>${_escapeXml(exp.company)}</w:t>
+            <w:pPr>
+              <w:tabs><w:tab w:val="right" w:pos="6800"/></w:tabs>
+              <w:spacing w:before="0" w:after="40"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(exp.company)}</w:t>
+            </w:r>
+            <w:r><w:tab/></w:r>
+            <w:r>
+              <w:rPr><w:sz w:val="15"/><w:color w:val="64748B"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(exp.period)}</w:t>
             </w:r>
           </w:p>''');
+
     if (exp.description.isNotEmpty) {
-      docXml.write('''
+      final lines = exp.description
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty);
+      for (final line in lines) {
+        docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="100"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="17"/><w:color w:val="475569"/></w:rPr>
-              <w:t>${_escapeXml(exp.description)}</w:t>
+            <w:pPr>
+              <w:ind w:left="160"/>
+              <w:spacing w:after="30" w:line="240" w:lineRule="auto"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:sz w:val="15"/><w:color w:val="475569"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(line)}</w:t>
             </w:r>
           </w:p>''');
+      }
     }
   }
 
   static void _addDocxEducation(StringBuffer docXml, CvEducation edu, String accentHex) {
+    final title = edu.degree.isNotEmpty ? edu.degree.toUpperCase() : 'TITULACIÓN / CERTIFICADO';
     docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:before="60" w:after="20"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="0F172A"/></w:rPr>
-              <w:t>${_escapeXml(edu.degree.isNotEmpty ? edu.degree : "Titulación")}</w:t>
-            </w:r>
-            <w:r><w:t>   </w:t></w:r>
-            <w:r><w:rPr><w:sz w:val="16"/><w:color w:val="64748B"/></w:rPr>
-              <w:t>${_escapeXml(edu.period)}</w:t>
+            <w:pPr><w:spacing w:before="100" w:after="20"/></w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="19"/><w:color w:val="0F172A"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(title)}</w:t>
             </w:r>
           </w:p>
           <w:p>
-            <w:pPr><w:spacing w:after="20"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="17"/><w:color w:val="$accentHex"/></w:rPr>
-              <w:t>${_escapeXml(edu.institution)}</w:t>
+            <w:pPr>
+              <w:tabs><w:tab w:val="right" w:pos="6800"/></w:tabs>
+              <w:spacing w:before="0" w:after="40"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(edu.institution)}</w:t>
+            </w:r>
+            <w:r><w:tab/></w:r>
+            <w:r>
+              <w:rPr><w:sz w:val="15"/><w:color w:val="64748B"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(edu.period)}</w:t>
             </w:r>
           </w:p>''');
+
     if (edu.details.isNotEmpty) {
-      docXml.write('''
+      final lines = edu.details
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty);
+      for (final line in lines) {
+        docXml.write('''
           <w:p>
-            <w:pPr><w:spacing w:after="100"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="17"/><w:color w:val="64748B"/></w:rPr>
-              <w:t>${_escapeXml(edu.details)}</w:t>
+            <w:pPr>
+              <w:ind w:left="160"/>
+              <w:spacing w:after="30" w:line="240" w:lineRule="auto"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr><w:sz w:val="15"/><w:color w:val="475569"/></w:rPr>
+              <w:t xml:space="preserve">${_escapeXml(line)}</w:t>
             </w:r>
           </w:p>''');
+      }
     }
   }
 
@@ -835,7 +1035,44 @@ class DocxExportService {
 
   static Future<void> downloadDocx(CvProfileModel profile) async {
     final photoBytes = await fetchOrDecodePhoto(profile.photoUrl);
-    final bytes = generateDocxBytes(profile, photoBytes);
+
+    Uint8List? sidebarWatermarkBytes;
+    Uint8List? bannerWatermarkBytes;
+
+    if (profile.showWatermark &&
+        profile.watermarkPattern != 'none' &&
+        profile.watermarkOpacity > 0) {
+      try {
+        sidebarWatermarkBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: (profile.watermarkOpacity * 0.85).clamp(0.0, 1.0),
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 185,
+          height: 806,
+        );
+
+        bannerWatermarkBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: (profile.watermarkOpacity * 0.85).clamp(0.0, 1.0),
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 358,
+          height: 54,
+        );
+      } catch (e) {
+        // Silently continue if watermark rendering fails
+      }
+    }
+
+    final bytes = generateDocxBytes(
+      profile,
+      photoBytes,
+      sidebarWatermarkBytes,
+      bannerWatermarkBytes,
+    );
     final safeName = profile.fullName.trim().isEmpty ? 'Curriculum_Vitae' : profile.fullName.trim().replaceAll(' ', '_');
     final filename = '${safeName}_CV.docx';
 

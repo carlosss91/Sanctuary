@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdf/pdf.dart';
@@ -78,6 +80,54 @@ void main() {
       expect(bytes.isNotEmpty, isTrue);
       expect(bytes[0], equals(0x50));
       expect(bytes[1], equals(0x4B));
+    });
+
+    test('DocxExportService embeds watermarks, fixed grid, right tab stop, and visible pills', () {
+      final dummyWatermarkBytes = Uint8List.fromList(List.filled(100, 42));
+      final bytes = DocxExportService.generateDocxBytes(
+        sampleProfile,
+        null,
+        dummyWatermarkBytes,
+        dummyWatermarkBytes,
+      );
+
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final docFile = archive.findFile('word/document.xml');
+      expect(docFile, isNotNull);
+      final docXml = utf8.decode(docFile!.content as List<int>);
+
+      // 1. Fixed table layout and grid to prevent displaced columns
+      expect(docXml, contains('w:tblLayout w:type="fixed"'));
+      expect(docXml, contains('<w:gridCol w:w="3300"/>'));
+      expect(docXml, contains('<w:gridCol w:w="7166"/>'));
+
+      // 2. Visible pills with white fill and accent text (no white-on-white)
+      expect(docXml, contains('w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"'));
+      expect(docXml, contains('w:color w:val="0EA5E9"')); // sampleProfile accentColor without #
+
+      // 3. Right-aligned tab stop for dates (no smashed text)
+      expect(docXml, contains('<w:tab w:val="right" w:pos="6800"/>'));
+      expect(docXml, contains('<w:tab/>'));
+
+      // 4. Contact icons replacing text labels
+      expect(docXml, contains('📞'));
+      expect(docXml, contains('✉'));
+      expect(docXml, contains('📍'));
+
+      // 5. Watermark drawings embedded
+      expect(docXml, contains('rIdWatermarkSidebar'));
+      expect(docXml, contains('rIdWatermarkBanner'));
+
+      // 6. Relationships contains media references
+      final relsFile = archive.findFile('word/_rels/document.xml.rels');
+      expect(relsFile, isNotNull);
+      final relsXml = utf8.decode(relsFile!.content as List<int>);
+      expect(relsXml, contains('Target="media/watermark_sidebar.png"'));
+      expect(relsXml, contains('Target="media/watermark_banner.png"'));
+
+      // 7. Media files in archive
+      expect(archive.findFile('word/media/watermark_sidebar.png'), isNotNull);
+      expect(archive.findFile('word/media/watermark_banner.png'), isNotNull);
     });
   });
 
