@@ -348,12 +348,17 @@ class CvProfileModel {
     double? watermarkRandomness,
     String? customWatermarkUrl,
   }) {
-    final effectiveSkillItems = skillItems ??
-        (skills != null
-            ? skills.map((s) => CvSkillItem(name: s)).toList()
-            : this.skillItems);
+    final effectiveSkills = skills ??
+        (this.skills.isNotEmpty
+            ? this.skills
+            : (skillItems != null
+                ? skillItems.map((s) => s.name).toList()
+                : this.skillItems.map((s) => s.name).toList()));
 
-    final effectiveSkills = skills ?? effectiveSkillItems.map((s) => s.name).toList();
+    final effectiveSkillItems = skillItems ??
+        (this.skillItems.isNotEmpty
+            ? this.skillItems
+            : effectiveSkills.map((s) => CvSkillItem(name: s)).toList());
 
     return CvProfileModel(
       id: id ?? this.id,

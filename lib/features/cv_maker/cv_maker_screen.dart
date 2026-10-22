@@ -195,9 +195,10 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
     await widget.apiService.saveProfile(newLearner);
   }
 
-  void _toggleLanguage() {
+  void _toggleLanguage() async {
     final translated = TranslationService.toggleLanguage(_activeProfile);
     _onProfileEdited(translated);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(translated.isEnglishVersion
@@ -207,6 +208,13 @@ class _CvMakerScreenState extends State<CvMakerScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
+
+    if (translated.isEnglishVersion) {
+      final enhanced = await TranslationService.enhanceProfileAsync(translated);
+      if (mounted && _activeId == enhanced.id && _activeProfile.isEnglishVersion) {
+        _onProfileEdited(enhanced);
+      }
+    }
   }
 
   void _exportPdf() async {

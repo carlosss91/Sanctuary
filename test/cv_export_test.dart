@@ -1,8 +1,13 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:sanctuary/data/models/cv_profile_model.dart';
 import 'package:sanctuary/data/services/docx_export_service.dart';
 import 'package:sanctuary/data/services/pdf_export_service.dart';
+import 'package:sanctuary/data/services/translation_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +101,113 @@ void main() {
 
       final restored = CvProfileModel.fromJson(json);
       expect(restored.skillRatingStyle, equals('stars'));
+    });
+
+    test('pw.Stack and pw.ClipRRect test', () {
+      final doc = pw.Document();
+      doc.addPage(
+        pw.Page(
+          build: (context) => pw.Stack(
+            children: [
+              pw.Positioned.fill(
+                child: pw.Container(color: PdfColors.blue),
+              ),
+              pw.Text('Hello Stack'),
+            ],
+          ),
+        ),
+      );
+      final bytes = doc.save();
+      expect(bytes, isNotNull);
+    });
+
+    test('Renders CustomPainter to image and embeds into PDF', () async {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, 200, 400));
+      final paint = Paint()..color = Colors.white.withOpacity(0.5);
+      canvas.drawCircle(const Offset(100, 200), 50, paint);
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(200, 400);
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      expect(byteData, isNotNull);
+      final memImg = pw.MemoryImage(byteData!.buffer.asUint8List());
+
+      final doc = pw.Document();
+      doc.addPage(
+        pw.Page(
+          build: (context) => pw.Stack(
+            children: [
+              pw.Positioned.fill(
+                child: pw.Image(memImg, fit: pw.BoxFit.cover),
+              ),
+              pw.Text('Content over image'),
+            ],
+          ),
+        ),
+      );
+      final pdfBytes = await doc.save();
+      expect(pdfBytes.isNotEmpty, isTrue);
+    });
+
+    test('Generates valid PDF with active watermarks for all templates', () async {
+      final base = CvProfileModel(
+        id: 'test-watermark',
+        fullName: 'Antonio García',
+        jobTitle: 'Técnico Especialista',
+        showWatermark: true,
+        watermarkPattern: 'gears',
+        watermarkOpacity: 0.15,
+        watermarkDensity: 1.0,
+      );
+
+      for (final t in ['sidebar_dark', 'modern_header', 'minimalist', 'tech_cards']) {
+        final profile = base.copyWith(template: t);
+        final pdfBytes = await PdfExportService.generatePdfBytes(profile);
+        expect(pdfBytes.isNotEmpty, isTrue);
+      }
+    });
+
+    test('TranslationService fully translates profiles including titles, summary and skills', () async {
+      final esProfile = CvProfileModel(
+        id: 'test-es',
+        fullName: 'José Mario',
+        jobTitle: 'Peón de Construcción y Albañilería',
+        summary: 'Profesional puntual con experiencia en obra.',
+        availability: 'Inmediata',
+        drivingLicense: 'B (Vehículo propio)',
+        skills: ['Trabajo en equipo', 'Prevención de riesgos laborales (EPIs)'],
+        experiences: [
+          CvExperience(
+            jobTitle: 'Ayudante de Albañilería',
+            company: 'Construcciones Norte',
+            period: '2022 - Actualidad',
+            description: 'Preparación de mezclas y descarga de material.',
+          ),
+        ],
+        educations: [
+          CvEducation(
+            degree: 'Educación Secundaria Obligatoria (ESO)',
+            institution: 'IES San Juan',
+            period: '2016 - 2020',
+          ),
+        ],
+      );
+
+      final enProfile = TranslationService.toggleLanguage(esProfile);
+      expect(enProfile.isEnglishVersion, isTrue);
+      expect(enProfile.jobTitle, contains('Construction'));
+      expect(enProfile.availability, equals('Immediate'));
+      expect(enProfile.drivingLicense, contains('Own vehicle'));
+      expect(enProfile.skills.first, contains('Teamwork'));
+      expect(enProfile.experiences.first.jobTitle, contains('Masonry'));
+      expect(enProfile.educations.first.degree, contains('Secondary Education'));
+
+      // Check toggling back restores Spanish perfectly
+      final restoredEs = TranslationService.toggleLanguage(enProfile);
+      expect(restoredEs.isEnglishVersion, isFalse);
+      expect(restoredEs.jobTitle, equals('Peón de Construcción y Albañilería'));
+      expect(restoredEs.availability, equals('Inmediata'));
+      expect(restoredEs.skills.first, equals('Trabajo en equipo'));
     });
   });
 }

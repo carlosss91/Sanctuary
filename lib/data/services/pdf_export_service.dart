@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../features/cv_maker/widgets/watermark_painter.dart';
 import '../models/cv_profile_model.dart';
 
 class PdfExportService {
@@ -55,6 +56,58 @@ class PdfExportService {
     final pw.MemoryImage? photoImage =
         photoBytes != null ? pw.MemoryImage(photoBytes) : null;
 
+    // Pre-render watermarks identical to the A4 Sheet Preview
+    pw.MemoryImage? sidebarWatermarkImg;
+    pw.MemoryImage? bannerWatermarkImg;
+    pw.MemoryImage? techHeroWatermarkImg;
+
+    if (profile.showWatermark &&
+        profile.watermarkPattern != 'none' &&
+        profile.watermarkOpacity > 0) {
+      try {
+        final sidebarBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: profile.watermarkOpacity,
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 350,
+          height: 1612,
+        );
+        if (sidebarBytes != null) {
+          sidebarWatermarkImg = pw.MemoryImage(sidebarBytes);
+        }
+
+        final bannerBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: profile.watermarkOpacity,
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 1120,
+          height: 240,
+        );
+        if (bannerBytes != null) {
+          bannerWatermarkImg = pw.MemoryImage(bannerBytes);
+        }
+
+        final techHeroBytes = await WatermarkPainter.renderWatermarkPng(
+          pattern: profile.watermarkPattern,
+          opacity: (profile.watermarkOpacity * 0.75).clamp(0.0, 1.0),
+          density: profile.watermarkDensity,
+          randomness: profile.watermarkRandomness,
+          customWatermarkUrl: profile.customWatermarkUrl,
+          width: 1120,
+          height: 180,
+        );
+        if (techHeroBytes != null) {
+          techHeroWatermarkImg = pw.MemoryImage(techHeroBytes);
+        }
+      } catch (e) {
+        debugPrint('[PdfExportService] Failed to pre-render watermark: $e');
+      }
+    }
+
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -71,6 +124,7 @@ class PdfExportService {
                 bgCardColor,
                 borderColor,
                 isEn,
+                bannerWatermarkImg: bannerWatermarkImg,
               );
             case 'minimalist':
               return _buildMinimalistLayout(
@@ -92,6 +146,7 @@ class PdfExportService {
                 bgCardColor,
                 borderColor,
                 isEn,
+                techHeroWatermarkImg: techHeroWatermarkImg,
               );
             case 'sidebar_dark':
             default:
@@ -102,6 +157,8 @@ class PdfExportService {
                 textDarkColor,
                 textMutedColor,
                 isEn,
+                sidebarWatermarkImg: sidebarWatermarkImg,
+                bannerWatermarkImg: bannerWatermarkImg,
               );
           }
         },
@@ -228,64 +285,74 @@ class PdfExportService {
     PdfColor accentColor,
     PdfColor textDarkColor,
     PdfColor textMutedColor,
-    bool isEn,
-  ) {
+    bool isEn, {
+    pw.MemoryImage? sidebarWatermarkImg,
+    pw.MemoryImage? bannerWatermarkImg,
+  }) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // Left Column
+        // Left Column (Sidebar)
         pw.Container(
           width: 175,
           decoration: pw.BoxDecoration(
             color: accentColor,
             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
           ),
-          padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            children: [
-              _buildPhotoWidget(
-                profile: profile,
-                photoImage: photoImage,
-                size: 80,
-                accentColor: accentColor,
-                isWhiteBorder: true,
-              ),
-              pw.SizedBox(height: 12),
+          child: pw.ClipRRect(
+            horizontalRadius: 8,
+            verticalRadius: 8,
+            child: pw.Stack(
+              children: [
+                if (sidebarWatermarkImg != null)
+                  pw.Positioned.fill(
+                    child: pw.Image(sidebarWatermarkImg, fit: pw.BoxFit.cover),
+                  ),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      _buildPhotoWidget(
+                        profile: profile,
+                        photoImage: photoImage,
+                        size: 80,
+                        accentColor: accentColor,
+                        isWhiteBorder: true,
+                      ),
+                      pw.SizedBox(height: 12),
 
-              _buildPillOnColor(isEn ? 'CONTACT DETAILS' : 'DATOS'),
-              pw.SizedBox(height: 8),
+                      _buildPillOnColor(isEn ? 'CONTACT DETAILS' : 'DATOS'),
+                      pw.SizedBox(height: 8),
 
-              if (profile.phone.isNotEmpty) _buildContactRowWhite('Tel:', profile.phone),
-              if (profile.email.isNotEmpty) _buildContactRowWhite('Email:', profile.email),
-              if (profile.location.isNotEmpty) _buildContactRowWhite('Ubicación:', profile.location),
-              if (profile.availability.isNotEmpty) _buildContactRowWhite('Disp:', profile.availability),
-              if (profile.drivingLicense.isNotEmpty) _buildContactRowWhite('Permiso:', profile.drivingLicense),
+                      if (profile.phone.isNotEmpty) _buildContactRowWhite('Tel:', profile.phone),
+                      if (profile.email.isNotEmpty) _buildContactRowWhite('Email:', profile.email),
+                      if (profile.location.isNotEmpty) _buildContactRowWhite('Ubicación:', profile.location),
+                      if (profile.availability.isNotEmpty) _buildContactRowWhite('Disp:', profile.availability),
+                      if (profile.drivingLicense.isNotEmpty) _buildContactRowWhite('Permiso:', profile.drivingLicense),
 
-              if (profile.summary.trim().isNotEmpty) ...[
-                pw.SizedBox(height: 12),
-                _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
-                pw.SizedBox(height: 6),
-                pw.Text(
-                  profile.summary,
-                  style: const pw.TextStyle(color: PdfColors.white, fontSize: 8, lineSpacing: 1.4),
-                  textAlign: pw.TextAlign.justify,
+                      if (profile.summary.trim().isNotEmpty) ...[
+                        pw.SizedBox(height: 12),
+                        _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
+                        pw.SizedBox(height: 6),
+                        pw.Text(
+                          profile.summary,
+                          style: const pw.TextStyle(color: PdfColors.white, fontSize: 8, lineSpacing: 1.4),
+                          textAlign: pw.TextAlign.justify,
+                        ),
+                      ],
+
+                      if (_getSkillsList(profile).isNotEmpty) ...[
+                        pw.SizedBox(height: 12),
+                        _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
+                        pw.SizedBox(height: 8),
+                        ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor, profile.skillRatingStyle == 'stars')),
+                      ],
+                    ],
+                  ),
                 ),
               ],
-
-              if (_getSkillsList(profile).isNotEmpty) ...[
-                pw.SizedBox(height: 12),
-                _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
-                pw.SizedBox(height: 8),
-                ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor, profile.skillRatingStyle == 'stars')),
-              ],
-
-              pw.Spacer(),
-
-              // Watermark representation
-              if (profile.showWatermark && profile.watermarkPattern != 'none' && profile.watermarkOpacity > 0)
-                _buildWatermarkTag(profile, PdfColors.white),
-            ],
+            ),
           ),
         ),
 
@@ -298,44 +365,63 @@ class PdfExportService {
             children: [
               // Header Banner
               pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: pw.BoxDecoration(
                   color: accentColor,
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                 ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text(
-                      profile.fullName.toUpperCase(),
-                      textAlign: pw.TextAlign.center,
-                      style: pw.TextStyle(
-                        color: PdfColors.white,
-                        fontSize: 15,
-                        fontWeight: pw.FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    if (profile.jobTitle.isNotEmpty) ...[
-                      pw.SizedBox(height: 3),
-                      pw.Text(
-                        profile.jobTitle.toUpperCase(),
-                        textAlign: pw.TextAlign.center,
-                        style: pw.TextStyle(
-                          color: PdfColors.white,
-                          fontSize: 9,
-                          fontWeight: pw.FontWeight.bold,
-                          letterSpacing: 0.8,
+                child: pw.ClipRRect(
+                  horizontalRadius: 8,
+                  verticalRadius: 8,
+                  child: pw.Stack(
+                    alignment: pw.Alignment.center,
+                    children: [
+                      if (bannerWatermarkImg != null)
+                        pw.Positioned.fill(
+                          child: pw.Image(bannerWatermarkImg, fit: pw.BoxFit.cover),
+                        ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(
+                              profile.fullName.toUpperCase(),
+                              textAlign: pw.TextAlign.center,
+                              style: pw.TextStyle(
+                                color: PdfColors.white,
+                                fontSize: 15,
+                                fontWeight: pw.FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            if (profile.jobTitle.isNotEmpty) ...[
+                              pw.SizedBox(height: 3),
+                              pw.Text(
+                                profile.jobTitle.toUpperCase(),
+                                textAlign: pw.TextAlign.center,
+                                style: pw.TextStyle(
+                                  color: PdfColors.white,
+                                  fontSize: 9,
+                                  fontWeight: pw.FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
 
               pw.SizedBox(height: 12),
 
-              _buildSectionPill(isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentColor),
+              _buildSectionPill(
+                isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL',
+                accentColor,
+                bannerWatermarkImg,
+              ),
               pw.SizedBox(height: 8),
 
               if (profile.experiences.isEmpty)
@@ -382,6 +468,7 @@ class PdfExportService {
               _buildSectionPill(
                 isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES',
                 accentColor,
+                bannerWatermarkImg,
               ),
               pw.SizedBox(height: 8),
 
@@ -441,29 +528,40 @@ class PdfExportService {
     PdfColor textMutedColor,
     PdfColor bgCardColor,
     PdfColor borderColor,
-    bool isEn,
-  ) {
+    bool isEn, {
+    pw.MemoryImage? bannerWatermarkImg,
+  }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
         // Full width header banner
         pw.Container(
-          padding: const pw.EdgeInsets.all(14),
           decoration: pw.BoxDecoration(
             color: accentColor,
             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
           ),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            children: [
-              _buildPhotoWidget(
-                profile: profile,
-                photoImage: photoImage,
-                size: 74,
-                accentColor: accentColor,
-                isWhiteBorder: true,
-              ),
-              pw.SizedBox(width: 14),
+          child: pw.ClipRRect(
+            horizontalRadius: 8,
+            verticalRadius: 8,
+            child: pw.Stack(
+              children: [
+                if (bannerWatermarkImg != null)
+                  pw.Positioned.fill(
+                    child: pw.Image(bannerWatermarkImg, fit: pw.BoxFit.cover),
+                  ),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.all(14),
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      _buildPhotoWidget(
+                        profile: profile,
+                        photoImage: photoImage,
+                        size: 74,
+                        accentColor: accentColor,
+                        isWhiteBorder: true,
+                      ),
+                      pw.SizedBox(width: 14),
               pw.Expanded(
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -510,6 +608,10 @@ class PdfExportService {
             ],
           ),
         ),
+      ],
+    ),
+  ),
+),
 
         pw.SizedBox(height: 14),
 
@@ -654,10 +756,6 @@ class PdfExportService {
                       if (profile.drivingLicense.isNotEmpty)
                         _buildContactRowDark('Permiso conducir:', profile.drivingLicense, accentColor, textDarkColor),
                     ],
-
-                    pw.Spacer(),
-                    if (profile.showWatermark && profile.watermarkPattern != 'none' && profile.watermarkOpacity > 0)
-                      _buildWatermarkTag(profile, accentColor),
                   ],
                 ),
               ),
@@ -841,10 +939,6 @@ class PdfExportService {
             }).toList(),
           ),
         ],
-
-        pw.Spacer(),
-        if (profile.showWatermark && profile.watermarkPattern != 'none' && profile.watermarkOpacity > 0)
-          _buildWatermarkTag(profile, accentColor),
       ],
     );
   }
@@ -860,67 +954,82 @@ class PdfExportService {
     PdfColor textMutedColor,
     PdfColor bgCardColor,
     PdfColor borderColor,
-    bool isEn,
-  ) {
+    bool isEn, {
+    pw.MemoryImage? techHeroWatermarkImg,
+  }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
         // Top Tech Header Card
         pw.Container(
-          padding: const pw.EdgeInsets.all(12),
           decoration: pw.BoxDecoration(
             color: bgCardColor,
             border: pw.Border.all(color: borderColor),
             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
           ),
-          child: pw.Row(
-            children: [
-              _buildPhotoWidget(
-                profile: profile,
-                photoImage: photoImage,
-                size: 64,
-                accentColor: accentColor,
-                isWhiteBorder: false,
-              ),
-              pw.SizedBox(width: 12),
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      profile.fullName.toUpperCase(),
-                      style: pw.TextStyle(
-                        color: textDarkColor,
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                        letterSpacing: 1.0,
+          child: pw.ClipRRect(
+            horizontalRadius: 6,
+            verticalRadius: 6,
+            child: pw.Stack(
+              children: [
+                if (techHeroWatermarkImg != null)
+                  pw.Positioned.fill(
+                    child: pw.Image(techHeroWatermarkImg, fit: pw.BoxFit.cover),
+                  ),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.all(12),
+                  child: pw.Row(
+                    children: [
+                      _buildPhotoWidget(
+                        profile: profile,
+                        photoImage: photoImage,
+                        size: 64,
+                        accentColor: accentColor,
+                        isWhiteBorder: false,
                       ),
-                    ),
-                    if (profile.jobTitle.isNotEmpty) ...[
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        profile.jobTitle.toUpperCase(),
-                        style: pw.TextStyle(
-                          color: accentColor,
-                          fontSize: 8.5,
-                          fontWeight: pw.FontWeight.bold,
+                      pw.SizedBox(width: 12),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              profile.fullName.toUpperCase(),
+                              style: pw.TextStyle(
+                                color: textDarkColor,
+                                fontSize: 14,
+                                fontWeight: pw.FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                            if (profile.jobTitle.isNotEmpty) ...[
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                profile.jobTitle.toUpperCase(),
+                                style: pw.TextStyle(
+                                  color: accentColor,
+                                  fontSize: 8.5,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                            pw.SizedBox(height: 4),
+                            pw.Wrap(
+                              spacing: 8,
+                              runSpacing: 2,
+                              children: [
+                                if (profile.email.isNotEmpty) _buildMiniBadgeDark('Email: ${profile.email}', accentColor),
+                                if (profile.phone.isNotEmpty) _buildMiniBadgeDark('Tel: ${profile.phone}', accentColor),
+                                if (profile.location.isNotEmpty) _buildMiniBadgeDark('Ubicación: ${profile.location}', accentColor),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                    pw.SizedBox(height: 4),
-                    pw.Wrap(
-                      spacing: 8,
-                      runSpacing: 2,
-                      children: [
-                        if (profile.email.isNotEmpty) _buildMiniBadgeDark('Email: ${profile.email}', accentColor),
-                        if (profile.phone.isNotEmpty) _buildMiniBadgeDark('Tel: ${profile.phone}', accentColor),
-                        if (profile.location.isNotEmpty) _buildMiniBadgeDark('Ubicación: ${profile.location}', accentColor),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
@@ -1066,10 +1175,6 @@ class PdfExportService {
                           }).toList(),
                         ),
                       ),
-
-                    pw.Spacer(),
-                    if (profile.showWatermark && profile.watermarkPattern != 'none' && profile.watermarkOpacity > 0)
-                      _buildWatermarkTag(profile, accentColor),
                   ],
                 ),
               ),
@@ -1182,14 +1287,9 @@ class PdfExportService {
     );
   }
 
-  static pw.Widget _buildSectionPill(String title, PdfColor color) {
-    return pw.Container(
-      alignment: pw.Alignment.center,
+  static pw.Widget _buildSectionPill(String title, PdfColor color, [pw.MemoryImage? watermarkImg]) {
+    final textWidget = pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
-      decoration: pw.BoxDecoration(
-        color: color,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-      ),
       child: pw.Text(
         title,
         style: const pw.TextStyle(
@@ -1197,6 +1297,28 @@ class PdfExportService {
           fontSize: 8,
           fontWeight: pw.FontWeight.bold,
           letterSpacing: 0.6,
+        ),
+      ),
+    );
+
+    return pw.Container(
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        color: color,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+      ),
+      child: pw.ClipRRect(
+        horizontalRadius: 10,
+        verticalRadius: 10,
+        child: pw.Stack(
+          alignment: pw.Alignment.center,
+          children: [
+            if (watermarkImg != null)
+              pw.Positioned.fill(
+                child: pw.Image(watermarkImg, fit: pw.BoxFit.cover),
+              ),
+            textWidget,
+          ],
         ),
       ),
     );
@@ -1336,37 +1458,6 @@ class PdfExportService {
       child: pw.Text(
         text,
         style: pw.TextStyle(color: accentColor, fontSize: 7, fontWeight: pw.FontWeight.bold),
-      ),
-    );
-  }
-
-  static pw.Widget _buildWatermarkTag(CvProfileModel profile, PdfColor color) {
-    final pattern = profile.watermarkPattern;
-    String symbol = '* SANCTUARY VERIFIED *';
-    if (pattern == 'gears') symbol = '* INDUSTRIAL CERTIFIED *';
-    if (pattern == 'tools') symbol = '* TECHNICAL CV *';
-    if (pattern == 'shield') symbol = '* OFFICIAL PROFILE *';
-    if (pattern == 'constellation') symbol = '* NETWORK & SYSTEMS (ASIR) *';
-    if (pattern == 'circuits') symbol = '* ELECTRONICS & HARDWARE *';
-    if (pattern == 'code_brackets') symbol = '* SOFTWARE & DEVELOPMENT *';
-    if (pattern == 'cubes') symbol = '* 3D & ARCHITECTURE *';
-    if (pattern == 'waves') symbol = '* SIGNAL & TECHNOLOGY *';
-    if (pattern == 'leaves') symbol = '* ECO & SUSTAINABILITY *';
-
-    final alpha = (profile.watermarkOpacity * 255).clamp(0, 255).toInt();
-    final watermarkColor = PdfColor(color.red, color.green, color.blue, alpha / 255.0);
-
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 4),
-      alignment: pw.Alignment.center,
-      child: pw.Text(
-        symbol,
-        style: pw.TextStyle(
-          color: watermarkColor,
-          fontSize: 8,
-          fontWeight: pw.FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
       ),
     );
   }
