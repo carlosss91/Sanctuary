@@ -99,36 +99,19 @@ class DocxExportService {
     double pixelRatio = 2.0,
     String customWatermarkUrl = '',
   }) async {
-    final targetW = (width * pixelRatio).round();
-    final targetH = (height * pixelRatio).round();
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, targetW.toDouble(), targetH.toDouble()));
-    canvas.scale(pixelRatio, pixelRatio);
-
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, width, height),
-      Radius.circular(borderRadius),
+    final bytes = await WatermarkPainter.renderWatermarkPng(
+      pattern: pattern,
+      opacity: opacity,
+      density: density,
+      randomness: randomness,
+      width: width,
+      height: height,
+      backgroundColor: backgroundColor,
+      borderRadius: borderRadius,
+      customWatermarkUrl: customWatermarkUrl,
+      pixelRatio: pixelRatio,
     );
-
-    final bgPaint = Paint()..color = backgroundColor;
-    canvas.drawRRect(rrect, bgPaint);
-    canvas.clipRRect(rrect);
-
-    if (pattern != 'none' && opacity > 0) {
-      final painter = WatermarkPainter(
-        pattern: pattern,
-        opacity: opacity,
-        density: density,
-        randomness: randomness,
-      );
-      painter.paint(canvas, Size(width, height));
-    }
-
-    final pic = recorder.endRecording();
-    final outImg = await pic.toImage(targetW, targetH);
-    final byteData = await outImg.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
+    return bytes ?? Uint8List(0);
   }
 
   static Future<Uint8List> renderCanvasContactIconPng(String type, Color cutoutColor, [double size = 48.0]) async {
@@ -898,8 +881,20 @@ class DocxExportService {
 
     // Work Experience Section
     _addSectionHeaderPill(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, hasPillBg: hasPillBg);
-    for (final exp in profile.experiences) {
-      _addDocxExperience(docXml, exp, accentHex);
+    if (profile.experiences.isEmpty) {
+      final msg = isEn ? 'No work experience records yet.' : 'Sin experiencia laboral registrada aún.';
+      docXml.write('''
+          <w:p>
+            <w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr>
+            <w:r>
+              <w:rPr><w:i/><w:sz w:val="16"/><w:color w:val="94A3B8"/></w:rPr>
+              <w:t xml:space="preserve">$msg</w:t>
+            </w:r>
+          </w:p>''');
+    } else {
+      for (final exp in profile.experiences) {
+        _addDocxExperience(docXml, exp, accentHex);
+      }
     }
 
     // Breathing space between Experience and Education sections
@@ -907,8 +902,20 @@ class DocxExportService {
 
     // Education Section
     _addSectionHeaderPill(docXml, isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES', accentHex, hasPillBg: hasPillBg);
-    for (final edu in profile.educations) {
-      _addDocxEducation(docXml, edu, accentHex);
+    if (profile.educations.isEmpty) {
+      final msg = isEn ? 'No education records yet.' : 'Sin formación registrada aún.';
+      docXml.write('''
+          <w:p>
+            <w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr>
+            <w:r>
+              <w:rPr><w:i/><w:sz w:val="16"/><w:color w:val="94A3B8"/></w:rPr>
+              <w:t xml:space="preserve">$msg</w:t>
+            </w:r>
+          </w:p>''');
+    } else {
+      for (final edu in profile.educations) {
+        _addDocxEducation(docXml, edu, accentHex);
+      }
     }
 
     docXml.write('''

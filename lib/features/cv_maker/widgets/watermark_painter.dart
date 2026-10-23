@@ -92,12 +92,40 @@ class WatermarkPainter extends CustomPainter {
       case 'leaves':
         _drawLeaves(canvas, size, strokePaint, fillPaint);
         break;
+      case 'custom':
+        // Custom watermark handled by renderWatermarkPng; nothing to draw in vector fallback
+        break;
       default:
         _drawGears(canvas, size, strokePaint, fillPaint);
     }
   }
 
   void _drawTechDots(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    if (size.height <= 35) {
+      final cy = size.height / 2;
+      final step = 20.0 / math.sqrt(density.clamp(0.4, 2.5));
+      // Subtle orthogonal trace centered in pill
+      final tracePaint = stroke..strokeWidth = 0.8;
+      final p = Path()
+        ..moveTo(-5, cy - 3)
+        ..lineTo(size.width * 0.28, cy - 3)
+        ..lineTo(size.width * 0.33, cy + 2)
+        ..lineTo(size.width * 0.68, cy + 2)
+        ..lineTo(size.width * 0.73, cy - 3)
+        ..lineTo(size.width + 5, cy - 3);
+      canvas.drawPath(p, tracePaint);
+
+      // Micro test-points along the pill
+      for (double x = 12; x < size.width + 10; x += step) {
+        final dy = (_pr(x.toInt() * 19 + 7) * 2.0 - 1.0) * (size.height * 0.18) * randomness;
+        canvas.drawCircle(Offset(x, (cy - 5 + dy).clamp(2.5, size.height - 2.5)), 1.3, fill);
+        canvas.drawCircle(Offset(x + step * 0.5, (cy + 5 - dy).clamp(2.5, size.height - 2.5)), 1.3, fill);
+        if (((x).toInt() % 40) == 0) {
+          canvas.drawCircle(Offset(x, cy + dy), 2.4, stroke..strokeWidth = 0.7);
+        }
+      }
+      return;
+    }
     final step = 22.0 / math.sqrt(density.clamp(0.4, 2.5));
     // 1. Circuit test points
     for (double y = 10; y < size.height + step; y += step) {
@@ -141,17 +169,18 @@ class WatermarkPainter extends CustomPainter {
     if (size.height <= 60) {
       final cy = size.height / 2;
       final step = 38.0 / math.sqrt(density.clamp(0.4, 2.5));
+      final maxR = (size.height * 0.38).clamp(5.0, 22.0);
       int idx = 0;
       for (double x = 12; x < size.width + 30; x += step) {
         final baseR = (idx % 2 == 0)
-            ? (14.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 22.0)
-            : (10.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(6.0, 16.0);
-        final r = (baseR * (1.0 + (_pr(idx * 19 + 3) - 0.5) * 0.35 * randomness)).clamp(5.0, 24.0);
-        final teeth = (idx % 2 == 0) ? 9 : 7;
+            ? (14.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(6.0, maxR)
+            : (10.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(5.0, maxR * 0.85);
+        final r = (baseR * (1.0 + (_pr(idx * 19 + 3) - 0.5) * 0.35 * randomness)).clamp(4.5, maxR);
+        final teeth = (idx % 2 == 0) ? 8 : 6;
 
-        final dy = (_pr(idx * 37 + 7) * 2.0 - 1.0) * (size.height * 0.42) * randomness;
+        final dy = (_pr(idx * 37 + 7) * 2.0 - 1.0) * (size.height * 0.25) * randomness;
         final dx = (_pr(idx * 53 + 13) * 2.0 - 1.0) * (step * 0.35) * randomness;
-        final center = Offset(x + dx, (cy + dy).clamp(2.0, size.height - 2.0));
+        final center = Offset(x + dx, (cy + dy).clamp(maxR, size.height - maxR));
 
         _drawSingleGear(canvas, center, r, teeth, stroke, fill);
 
@@ -242,13 +271,14 @@ class WatermarkPainter extends CustomPainter {
     if (size.height <= 60) {
       final cy = size.height / 2;
       final step = 50.0 / math.sqrt(density.clamp(0.4, 2.5));
+      final maxR = (size.height * 0.36).clamp(5.0, 18.0);
       int idx = 0;
       for (double x = 20; x < size.width + 30; x += step) {
-        final baseR = (12.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 18.0);
-        final r = (baseR * (1.0 + (_pr(idx * 17 + 5) - 0.5) * 0.35 * randomness)).clamp(6.0, 22.0);
-        final dy = (_pr(idx * 31 + 11) * 2.0 - 1.0) * (size.height * 0.42) * randomness;
+        final baseR = (12.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(5.0, maxR);
+        final r = (baseR * (1.0 + (_pr(idx * 17 + 5) - 0.5) * 0.35 * randomness)).clamp(4.5, maxR);
+        final dy = (_pr(idx * 31 + 11) * 2.0 - 1.0) * (size.height * 0.25) * randomness;
         final dx = (_pr(idx * 47 + 7) * 2.0 - 1.0) * (step * 0.35) * randomness;
-        final center = Offset(x + dx, (cy + dy).clamp(3.0, size.height - 3.0));
+        final center = Offset(x + dx, (cy + dy).clamp(maxR, size.height - maxR));
         final rotJitter = (_pr(idx * 29 + 13) * 2.0 - 1.0) * (math.pi * 0.5) * randomness;
 
         _drawCrossedTools(canvas, center, r, stroke, fill, rotationJitter: rotJitter);
@@ -332,6 +362,42 @@ class WatermarkPainter extends CustomPainter {
   }
 
   void _drawConstellation(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    if (size.height <= 35) {
+      final cy = size.height / 2;
+      final step = 38.0 / math.sqrt(density.clamp(0.4, 2.5));
+      Offset? prevNode;
+      int idx = 0;
+      for (double x = 14; x < size.width + 20; x += step) {
+        final dy = (_pr(idx * 29 + 7) * 2.0 - 1.0) * (size.height * 0.22) * randomness;
+        final node = Offset(x, (cy + dy).clamp(4.0, size.height - 4.0));
+
+        if (prevNode != null) {
+          canvas.drawLine(prevNode, node, stroke..strokeWidth = 0.65);
+        }
+
+        final isHub = (idx % 3 == 0);
+        if (isHub) {
+          canvas.drawCircle(node, 3.2, fill);
+          canvas.drawCircle(node, 3.2, stroke..strokeWidth = 0.8);
+          canvas.drawCircle(node, 1.2, fill);
+        } else {
+          canvas.drawCircle(node, 1.8, fill);
+          canvas.drawCircle(node, 1.8, stroke..strokeWidth = 0.6);
+        }
+
+        if (randomness >= 0.35 && idx % 2 == 1) {
+          final satY = (cy - dy * 1.1).clamp(3.0, size.height - 3.0);
+          final sat = Offset(x + step * 0.35, satY);
+          canvas.drawLine(node, sat, stroke..strokeWidth = 0.45);
+          canvas.drawCircle(sat, 1.2, fill);
+        }
+
+        prevNode = node;
+        idx++;
+      }
+      return;
+    }
+
     final step = 36.0 / math.sqrt(density.clamp(0.4, 2.5));
     for (double y = 8; y < size.height + step; y += step) {
       for (double x = 8; x < size.width + step; x += step) {
@@ -457,6 +523,56 @@ class WatermarkPainter extends CustomPainter {
   }
 
   void _drawCodeBrackets(Canvas canvas, Size size, Paint stroke) {
+    if (size.height <= 35) {
+      final cy = size.height / 2;
+      final stepX = 46.0 / math.sqrt(density.clamp(0.4, 2.5));
+      int col = 0;
+      for (double x = 16; x < size.width + 20; x += stepX) {
+        final sym = col % 3;
+        final dy = (_pr(col * 31 + 7) * 2.0 - 1.0) * (size.height * 0.15) * randomness;
+        final c = Offset(x, (cy + dy).clamp(5.0, size.height - 5.0));
+        if (sym == 0) {
+          final p = Path()
+            ..moveTo(c.dx - 7, c.dy - 3.5)
+            ..lineTo(c.dx - 10, c.dy)
+            ..lineTo(c.dx - 7, c.dy + 3.5)
+            ..moveTo(c.dx - 2, c.dy + 4.5)
+            ..lineTo(c.dx + 2, c.dy - 4.5)
+            ..moveTo(c.dx + 7, c.dy - 3.5)
+            ..lineTo(c.dx + 10, c.dy)
+            ..lineTo(c.dx + 7, c.dy + 3.5);
+          canvas.drawPath(p, stroke..strokeWidth = 0.85);
+        } else if (sym == 1) {
+          final p = Path()
+            ..moveTo(c.dx - 5, c.dy - 4)
+            ..lineTo(c.dx - 7, c.dy - 4)
+            ..lineTo(c.dx - 7, c.dy - 1)
+            ..lineTo(c.dx - 9, c.dy)
+            ..lineTo(c.dx - 7, c.dy + 1)
+            ..lineTo(c.dx - 7, c.dy + 4)
+            ..lineTo(c.dx - 5, c.dy + 4)
+            ..moveTo(c.dx + 5, c.dy - 4)
+            ..lineTo(c.dx + 7, c.dy - 4)
+            ..lineTo(c.dx + 7, c.dy - 1)
+            ..lineTo(c.dx + 9, c.dy)
+            ..lineTo(c.dx + 7, c.dy + 1)
+            ..lineTo(c.dx + 7, c.dy + 4)
+            ..lineTo(c.dx + 5, c.dy + 4);
+          canvas.drawPath(p, stroke..strokeWidth = 0.85);
+        } else {
+          final p = Path()
+            ..moveTo(c.dx - 6, c.dy - 3.5)
+            ..lineTo(c.dx - 2, c.dy)
+            ..lineTo(c.dx - 6, c.dy + 3.5)
+            ..moveTo(c.dx + 1, c.dy + 3.5)
+            ..lineTo(c.dx + 6, c.dy + 3.5);
+          canvas.drawPath(p, stroke..strokeWidth = 0.85);
+        }
+        col++;
+      }
+      return;
+    }
+
     final stepX = 54.0 / math.sqrt(density.clamp(0.4, 2.5));
     final stepY = 26.0 / math.sqrt(density.clamp(0.4, 2.5));
     int row = 0;
@@ -604,19 +720,26 @@ class WatermarkPainter extends CustomPainter {
     if (size.height <= 60) {
       final cy = size.height / 2;
       final step = 46.0 / math.sqrt(density.clamp(0.4, 2.5));
+      final maxS = (size.height * 0.36).clamp(4.5, 18.0);
       int idx = 0;
       for (double x = 18; x < size.width + 30; x += step) {
-        final baseS = (11.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(8.0, 16.0);
-        final s = (baseS * (1.0 + (_pr(idx * 23 + 9) - 0.5) * 0.35 * randomness)).clamp(6.0, 20.0);
-        final dy = (_pr(idx * 37 + 13) * 2.0 - 1.0) * (size.height * 0.42) * randomness;
+        final baseS = (11.0 * math.sqrt(density.clamp(0.5, 2.0))).clamp(4.0, maxS);
+        final s = (baseS * (1.0 + (_pr(idx * 23 + 9) - 0.5) * 0.35 * randomness)).clamp(4.0, maxS);
+        final dy = (_pr(idx * 37 + 13) * 2.0 - 1.0) * (size.height * 0.22) * randomness;
         final dx = (_pr(idx * 43 + 3) * 2.0 - 1.0) * (step * 0.35) * randomness;
-        final center = Offset(x + dx, (cy + dy).clamp(3.0, size.height - 3.0));
+        final center = Offset(x + dx, (cy + dy).clamp(maxS, size.height - maxS));
 
         _drawSingleShield(canvas, center, s, stroke, fill);
 
         if (randomness >= 0.50 && idx % 2 == 1) {
           final altDy = -dy * 0.85;
-          _drawSingleShield(canvas, Offset(x + step * 0.45 + dx * 0.3, (cy + altDy).clamp(3.0, size.height - 3.0)), s * 0.62, stroke, fill);
+          _drawSingleShield(
+            canvas,
+            Offset(x + step * 0.45 + dx * 0.3, (cy + altDy).clamp(maxS * 0.62, size.height - maxS * 0.62)),
+            s * 0.62,
+            stroke,
+            fill,
+          );
         }
         idx++;
       }
@@ -695,6 +818,31 @@ class WatermarkPainter extends CustomPainter {
   }
 
   void _drawLeaves(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    if (size.height <= 35) {
+      final cy = size.height / 2;
+      final stepX = 36.0 / math.sqrt(density.clamp(0.4, 2.5));
+      final maxL = (size.height * 0.32).clamp(4.0, 7.5);
+      int idx = 0;
+      for (double x = 16; x < size.width + 20; x += stepX) {
+        final dy = (_pr(idx * 17 + 5) * 2.0 - 1.0) * (size.height * 0.16) * randomness;
+        final c = Offset(x, (cy + dy).clamp(maxL + 2, size.height - maxL - 2));
+        final angle = (idx % 2 == 0) ? -0.32 : 0.32;
+        canvas.save();
+        canvas.translate(c.dx, c.dy);
+        canvas.rotate(angle);
+        final p = Path()
+          ..moveTo(-maxL, maxL * 0.65)
+          ..quadraticBezierTo(-maxL * 0.55, -maxL * 0.55, maxL, -maxL * 0.65)
+          ..quadraticBezierTo(maxL * 0.55, maxL * 0.55, -maxL, maxL * 0.65);
+        canvas.drawPath(p, fill);
+        canvas.drawPath(p, stroke..strokeWidth = 0.75);
+        canvas.drawLine(Offset(-maxL, maxL * 0.65), Offset(maxL, -maxL * 0.65), stroke..strokeWidth = 0.55);
+        canvas.restore();
+        idx++;
+      }
+      return;
+    }
+
     final stepX = 42.0 / math.sqrt(density.clamp(0.4, 2.5));
     final stepY = 32.0 / math.sqrt(density.clamp(0.4, 2.5));
 

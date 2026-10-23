@@ -285,6 +285,125 @@ void main() {
       // Ensure embedded sanitized payload does not have raw bullets or en-dashes breaking Type 1
       expect(pdfBytes.length, greaterThan(1000));
     });
+
+    test('All 14 watermark patterns render valid PDF and Word for all 4 templates', () async {
+      final patterns = [
+        'circuits',
+        'gears',
+        'tools',
+        'constellation',
+        'code_brackets',
+        'geometric',
+        'cubes',
+        'waves',
+        'shield',
+        'lines',
+        'tech_dots',
+        'leaves',
+        'none',
+        'custom',
+      ];
+
+      final templates = ['sidebar_dark', 'modern_header', 'minimalist', 'tech_cards'];
+
+      for (int i = 0; i < patterns.length; i++) {
+        final pat = patterns[i];
+        final tpl = templates[i % templates.length];
+        final profile = sampleProfile.copyWith(
+          watermarkPattern: pat,
+          template: tpl,
+          watermarkOpacity: 0.25,
+          watermarkDensity: 1.2,
+          watermarkRandomness: 0.5,
+          customWatermarkUrl: pat == 'custom' ? sampleProfile.photoUrl : '',
+        );
+
+        // 1. PDF Export
+        final pdfBytes = await PdfExportService.generatePdfBytes(profile);
+        expect(pdfBytes.isNotEmpty, isTrue, reason: 'Pattern $pat in $tpl should generate valid PDF');
+        expect(utf8.decode(pdfBytes.sublist(0, 4)), equals('%PDF'));
+
+        // 2. DOCX Export (with prepared assets)
+        final docxAssets = await DocxExportService.prepareAssets(profile);
+        final docxBytes = DocxExportService.generateDocxBytes(profile, null, null, null, docxAssets);
+        expect(docxBytes.isNotEmpty, isTrue, reason: 'Pattern $pat in $tpl should generate valid DOCX');
+        expect(docxBytes[0], equals(0x50));
+        expect(docxBytes[1], equals(0x4B));
+
+        final archive = ZipDecoder().decodeBytes(docxBytes);
+        expect(archive.findFile('word/document.xml'), isNotNull);
+      }
+    });
+
+    test('Arbitrary CV profiles (empty, minimal, massive text, special characters) export cleanly in PDF and DOCX', () async {
+      final minimalProfile = CvProfileModel(
+        id: 'min-1',
+        fullName: 'Bob Lee',
+        jobTitle: 'Junior Intern',
+        experiences: [],
+        educations: [],
+        skills: [],
+        summary: '',
+        accentColor: '#10B981',
+      );
+
+      final massiveProfile = CvProfileModel(
+        id: 'massive-1',
+        fullName: 'Dra. María & José <O\'Connor> "El Grande"',
+        jobTitle: 'Senior Chief Architect & Vice-President <EMEA>',
+        summary: 'Resumen ejecutivo extremadamente detallado que abarca múltiples líneas con caracteres especiales como &, <, >, " y \'.\n' * 5,
+        skills: List.generate(12, (i) => 'Competencia Técnica #$i & Especialidad <$i>'),
+        experiences: List.generate(
+          4,
+          (i) => CvExperience(
+            jobTitle: 'Director de Ingeniería & Innovación $i',
+            company: 'MegaCorp Global Solutions <Intl> S.L. & Co.',
+            period: '201$i - 202$i',
+            description: '• Liderazgo de equipos multidisciplinares de más de 50 ingenieros.\n'
+                '• Reducción de costes operativos en un 35% mediante automatización.\n'
+                '• Implementación de arquitecturas cloud distribuidas en AWS & Azure.',
+          ),
+        ),
+        educations: List.generate(
+          3,
+          (i) => CvEducation(
+            degree: 'Máster Universitario en Inteligencia Artificial & Big Data #$i',
+            institution: 'Universidad Politécnica & MIT OpenCourseWare',
+            period: '201$i - 201${i + 1}',
+            details: 'Tesis doctoral con calificación sobresaliente cum laude y mención internacional.',
+          ),
+        ),
+        accentColor: '#8B5CF6',
+        watermarkPattern: 'tech_dots',
+        watermarkOpacity: 0.20,
+      );
+
+      for (final profile in [minimalProfile, massiveProfile]) {
+        for (final tpl in ['sidebar_dark', 'modern_header', 'minimalist', 'tech_cards']) {
+          final p = profile.copyWith(template: tpl);
+
+          // Test PDF
+          final pdfBytes = await PdfExportService.generatePdfBytes(p);
+          expect(pdfBytes.isNotEmpty, isTrue);
+          expect(utf8.decode(pdfBytes.sublist(0, 4)), equals('%PDF'));
+
+          // Test DOCX
+          final docxAssets = await DocxExportService.prepareAssets(p);
+          final docxBytes = DocxExportService.generateDocxBytes(p, null, null, null, docxAssets);
+          expect(docxBytes.isNotEmpty, isTrue);
+          final archive = ZipDecoder().decodeBytes(docxBytes);
+          final docXmlFile = archive.findFile('word/document.xml');
+          expect(docXmlFile, isNotNull);
+
+          // Verify XML validity (no unescaped characters causing parser crashes)
+          final docXml = utf8.decode(docXmlFile!.content as List<int>);
+          if (profile == massiveProfile) {
+            expect(docXml, isNot(contains('<O\'Connor>')));
+            expect(docXml.toUpperCase(), contains('&LT;O&APOS;CONNOR&GT;'));
+          }
+        }
+      }
+    });
   });
 }
 
