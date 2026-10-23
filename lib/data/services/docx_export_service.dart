@@ -331,7 +331,7 @@ class DocxExportService {
     final density = profile.watermarkDensity.clamp(0.4, 3.0);
     final randomness = profile.watermarkRandomness.clamp(0.0, 1.0);
 
-    // Sidebar: 185pt wide x 806pt high, radius 10pt (matching PDF & A4 Preview)
+    // Sidebar: 185pt wide x 780pt high, radius 10pt (matching PDF & A4 Preview)
     final sidebarBgBytes = await renderThemedWatermarkPng(
       pattern: pattern,
       backgroundColor: accentColor,
@@ -340,7 +340,7 @@ class DocxExportService {
       randomness: randomness,
       customWatermarkUrl: profile.customWatermarkUrl,
       width: 185,
-      height: 806,
+      height: 780,
       borderRadius: 10,
     );
 
@@ -487,8 +487,7 @@ class DocxExportService {
     }
 
     // 1. [Content_Types].xml
-    final hasHeader = sidebarBg != null && sidebarBg.isNotEmpty;
-    final contentTypesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    const contentTypesXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
@@ -496,7 +495,7 @@ class DocxExportService {
   <Default Extension="jpg" ContentType="image/jpeg"/>
   <Default Extension="jpeg" ContentType="image/jpeg"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-${hasHeader ? '  <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>\n' : ''}  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>''';
     addXml('[Content_Types].xml', contentTypesXml);
 
@@ -507,55 +506,13 @@ ${hasHeader ? '  <Override PartName="/word/header1.xml" ContentType="application
 </Relationships>''';
     addXml('_rels/.rels', rootRelsXml);
 
-    // 3. word/header1.xml & header1.xml.rels (Full-Height Sidebar Watermark Background)
-    if (hasHeader) {
-      addXml('word/_rels/header1.xml.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rIdSidebarBg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sidebar_bg.png"/>
-</Relationships>''');
-
-      addXml('word/header1.xml', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-       xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-       xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-       xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
-       xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-  <w:p>
-    <w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr>
-    <w:r>
-      <w:drawing>
-        <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="0" allowOverlap="1">
-          <wp:simplePos x="0" y="0"/>
-          <wp:positionH relativeFrom="page"><wp:posOffset>228600</wp:posOffset></wp:positionH>
-          <wp:positionV relativeFrom="page"><wp:posOffset>228600</wp:posOffset></wp:positionV>
-          <wp:extent cx="2349500" cy="10236200"/>
-          <wp:effectExtent l="0" t="0" r="0" b="0"/>
-          <wp:wrapNone/>
-          <wp:docPr id="1001" name="SidebarWatermarkBackground"/>
-          <wp:cNvGraphicFramePr/>
-          <a:graphic>
-            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-              <pic:pic>
-                <pic:nvPicPr><pic:cNvPr id="1001" name="SidebarWatermarkBackground"/><pic:cNvPicPr/></pic:nvPicPr>
-                <pic:blipFill><a:blip r:embed="rIdSidebarBg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-                <pic:spPr><a:xfrm><a:off x="228600" y="228600"/><a:ext cx="2349500" cy="10236200"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
-              </pic:pic>
-            </a:graphicData>
-          </a:graphic>
-        </wp:anchor>
-      </w:drawing>
-    </w:r>
-  </w:p>
-</w:hdr>''');
-    }
-
-    // 4. word/_rels/document.xml.rels
+    // 3. word/_rels/document.xml.rels
     final docRelsXml = StringBuffer();
     docRelsXml.write('''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>''');
-    if (hasHeader) {
-      docRelsXml.write('\n  <Relationship Id="rIdHeader1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>');
+    if (sidebarBg != null && sidebarBg.isNotEmpty) {
+      docRelsXml.write('\n  <Relationship Id="rIdSidebarBg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sidebar_bg.png"/>');
     }
     if (photoBytes != null && photoBytes.isNotEmpty) {
       docRelsXml.write('\n  <Relationship Id="rIdPhoto" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/photo.png"/>');
@@ -569,9 +526,6 @@ ${hasHeader ? '  <Override PartName="/word/header1.xml" ContentType="application
     }
     if (whitePill != null && whitePill.isNotEmpty) {
       docRelsXml.write('\n  <Relationship Id="rIdWhitePill" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/white_pill.png"/>');
-    }
-    if (sidebarBg != null && sidebarBg.isNotEmpty) {
-      docRelsXml.write('\n  <Relationship Id="rIdWatermarkSidebar" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/watermark_sidebar.png"/>');
     }
     if (hasAssets) {
       docRelsXml.write('\n  <Relationship Id="rIdIconPhone" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/icon_phone.png"/>');
@@ -639,10 +593,10 @@ ${hasHeader ? '  <Override PartName="/word/header1.xml" ContentType="application
           initials,
           hasPhoto: photoBytes != null,
           hasAssets: hasAssets,
-          hasHeader: hasHeader,
           hasPillBg: pillBg != null,
           hasBannerBg: bannerBg != null,
           hasWhitePill: whitePill != null,
+          hasSidebarBg: sidebarBg != null && sidebarBg.isNotEmpty,
         );
         break;
     }
@@ -650,7 +604,7 @@ ${hasHeader ? '  <Override PartName="/word/header1.xml" ContentType="application
     // Page setup: A4 format (11906 x 16838 dxa) with 360 dxa (18pt) margins for full-bleed single-page layout
     docXml.write('''
     <w:sectPr>
-${hasHeader ? '      <w:headerReference w:type="default" r:id="rIdHeader1"/>\n' : ''}      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgSz w:w="11906" w:h="16838"/>
       <w:pgMar w:top="360" w:right="360" w:bottom="360" w:left="360" w:header="0" w:footer="0"/>
     </w:sectPr>
   </w:body>
@@ -674,10 +628,10 @@ ${hasHeader ? '      <w:headerReference w:type="default" r:id="rIdHeader1"/>\n' 
     String initials, {
     required bool hasPhoto,
     required bool hasAssets,
-    required bool hasHeader,
     required bool hasPillBg,
     required bool hasBannerBg,
     required bool hasWhitePill,
+    required bool hasSidebarBg,
   }) {
     final col1W = hasAssets ? 3700 : 3300;
     final col2W = hasAssets ? 7486 : 7166;
@@ -706,13 +660,43 @@ ${hasHeader ? '      <w:headerReference w:type="default" r:id="rIdHeader1"/>\n' 
         <w:tc>
           <w:tcPr>
             <w:tcW w:w="$col1W" w:type="dxa"/>
-            ${hasHeader ? '<w:shd w:val="none"/>' : '<w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>'}
+            ${hasSidebarBg ? '<w:shd w:val="none"/>' : '<w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>'}
             <w:tcMar>
               <w:top w:w="260" w:type="dxa"/><w:bottom w:w="260" w:type="dxa"/>
               <w:left w:w="240" w:type="dxa"/><w:right w:w="240" w:type="dxa"/>
             </w:tcMar>
           </w:tcPr>
 ''');
+
+    // Sidebar Background Watermark inside Document Body (100% vibrant, aligned to margins, rounded corners)
+    if (hasSidebarBg) {
+      docXml.write('''
+          <w:p>
+            <w:pPr><w:spacing w:before="0" w:after="0" w:line="1" w:lineRule="exact"/></w:pPr>
+            <w:r>
+              <w:drawing>
+                <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="0" allowOverlap="1">
+                  <wp:simplePos x="0" y="0"/>
+                  <wp:positionH relativeFrom="margin"><wp:posOffset>0</wp:posOffset></wp:positionH>
+                  <wp:positionV relativeFrom="margin"><wp:posOffset>0</wp:posOffset></wp:positionV>
+                  <wp:extent cx="2349500" cy="9906000"/>
+                  <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                  <wp:wrapNone/>
+                  <wp:docPr id="1001" name="SidebarBackground"/><wp:cNvGraphicFramePr/>
+                  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                      <pic:pic>
+                        <pic:nvPicPr><pic:cNvPr id="1001" name="SidebarBackground"/><pic:cNvPicPr/></pic:nvPicPr>
+                        <pic:blipFill><a:blip r:embed="rIdSidebarBg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="2349500" cy="9906000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                      </pic:pic>
+                    </a:graphicData>
+                  </a:graphic>
+                </wp:anchor>
+              </w:drawing>
+            </w:r>
+          </w:p>''');
+    }
 
     // Photo / Initials Badge
     if (hasAssets && hasPhoto) {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -63,6 +64,9 @@ class PdfExportService {
 
     final isEn = profile.isEnglishVersion;
     final accentPdfColor = _hexToPdfColor(profile.accentColor);
+    final accentHexStr = profile.accentColor.replaceAll('#', '').trim();
+    final accentColorValue = int.tryParse('FF$accentHexStr', radix: 16) ?? 0xFF00A3C4;
+    final flutterAccentColor = Color(accentColorValue);
     final textDarkColor = PdfColor.fromInt(0xFF0F172A);
     final textMutedColor = PdfColor.fromInt(0xFF475569);
     final bgCardColor = PdfColor.fromInt(0xFFF8FAFC);
@@ -93,12 +97,14 @@ class PdfExportService {
           customWatermarkUrl: profile.customWatermarkUrl,
           width: 185,
           height: 806,
+          backgroundColor: flutterAccentColor,
+          borderRadius: 10,
         );
         if (sidebarBytes != null) {
           sidebarWatermarkImg = pw.MemoryImage(sidebarBytes);
         }
 
-        // Header Banner watermark for sidebar_dark (358 x 54 pt logical; height <= 60 triggers horizontal gear chain)
+        // Header Banner watermark for sidebar_dark (358 x 54 pt logical)
         final bannerBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: profile.watermarkOpacity,
@@ -107,12 +113,14 @@ class PdfExportService {
           customWatermarkUrl: profile.customWatermarkUrl,
           width: 358,
           height: 54,
+          backgroundColor: flutterAccentColor,
+          borderRadius: 8,
         );
         if (bannerBytes != null) {
           bannerWatermarkImg = pw.MemoryImage(bannerBytes);
         }
 
-        // Section Pill watermark for sidebar_dark (358 x 22 pt logical; height <= 60 triggers horizontal gear chain)
+        // Section Pill watermark for sidebar_dark (358 x 22 pt logical)
         final pillBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: profile.watermarkOpacity,
@@ -121,6 +129,8 @@ class PdfExportService {
           customWatermarkUrl: profile.customWatermarkUrl,
           width: 358,
           height: 22,
+          backgroundColor: flutterAccentColor,
+          borderRadius: 12,
         );
         if (pillBytes != null) {
           pillWatermarkImg = pw.MemoryImage(pillBytes);
@@ -347,64 +357,61 @@ class PdfExportService {
         // Left Column (Sidebar: 185pt wide matching A4 preview)
         pw.Container(
           width: 185,
-          decoration: pw.BoxDecoration(
-            color: accentColor,
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-          ),
-          child: pw.ClipRRect(
-            horizontalRadius: 10,
-            verticalRadius: 10,
-            child: pw.Stack(
-              children: [
-                if (sidebarWatermarkImg != null)
-                  pw.Positioned.fill(
-                    child: pw.Image(sidebarWatermarkImg, fit: pw.BoxFit.cover),
-                  ),
-                pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      _buildPhotoWidget(
-                        profile: profile,
-                        photoImage: photoImage,
-                        size: 80,
-                        accentColor: accentColor,
-                        isWhiteBorder: true,
-                      ),
-                      pw.SizedBox(height: 12),
-
-                      _buildPillOnColor(isEn ? 'CONTACT DETAILS' : 'DATOS'),
-                      pw.SizedBox(height: 8),
-
-                      if (profile.phone.isNotEmpty) _buildContactRowWhiteIcon(_svgPhoneWhite, profile.phone),
-                      if (profile.email.isNotEmpty) _buildContactRowWhiteIcon(_svgEmailWhite, profile.email),
-                      if (profile.location.isNotEmpty) _buildContactRowWhiteIcon(_svgLocationWhite, profile.location),
-                      if (profile.availability.isNotEmpty) _buildContactRowWhiteIcon(_svgTimeWhite, profile.availability),
-                      if (profile.drivingLicense.isNotEmpty) _buildContactRowWhiteIcon(_svgCarWhite, profile.drivingLicense),
-
-                      if (profile.summary.trim().isNotEmpty) ...[
-                        pw.SizedBox(height: 12),
-                        _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
-                        pw.SizedBox(height: 6),
-                        pw.Text(
-                          profile.summary,
-                          style: const pw.TextStyle(color: PdfColors.white, fontSize: 8, lineSpacing: 1.4),
-                          textAlign: pw.TextAlign.justify,
-                        ),
-                      ],
-
-                      if (_getSkillsList(profile).isNotEmpty) ...[
-                        pw.SizedBox(height: 12),
-                        _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
-                        pw.SizedBox(height: 8),
-                        ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor, profile.skillRatingStyle == 'stars')),
-                      ],
-                    ],
+          child: pw.Stack(
+            children: [
+              if (sidebarWatermarkImg != null)
+                pw.Image(sidebarWatermarkImg, fit: pw.BoxFit.fill)
+              else
+                pw.Container(
+                  decoration: pw.BoxDecoration(
+                    color: accentColor,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
                   ),
                 ),
-              ],
-            ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    _buildPhotoWidget(
+                      profile: profile,
+                      photoImage: photoImage,
+                      size: 80,
+                      accentColor: accentColor,
+                      isWhiteBorder: true,
+                    ),
+                    pw.SizedBox(height: 12),
+
+                    _buildPillOnColor(isEn ? 'CONTACT DETAILS' : 'DATOS'),
+                    pw.SizedBox(height: 8),
+
+                    if (profile.phone.isNotEmpty) _buildContactRowWhiteIcon(_svgPhoneWhite, profile.phone),
+                    if (profile.email.isNotEmpty) _buildContactRowWhiteIcon(_svgEmailWhite, profile.email),
+                    if (profile.location.isNotEmpty) _buildContactRowWhiteIcon(_svgLocationWhite, profile.location),
+                    if (profile.availability.isNotEmpty) _buildContactRowWhiteIcon(_svgTimeWhite, profile.availability),
+                    if (profile.drivingLicense.isNotEmpty) _buildContactRowWhiteIcon(_svgCarWhite, profile.drivingLicense),
+
+                    if (profile.summary.trim().isNotEmpty) ...[
+                      pw.SizedBox(height: 12),
+                      _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        profile.summary,
+                        style: const pw.TextStyle(color: PdfColors.white, fontSize: 8, lineSpacing: 1.4),
+                        textAlign: pw.TextAlign.justify,
+                      ),
+                    ],
+
+                    if (_getSkillsList(profile).isNotEmpty) ...[
+                      pw.SizedBox(height: 12),
+                      _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
+                      pw.SizedBox(height: 8),
+                      ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor, profile.skillRatingStyle == 'stars')),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
 
@@ -417,25 +424,24 @@ class PdfExportService {
             children: [
               // Header Banner
               pw.Container(
-                decoration: pw.BoxDecoration(
-                  color: accentColor,
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-                ),
-                child: pw.ClipRRect(
-                  horizontalRadius: 8,
-                  verticalRadius: 8,
-                  child: pw.Stack(
-                    alignment: pw.Alignment.center,
-                    children: [
-                      if (bannerWatermarkImg != null)
-                        pw.Positioned.fill(
-                          child: pw.Image(bannerWatermarkImg, fit: pw.BoxFit.cover),
+                child: pw.Stack(
+                  alignment: pw.Alignment.center,
+                  children: [
+                    if (bannerWatermarkImg != null)
+                      pw.Image(bannerWatermarkImg, fit: pw.BoxFit.fill)
+                    else
+                      pw.Container(
+                        height: 54,
+                        decoration: pw.BoxDecoration(
+                          color: accentColor,
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                         ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.center,
-                          children: [
+                      ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
                             pw.Text(
                               profile.fullName.toUpperCase(),
                               textAlign: pw.TextAlign.center,
@@ -465,7 +471,6 @@ class PdfExportService {
                     ],
                   ),
                 ),
-              ),
 
               pw.SizedBox(height: 12),
 
@@ -1353,26 +1358,27 @@ class PdfExportService {
       ),
     );
 
+    if (watermarkImg != null) {
+      return pw.Container(
+        height: 22,
+        alignment: pw.Alignment.center,
+        child: pw.Stack(
+          alignment: pw.Alignment.center,
+          children: [
+            pw.Image(watermarkImg, fit: pw.BoxFit.fill),
+            textWidget,
+          ],
+        ),
+      );
+    }
+
     return pw.Container(
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(
         color: color,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
       ),
-      child: pw.ClipRRect(
-        horizontalRadius: 12,
-        verticalRadius: 12,
-        child: pw.Stack(
-          alignment: pw.Alignment.center,
-          children: [
-            if (watermarkImg != null)
-              pw.Positioned.fill(
-                child: pw.Image(watermarkImg, fit: pw.BoxFit.cover),
-              ),
-            textWidget,
-          ],
-        ),
-      ),
+      child: textWidget,
     );
   }
 

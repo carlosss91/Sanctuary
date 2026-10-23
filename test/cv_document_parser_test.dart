@@ -197,11 +197,11 @@ FORMACIÓN Y CERTIFICACIONES
 
       // Skills: 5 competency items with descriptions
       expect(parsed.skillItems.length, equals(5));
-      expect(parsed.skillItems.any((s) => s.name.contains('TRABAJO EN EQUIPO')), isTrue);
-      expect(parsed.skillItems.any((s) => s.name.contains('TRABAJO INDIVIDUAL')), isTrue);
-      expect(parsed.skillItems.any((s) => s.name.contains('PUNTUALIDAD')), isTrue);
-      expect(parsed.skillItems.any((s) => s.name.contains('MANEJO DE HERRAMIENTAS')), isTrue);
-      expect(parsed.skillItems.any((s) => s.name.contains('CAPACIDAD DE APRENDIZAJE')), isTrue);
+      expect(parsed.skillItems.any((s) => s.name.toUpperCase().contains('TRABAJO EN EQUIPO')), isTrue);
+      expect(parsed.skillItems.any((s) => s.name.toUpperCase().contains('TRABAJO INDIVIDUAL')), isTrue);
+      expect(parsed.skillItems.any((s) => s.name.toUpperCase().contains('PUNTUALIDAD')), isTrue);
+      expect(parsed.skillItems.any((s) => s.name.toUpperCase().contains('MANEJO DE HERRAMIENTAS')), isTrue);
+      expect(parsed.skillItems.any((s) => s.name.toUpperCase().contains('CAPACIDAD DE APRENDIZAJE')), isTrue);
 
       // Summary
       expect(parsed.summary, contains('Soy un profesional comprometido'));

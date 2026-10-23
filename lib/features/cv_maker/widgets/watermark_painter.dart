@@ -362,6 +362,61 @@ class WatermarkPainter extends CustomPainter {
   }
 
   void _drawCircuits(Canvas canvas, Size size, Paint stroke, Paint fill) {
+    if (size.height <= 30) {
+      // Specialized horizontal circuit design for section title pills (height ~22pt)
+      final cy = size.height / 2;
+      final strokeW = (stroke.strokeWidth * 0.9).clamp(0.8, 1.4);
+
+      // Left flank circuit traces
+      final pLeft1 = Path()
+        ..moveTo(-5, cy - 4)
+        ..lineTo(size.width * 0.14, cy - 4)
+        ..lineTo(size.width * 0.18, cy + 2)
+        ..lineTo(size.width * 0.28, cy + 2);
+      canvas.drawPath(pLeft1, stroke..strokeWidth = strokeW);
+      canvas.drawCircle(Offset(size.width * 0.14, cy - 4), 2.2, fill);
+      canvas.drawCircle(Offset(size.width * 0.28, cy + 2), 2.2, fill);
+
+      final pLeft2 = Path()
+        ..moveTo(-5, cy + 5)
+        ..lineTo(size.width * 0.10, cy + 5)
+        ..lineTo(size.width * 0.15, cy)
+        ..lineTo(size.width * 0.22, cy);
+      canvas.drawPath(pLeft2, stroke..strokeWidth = strokeW * 0.85);
+      canvas.drawCircle(Offset(size.width * 0.10, cy + 5), 1.8, fill);
+      canvas.drawCircle(Offset(size.width * 0.22, cy), 1.8, fill);
+
+      // Left chip pins at top edge
+      for (double px = 18; px <= 36; px += 6) {
+        canvas.drawLine(Offset(px, 0), Offset(px, 3.5), stroke..strokeWidth = 0.8);
+      }
+
+      // Right flank circuit traces
+      final pRight1 = Path()
+        ..moveTo(size.width + 5, cy - 4)
+        ..lineTo(size.width * 0.86, cy - 4)
+        ..lineTo(size.width * 0.82, cy + 2)
+        ..lineTo(size.width * 0.72, cy + 2);
+      canvas.drawPath(pRight1, stroke..strokeWidth = strokeW);
+      canvas.drawCircle(Offset(size.width * 0.86, cy - 4), 2.2, fill);
+      canvas.drawCircle(Offset(size.width * 0.72, cy + 2), 2.2, fill);
+
+      final pRight2 = Path()
+        ..moveTo(size.width + 5, cy + 5)
+        ..lineTo(size.width * 0.90, cy + 5)
+        ..lineTo(size.width * 0.85, cy)
+        ..lineTo(size.width * 0.78, cy);
+      canvas.drawPath(pRight2, stroke..strokeWidth = strokeW * 0.85);
+      canvas.drawCircle(Offset(size.width * 0.90, cy + 5), 1.8, fill);
+      canvas.drawCircle(Offset(size.width * 0.78, cy), 1.8, fill);
+
+      // Right chip pins at bottom edge
+      for (double px = size.width - 36; px <= size.width - 18; px += 6) {
+        canvas.drawLine(Offset(px, size.height), Offset(px, size.height - 3.5), stroke..strokeWidth = 0.8);
+      }
+      return;
+    }
+
     final step = 42.0 / math.sqrt(density.clamp(0.4, 2.5));
     for (double y = 10; y < size.height + 20; y += step) {
       final p = Path()
@@ -377,9 +432,10 @@ class WatermarkPainter extends CustomPainter {
       canvas.drawCircle(Offset(size.width * 0.82, y + 10), 2.2, fill);
     }
 
+    // IC Chips
+    final icW = 26.0;
+    final icH = 15.0;
     if (size.height > 60) {
-      final icW = 26.0;
-      final icH = 15.0;
       final icStep = 110.0 / math.sqrt(density.clamp(0.4, 2.5));
       for (double y = 25; y < size.height + 10; y += icStep) {
         final r = Rect.fromLTWH(size.width * 0.4 - icW / 2, y, icW, icH);
@@ -388,6 +444,14 @@ class WatermarkPainter extends CustomPainter {
           canvas.drawLine(Offset(px, r.top), Offset(px, r.top - 3), stroke..strokeWidth = 0.7);
           canvas.drawLine(Offset(px, r.bottom), Offset(px, r.bottom + 3), stroke..strokeWidth = 0.7);
         }
+      }
+    } else if (size.height >= 40) {
+      // Banner IC chip in corner
+      final r = Rect.fromLTWH(size.width * 0.82, (size.height - icH) / 2, icW, icH);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(2)), stroke..strokeWidth = 1.0);
+      for (double px = r.left + 3; px < r.right - 2; px += 5) {
+        canvas.drawLine(Offset(px, r.top), Offset(px, r.top - 3), stroke..strokeWidth = 0.7);
+        canvas.drawLine(Offset(px, r.bottom), Offset(px, r.bottom + 3), stroke..strokeWidth = 0.7);
       }
     }
   }

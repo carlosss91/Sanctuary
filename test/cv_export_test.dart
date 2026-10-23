@@ -114,11 +114,8 @@ void main() {
       expect(docXml, contains('✉'));
       expect(docXml, contains('📍'));
 
-      // 5. Watermark drawings embedded (sidebar background in header1.xml for full-height coverage)
-      final headerFile = archive.findFile('word/header1.xml');
-      expect(headerFile, isNotNull);
-      final headerXml = utf8.decode(headerFile!.content as List<int>);
-      expect(headerXml, contains('rIdSidebarBg'));
+      // 5. Watermark drawings embedded in document body (100% vibrant, aligned to margins)
+      expect(docXml, contains('rIdSidebarBg'));
       expect(docXml, contains('rIdBannerBg'));
 
       // 6. Relationships contains media references
