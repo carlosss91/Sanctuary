@@ -479,6 +479,7 @@ class DocxExportService {
   <Default Extension="jpeg" ContentType="image/jpeg"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>
 </Types>''';
     addXml('[Content_Types].xml', contentTypesXml);
 
@@ -493,7 +494,8 @@ class DocxExportService {
     final docRelsXml = StringBuffer();
     docRelsXml.write('''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>''');
+  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rIdFontTable" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>''');
     if (sidebarBg != null && sidebarBg.isNotEmpty) {
       docRelsXml.write('\n  <Relationship Id="rIdSidebarBg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sidebar_bg.png"/>');
     }
@@ -520,10 +522,112 @@ class DocxExportService {
     docRelsXml.write('\n</Relationships>');
     addXml('word/_rels/document.xml.rels', docRelsXml.toString());
 
-    // 5. word/styles.xml (Segoe UI / Aptos modern sans-serif defaults to avoid Times New Roman fallback)
-    final docFontFamily = profile.fontFamily.trim().isNotEmpty && profile.fontFamily != 'Calibri'
-        ? profile.fontFamily.trim()
-        : 'Segoe UI';
+    // 4. word/fontTable.xml (Define selected font family + clean sans-serif/serif fallbacks)
+    final rawFamily = profile.fontFamily.trim();
+    final docFontFamily = rawFamily.isNotEmpty ? rawFamily : 'Inter';
+
+    String altFontName = 'Segoe UI';
+    String fontFamilyType = 'swiss';
+    if (docFontFamily == 'Merriweather' || docFontFamily == 'Lora') {
+      altFontName = 'Georgia';
+      fontFamilyType = 'roman';
+    } else if (docFontFamily == 'Fira Code' || docFontFamily.toLowerCase().contains('mono')) {
+      altFontName = 'Consolas';
+      fontFamilyType = 'modern';
+    } else if (docFontFamily == 'Roboto') {
+      altFontName = 'Arial';
+      fontFamilyType = 'swiss';
+    } else if (docFontFamily == 'Outfit' || docFontFamily == 'Montserrat') {
+      altFontName = 'Century Gothic';
+      fontFamilyType = 'swiss';
+    }
+
+    final fontTag = '<w:rFonts w:ascii="$docFontFamily" w:hAnsi="$docFontFamily" w:cs="$docFontFamily"/>';
+
+    final fontTableXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:fonts xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:font w:name="$docFontFamily">
+    <w:altName w:val="$altFontName"/>
+    <w:family w:val="$fontFamilyType"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Inter">
+    <w:altName w:val="Segoe UI"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Outfit">
+    <w:altName w:val="Century Gothic"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Roboto">
+    <w:altName w:val="Arial"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Montserrat">
+    <w:altName w:val="Century Gothic"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Poppins">
+    <w:altName w:val="Segoe UI"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Raleway">
+    <w:altName w:val="Segoe UI"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Merriweather">
+    <w:altName w:val="Georgia"/>
+    <w:family w:val="roman"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Lora">
+    <w:altName w:val="Georgia"/>
+    <w:family w:val="roman"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Fira Code">
+    <w:altName w:val="Consolas"/>
+    <w:family w:val="modern"/>
+    <w:pitch w:val="fixed"/>
+  </w:font>
+  <w:font w:name="Segoe UI">
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Arial">
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Century Gothic">
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Calibri">
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Georgia">
+    <w:family w:val="roman"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="Consolas">
+    <w:family w:val="modern"/>
+    <w:pitch w:val="fixed"/>
+  </w:font>
+  <w:font w:name="Segoe UI Symbol">
+    <w:family w:val="auto"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+</w:fonts>''';
+    addXml('word/fontTable.xml', fontTableXml);
+
+    // 5. word/styles.xml (Explicit font inheritance across body & tables to eliminate Times New Roman)
     final baseSz = _scaleSz(17, profile.fontSizeScale);
     final trackingTwips = (profile.fontSpacing * 20).round();
     final lineSpacingDxa = (220 * profile.lineSpacing).round();
@@ -532,7 +636,7 @@ class DocxExportService {
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:docDefaults>
     <w:rPrDefault>
-      <w:rFonts w:ascii="$docFontFamily" w:hAnsi="$docFontFamily" w:cs="$docFontFamily"/>
+      <w:rFonts w:ascii="$docFontFamily" w:hAnsi="$docFontFamily" w:eastAsia="$docFontFamily" w:cs="$docFontFamily"/>
       <w:sz w:val="$baseSz"/>
       <w:spacing w:val="$trackingTwips"/>
       <w:color w:val="1E293B"/>
@@ -541,6 +645,26 @@ class DocxExportService {
       <w:spacing w:line="$lineSpacingDxa" w:lineRule="auto"/>
     </w:pPrDefault>
   </w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:qFormat/>
+    <w:rPr>
+      <w:rFonts w:ascii="$docFontFamily" w:hAnsi="$docFontFamily" w:eastAsia="$docFontFamily" w:cs="$docFontFamily"/>
+      <w:sz w:val="$baseSz"/>
+      <w:color w:val="1E293B"/>
+    </w:rPr>
+  </w:style>
+  <w:style w:type="table" w:default="1" w:styleId="TableNormal">
+    <w:name w:val="Normal Table"/>
+    <w:uiPriority w:val="99"/>
+    <w:semiHidden/>
+    <w:unhideWhenUsed/>
+    <w:rPr>
+      <w:rFonts w:ascii="$docFontFamily" w:hAnsi="$docFontFamily" w:eastAsia="$docFontFamily" w:cs="$docFontFamily"/>
+      <w:sz w:val="$baseSz"/>
+      <w:color w:val="1E293B"/>
+    </w:rPr>
+  </w:style>
 </w:styles>''';
     addXml('word/styles.xml', stylesXml);
 
@@ -558,13 +682,13 @@ class DocxExportService {
     // Build layout based on active template
     switch (profile.template) {
       case 'modern_header':
-        _buildModernHeaderDocx(docXml, profile, accentHex, isEn, initials, photoBytes != null, bannerBg != null);
+        _buildModernHeaderDocx(docXml, profile, accentHex, isEn, initials, photoBytes != null, bannerBg != null, fontTag: fontTag);
         break;
       case 'minimalist':
-        _buildMinimalistDocx(docXml, profile, accentHex, isEn, initials, photoBytes != null);
+        _buildMinimalistDocx(docXml, profile, accentHex, isEn, initials, photoBytes != null, fontTag: fontTag);
         break;
       case 'tech_cards':
-        _buildTechCardsDocx(docXml, profile, accentHex, isEn, initials, photoBytes != null, bannerBg != null);
+        _buildTechCardsDocx(docXml, profile, accentHex, isEn, initials, photoBytes != null, bannerBg != null, fontTag: fontTag);
         break;
       case 'sidebar_dark':
       default:
@@ -580,6 +704,7 @@ class DocxExportService {
           hasBannerBg: bannerBg != null,
           hasWhitePill: whitePill != null,
           hasSidebarBg: sidebarBg != null && sidebarBg.isNotEmpty,
+          fontTag: fontTag,
         );
         break;
     }
@@ -615,6 +740,7 @@ class DocxExportService {
     required bool hasBannerBg,
     required bool hasWhitePill,
     required bool hasSidebarBg,
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final col1W = hasAssets ? 3700 : 3300;
     final col2W = hasAssets ? 7486 : 7166;
@@ -705,29 +831,29 @@ class DocxExportService {
             </w:r>
           </w:p>''');
     } else {
-      _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: true, profile: profile, sizeDxa: 1016000, jc: 'center');
+      _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: true, profile: profile, sizeDxa: 1016000, jc: 'center', fontTag: fontTag);
     }
 
     // Datos de Contacto
-    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', accentHex, profile: profile, hasWhitePill: hasWhitePill);
+    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
     if (hasAssets) {
-      if (profile.phone.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconPhone', profile.phone);
-      if (profile.email.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconEmail', profile.email);
-      if (profile.location.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconLocation', profile.location);
-      if (profile.availability.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconClock', profile.availability);
-      if (profile.drivingLicense.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconCar', profile.drivingLicense);
+      if (profile.phone.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconPhone', profile.phone, fontTag);
+      if (profile.email.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconEmail', profile.email, fontTag);
+      if (profile.location.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconLocation', profile.location, fontTag);
+      if (profile.availability.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconClock', profile.availability, fontTag);
+      if (profile.drivingLicense.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconCar', profile.drivingLicense, fontTag);
     } else {
-      if (profile.phone.isNotEmpty) _addWhiteSidebarContactRow(docXml, '📞', profile.phone);
-      if (profile.email.isNotEmpty) _addWhiteSidebarContactRow(docXml, '✉', profile.email);
-      if (profile.location.isNotEmpty) _addWhiteSidebarContactRow(docXml, '📍', profile.location);
-      if (profile.availability.isNotEmpty) _addWhiteSidebarContactRow(docXml, '⏱', profile.availability);
-      if (profile.drivingLicense.isNotEmpty) _addWhiteSidebarContactRow(docXml, '🚗', profile.drivingLicense);
+      if (profile.phone.isNotEmpty) _addWhiteSidebarContactRow(docXml, '📞', profile.phone, fontTag);
+      if (profile.email.isNotEmpty) _addWhiteSidebarContactRow(docXml, '✉', profile.email, fontTag);
+      if (profile.location.isNotEmpty) _addWhiteSidebarContactRow(docXml, '📍', profile.location, fontTag);
+      if (profile.availability.isNotEmpty) _addWhiteSidebarContactRow(docXml, '⏱', profile.availability, fontTag);
+      if (profile.drivingLicense.isNotEmpty) _addWhiteSidebarContactRow(docXml, '🚗', profile.drivingLicense, fontTag);
     }
 
     // Sobre Mí
     if (profile.summary.trim().isNotEmpty) {
       docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="200"/></w:pPr></w:p>');
-      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile: profile, hasWhitePill: hasWhitePill);
+      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
       final summarySz = _scaleSz(14, profile.fontSizeScale);
       docXml.write('''
           <w:p>
@@ -736,7 +862,7 @@ class DocxExportService {
               <w:jc w:val="both"/>
               <w:ind w:left="30" w:right="30"/>
             </w:pPr>
-            <w:r><w:rPr><w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
+            <w:r><w:rPr>$fontTag<w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.summary)}</w:t>
             </w:r>
           </w:p>''');
@@ -746,7 +872,7 @@ class DocxExportService {
     final skillsList = _getSkillsList(profile);
     if (skillsList.isNotEmpty) {
       docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="200"/></w:pPr></w:p>');
-      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentHex, profile: profile, hasWhitePill: hasWhitePill);
+      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
       for (final item in skillsList) {
         final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
         final skillSz = _scaleSz(13, profile.fontSizeScale);
@@ -759,7 +885,7 @@ class DocxExportService {
               <w:ind w:left="30"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(item.name.toUpperCase())}</w:t>
             </w:r>
             <w:r><w:tab/></w:r>
@@ -776,7 +902,7 @@ class DocxExportService {
               <w:spacing w:before="0" w:after="40" w:line="200" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:sz w:val="$descSz"/><w:color w:val="E2E8F0"/></w:rPr>
+              <w:rPr>$fontTag<w:sz w:val="$descSz"/><w:color w:val="E2E8F0"/></w:rPr>
               <w:t>${_escapeXml(item.description)}</w:t>
             </w:r>
           </w:p>''');
@@ -856,7 +982,7 @@ class DocxExportService {
                     </w:drawing>
                   </w:r>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/><w:spacing w:val="20"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/><w:spacing w:val="20"/></w:rPr>
                     <w:t>${_escapeXml(profile.fullName.isNotEmpty ? profile.fullName.toUpperCase() : 'NOMBRE Y APELLIDOS')}</w:t>
                   </w:r>
                 </w:p>''');
@@ -865,7 +991,7 @@ class DocxExportService {
                 <w:p>
                   <w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="0" w:line="240" w:lineRule="exact"/></w:pPr>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/><w:spacing w:val="16"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/><w:spacing w:val="16"/></w:rPr>
                     <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
                   </w:r>
                 </w:p>''');
@@ -876,24 +1002,24 @@ class DocxExportService {
           </w:tbl>
           <w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>''');
     } else {
-      _addBoxedHeaderBannerFallback(docXml, profile, accentHex, nameSz, jobSz);
+      _addBoxedHeaderBannerFallback(docXml, profile, accentHex, nameSz, jobSz, fontTag);
     }
 
     // Work Experience Section
-    _addSectionHeaderPill(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, hasPillBg: hasPillBg);
+    _addSectionHeaderPill(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, hasPillBg: hasPillBg, profile: profile, fontTag: fontTag);
     if (profile.experiences.isEmpty) {
       final msg = isEn ? 'No work experience records yet.' : 'Sin experiencia laboral registrada aún.';
       docXml.write('''
           <w:p>
             <w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr>
             <w:r>
-              <w:rPr><w:i/><w:sz w:val="16"/><w:color w:val="94A3B8"/></w:rPr>
+              <w:rPr>$fontTag<w:i/><w:sz w:val="16"/><w:color w:val="94A3B8"/></w:rPr>
               <w:t xml:space="preserve">$msg</w:t>
             </w:r>
           </w:p>''');
     } else {
       for (final exp in profile.experiences) {
-        _addDocxExperience(docXml, exp, accentHex);
+        _addDocxExperience(docXml, exp, accentHex, fontTag);
       }
     }
 
@@ -901,20 +1027,20 @@ class DocxExportService {
     docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="260"/></w:pPr></w:p>');
 
     // Education Section
-    _addSectionHeaderPill(docXml, isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES', accentHex, hasPillBg: hasPillBg);
+    _addSectionHeaderPill(docXml, isEn ? 'EDUCATION & CERTIFICATIONS' : 'FORMACIÓN Y CERTIFICACIONES', accentHex, hasPillBg: hasPillBg, profile: profile, fontTag: fontTag);
     if (profile.educations.isEmpty) {
       final msg = isEn ? 'No education records yet.' : 'Sin formación registrada aún.';
       docXml.write('''
           <w:p>
             <w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr>
             <w:r>
-              <w:rPr><w:i/><w:sz w:val="16"/><w:color w:val="94A3B8"/></w:rPr>
+              <w:rPr>$fontTag<w:i/><w:sz w:val="16"/><w:color w:val="94A3B8"/></w:rPr>
               <w:t xml:space="preserve">$msg</w:t>
             </w:r>
           </w:p>''');
     } else {
       for (final edu in profile.educations) {
-        _addDocxEducation(docXml, edu, accentHex);
+        _addDocxEducation(docXml, edu, accentHex, fontTag);
       }
     }
 
@@ -934,8 +1060,9 @@ class DocxExportService {
     bool isEn,
     String initials,
     bool hasPhoto,
-    bool hasBannerWatermark,
-  ) {
+    bool hasBannerWatermark, {
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  }) {
     docXml.write('''
     <w:tbl>
       <w:tblPr>
@@ -957,7 +1084,7 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: true, profile: profile, sizeDxa: 960000, jc: 'center');
+    _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: true, profile: profile, sizeDxa: 960000, jc: 'center', fontTag: fontTag);
 
     docXml.write('''
         </w:tc>
@@ -970,18 +1097,18 @@ class DocxExportService {
           </w:tcPr>
           <w:p>
             <w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="42"/><w:color w:val="FFFFFF"/></w:rPr>
+            <w:r><w:rPr>$fontTag<w:b/><w:sz w:val="42"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.fullName)}</w:t>
             </w:r>
           </w:p>
           <w:p>
             <w:pPr><w:spacing w:after="80"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="F1F5F9"/></w:rPr>
+            <w:r><w:rPr>$fontTag<w:b/><w:sz w:val="22"/><w:color w:val="F1F5F9"/></w:rPr>
               <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
             </w:r>
           </w:p>
           <w:p>
-            <w:r><w:rPr><w:sz w:val="17"/><w:color w:val="FFFFFF"/></w:rPr>
+            <w:r><w:rPr>$fontTag<w:sz w:val="17"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml([profile.phone, profile.email, profile.location, profile.availability].where((s) => s.isNotEmpty).join('   |   '))}</w:t>
             </w:r>
           </w:p>
@@ -1009,13 +1136,13 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    _addSectionHeader(docXml, isEn ? 'PROFESSIONAL PROFILE' : 'PERFIL PROFESIONAL', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'PROFESSIONAL PROFILE' : 'PERFIL PROFESIONAL', accentHex, profile, fontTag);
     docXml.write('''
-          <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
+          <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr>$fontTag<w:sz w:val="17"/><w:color w:val="1E293B"/></w:rPr><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
-    _addSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'WORK EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile, fontTag);
     for (final exp in profile.experiences) {
-      _addDocxExperience(docXml, exp, accentHex);
+      _addDocxExperience(docXml, exp, accentHex, fontTag);
     }
 
     docXml.write('''
@@ -1028,19 +1155,19 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    _addSectionHeader(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS CLAVE', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS CLAVE', accentHex, profile, fontTag);
     for (final item in _getSkillsList(profile)) {
       final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
       docXml.write('''
           <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/></w:rPr><w:t>✔ ${_escapeXml(item.name)}  </w:t></w:r>
+            <w:r><w:rPr>$fontTag<w:b/><w:sz w:val="16"/><w:color w:val="$accentHex"/></w:rPr><w:t>✔ ${_escapeXml(item.name)}  </w:t></w:r>
             <w:r><w:rPr><w:sz w:val="14"/><w:color w:val="F59E0B"/><w:rFonts w:ascii="Segoe UI Symbol" w:hAnsi="Segoe UI Symbol"/></w:rPr><w:t>$dots</w:t></w:r>
           </w:p>''');
     }
 
-    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex, profile, fontTag);
     for (final edu in profile.educations) {
-      _addDocxEducation(docXml, edu, accentHex);
+      _addDocxEducation(docXml, edu, accentHex, fontTag);
     }
 
     docXml.write('''
@@ -1058,52 +1185,53 @@ class DocxExportService {
     String accentHex,
     bool isEn,
     String initials,
-    bool hasPhoto,
-  ) {
-    _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: false, profile: profile, sizeDxa: 1150000, jc: 'center');
+    bool hasPhoto, {
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  }) {
+    _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: false, profile: profile, sizeDxa: 1150000, jc: 'center', fontTag: fontTag);
 
     docXml.write('''
     <w:p>
       <w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="40"/></w:pPr>
-      <w:r><w:rPr><w:b/><w:sz w:val="46"/><w:color w:val="0F172A"/></w:rPr>
+      <w:r><w:rPr>$fontTag<w:b/><w:sz w:val="46"/><w:color w:val="0F172A"/></w:rPr>
         <w:t>${_escapeXml(profile.fullName)}</w:t>
       </w:r>
     </w:p>
     <w:p>
       <w:pPr><w:jc w:val="center"/><w:spacing w:after="60"/></w:pPr>
-      <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="$accentHex"/></w:rPr>
+      <w:r><w:rPr>$fontTag<w:b/><w:sz w:val="22"/><w:color w:val="$accentHex"/></w:rPr>
         <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
       </w:r>
     </w:p>
     <w:p>
       <w:pPr><w:jc w:val="center"/><w:spacing w:after="140"/></w:pPr>
-      <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr>
+      <w:r><w:rPr>$fontTag<w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr>
         <w:t>${_escapeXml([profile.phone, profile.email, profile.location, profile.drivingLicense].where((s) => s.isNotEmpty).join('   •   '))}</w:t>
       </w:r>
     </w:p>''');
 
     _addHorizontalRule(docXml, accentHex);
 
-    _addSectionHeader(docXml, isEn ? 'PROFILE' : 'PERFIL PROFESIONAL', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'PROFILE' : 'PERFIL PROFESIONAL', accentHex, profile, fontTag);
     docXml.write('''
-    <w:p><w:pPr><w:spacing w:after="140"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
+    <w:p><w:pPr><w:spacing w:after="140"/></w:pPr><w:r><w:rPr>$fontTag<w:sz w:val="17"/><w:color w:val="1E293B"/></w:rPr><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
-    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA LABORAL', accentHex, profile, fontTag);
     for (final exp in profile.experiences) {
-      _addDocxExperience(docXml, exp, accentHex);
+      _addDocxExperience(docXml, exp, accentHex, fontTag);
     }
 
-    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN ACADÉMICA', accentHex, profile, fontTag);
     for (final edu in profile.educations) {
-      _addDocxEducation(docXml, edu, accentHex);
+      _addDocxEducation(docXml, edu, accentHex, fontTag);
     }
 
-    _addSectionHeader(docXml, isEn ? 'SKILLS & COMPETENCIES' : 'HABILIDADES Y COMPETENCIAS', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'SKILLS & COMPETENCIES' : 'HABILIDADES Y COMPETENCIAS', accentHex, profile, fontTag);
     for (final s in _getSkillsList(profile)) {
       final dots = _formatRatingDots(s.level, profile.skillRatingStyle);
       docXml.write('''
     <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
-      <w:r><w:t>• ${_escapeXml(s.name)}  </w:t></w:r>
+      <w:r><w:rPr>$fontTag<w:sz w:val="16"/><w:color w:val="0F172A"/></w:rPr><w:t>• ${_escapeXml(s.name)}  </w:t></w:r>
       <w:r><w:rPr><w:sz w:val="14"/><w:color w:val="F59E0B"/><w:rFonts w:ascii="Segoe UI Symbol" w:hAnsi="Segoe UI Symbol"/></w:rPr><w:t>$dots</w:t></w:r>
     </w:p>''');
     }
@@ -1119,8 +1247,9 @@ class DocxExportService {
     bool isEn,
     String initials,
     bool hasPhoto,
-    bool hasBannerWatermark,
-  ) {
+    bool hasBannerWatermark, {
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  }) {
     docXml.write('''
     <w:tbl>
       <w:tblPr>
@@ -1142,7 +1271,7 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: false, profile: profile, sizeDxa: 920000, jc: 'center');
+    _addDocxPhotoOrInitials(docXml, hasPhoto, initials, isWhite: false, profile: profile, sizeDxa: 920000, jc: 'center', fontTag: fontTag);
 
     docXml.write('''
         </w:tc>
@@ -1153,37 +1282,37 @@ class DocxExportService {
             <w:shd w:fill="F8FAFC"/>
             <w:tcMar><w:top w:w="160" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:left w:w="140" w:type="dxa"/><w:right w:w="180" w:type="dxa"/></w:tcMar>
           </w:tcPr>
-          <w:p><w:r><w:rPr><w:b/><w:sz w:val="38"/><w:color w:val="0F172A"/></w:rPr><w:t>${_escapeXml(profile.fullName)}</w:t></w:r></w:p>
-          <w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="$accentHex"/></w:rPr><w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t></w:r></w:p>
-          <w:p><w:r><w:rPr><w:sz w:val="17"/><w:color w:val="64748B"/></w:rPr><w:t>${_escapeXml('${profile.phone}  |  ${profile.email}  |  ${profile.location}')}</w:t></w:r></w:p>
+          <w:p><w:r><w:rPr>$fontTag<w:b/><w:sz w:val="38"/><w:color w:val="0F172A"/></w:rPr><w:t>${_escapeXml(profile.fullName)}</w:t></w:r></w:p>
+          <w:p><w:r><w:rPr>$fontTag<w:b/><w:sz w:val="20"/><w:color w:val="$accentHex"/></w:rPr><w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t></w:r></w:p>
+          <w:p><w:r><w:rPr>$fontTag<w:sz w:val="17"/><w:color w:val="64748B"/></w:rPr><w:t>${_escapeXml('${profile.phone}  |  ${profile.email}  |  ${profile.location}')}</w:t></w:r></w:p>
         </w:tc>
       </w:tr>
     </w:tbl>
     <w:p><w:pPr><w:spacing w:after="100"/></w:pPr></w:p>
 ''');
 
-    _addSectionHeader(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile, fontTag);
     docXml.write('''
-    <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
+    <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr>$fontTag<w:sz w:val="17"/><w:color w:val="1E293B"/></w:rPr><w:t>${_escapeXml(profile.summary)}</w:t></w:r></w:p>''');
 
-    _addSectionHeader(docXml, isEn ? 'COMPETENCIES' : 'COMPETENCIAS', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'COMPETENCIES' : 'COMPETENCIAS', accentHex, profile, fontTag);
     for (final s in _getSkillsList(profile)) {
       final dots = _formatRatingDots(s.level, profile.skillRatingStyle);
       docXml.write('''
     <w:p><w:pPr><w:spacing w:after="30"/></w:pPr>
-      <w:r><w:rPr><w:b/><w:color w:val="$accentHex"/></w:rPr><w:t>◆ ${_escapeXml(s.name)}  </w:t></w:r>
+      <w:r><w:rPr>$fontTag<w:b/><w:color w:val="$accentHex"/></w:rPr><w:t>◆ ${_escapeXml(s.name)}  </w:t></w:r>
       <w:r><w:rPr><w:sz w:val="14"/><w:color w:val="F59E0B"/><w:rFonts w:ascii="Segoe UI Symbol" w:hAnsi="Segoe UI Symbol"/></w:rPr><w:t>$dots</w:t></w:r>
     </w:p>''');
     }
 
-    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'EXPERIENCE' : 'EXPERIENCIA', accentHex, profile, fontTag);
     for (final e in profile.experiences) {
-      _addDocxExperience(docXml, e, accentHex);
+      _addDocxExperience(docXml, e, accentHex, fontTag);
     }
 
-    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN', accentHex, profile);
+    _addSectionHeader(docXml, isEn ? 'EDUCATION' : 'FORMACIÓN', accentHex, profile, fontTag);
     for (final ed in profile.educations) {
-      _addDocxEducation(docXml, ed, accentHex);
+      _addDocxEducation(docXml, ed, accentHex, fontTag);
     }
   }
 
@@ -1199,6 +1328,7 @@ class DocxExportService {
     required CvProfileModel profile,
     int sizeDxa = 1016000,
     String jc = 'center',
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final isSquare = profile.photoShape == 'square';
     final geom = isSquare ? 'roundRect' : 'ellipse';
@@ -1237,6 +1367,7 @@ class DocxExportService {
             <w:pPr><w:jc w:val="$jc"/><w:spacing w:before="40" w:after="80"/></w:pPr>
             <w:r>
               <w:rPr>
+                $fontTag
                 <w:b/><w:sz w:val="38"/>
                 <w:color w:val="${isWhite ? accentHex : 'FFFFFF'}"/>
                 <w:shd w:val="clear" w:color="auto" w:fill="${isWhite ? 'FFFFFF' : accentHex}"/>
@@ -1253,6 +1384,7 @@ class DocxExportService {
     String accentHex, {
     CvProfileModel? profile,
     bool hasWhitePill = false,
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final sz = profile != null ? _scaleSz(15, profile.fontSizeScale) : 15;
 
@@ -1307,7 +1439,7 @@ class DocxExportService {
                     </w:drawing>
                   </w:r>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/><w:spacing w:val="10"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/><w:spacing w:val="10"/></w:rPr>
                     <w:t>${_escapeXml(label)}</w:t>
                   </w:r>
                 </w:p>
@@ -1321,6 +1453,7 @@ class DocxExportService {
             <w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="80"/></w:pPr>
             <w:r>
               <w:rPr>
+                $fontTag
                 <w:b/>
                 <w:sz w:val="$sz"/>
                 <w:color w:val="$accentHex"/>
@@ -1332,7 +1465,12 @@ class DocxExportService {
     }
   }
 
-  static void _addSidebarContactItem(StringBuffer docXml, String relId, String value) {
+  static void _addSidebarContactItem(
+    StringBuffer docXml,
+    String relId,
+    String value, [
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     if (value.trim().isEmpty) return;
     docXml.write('''
           <w:p>
@@ -1358,13 +1496,18 @@ class DocxExportService {
               </w:drawing>
             </w:r>
             <w:r>
-              <w:rPr><w:sz w:val="14.5"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:rPr>$fontTag<w:sz w:val="15"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t xml:space="preserve">  ${_escapeXml(value)}</w:t>
             </w:r>
           </w:p>''');
   }
 
-  static void _addWhiteSidebarContactRow(StringBuffer docXml, String iconSymbol, String value) {
+  static void _addWhiteSidebarContactRow(
+    StringBuffer docXml,
+    String iconSymbol,
+    String value, [
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     if (value.trim().isEmpty) return;
     docXml.write('''
           <w:p>
@@ -1373,11 +1516,11 @@ class DocxExportService {
               <w:spacing w:before="20" w:after="40"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:sz w:val="18"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:rPr><w:sz w:val="18"/><w:color w:val="FFFFFF"/><w:rFonts w:ascii="Segoe UI Symbol" w:hAnsi="Segoe UI Symbol"/></w:rPr>
               <w:t xml:space="preserve">$iconSymbol  </w:t>
             </w:r>
             <w:r>
-              <w:rPr><w:sz w:val="15"/><w:color w:val="FFFFFF"/></w:rPr>
+              <w:rPr>$fontTag<w:sz w:val="15"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(value)}</w:t>
             </w:r>
           </w:p>''');
@@ -1389,6 +1532,7 @@ class DocxExportService {
     String accentHex, {
     required bool hasPillBg,
     CvProfileModel? profile,
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final sz = profile != null ? _scaleSz(16, profile.fontSizeScale) : 16;
 
@@ -1442,7 +1586,7 @@ class DocxExportService {
                     </w:drawing>
                   </w:r>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/><w:spacing w:val="14"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/><w:spacing w:val="14"/></w:rPr>
                     <w:t>${_escapeXml(title.toUpperCase())}</w:t>
                   </w:r>
                 </w:p>
@@ -1451,7 +1595,7 @@ class DocxExportService {
           </w:tbl>
           <w:p><w:pPr><w:spacing w:before="0" w:after="90"/></w:pPr></w:p>''');
     } else {
-      _addBoxedSectionHeader(docXml, title, accentHex, profile);
+      _addBoxedSectionHeader(docXml, title, accentHex, profile, fontTag);
     }
   }
 
@@ -1460,8 +1604,9 @@ class DocxExportService {
     CvProfileModel profile,
     String accentHex,
     int nameSz,
-    int jobSz,
-  ) {
+    int jobSz, [
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     docXml.write('''
           <w:tbl>
             <w:tblPr>
@@ -1483,7 +1628,7 @@ class DocxExportService {
                 <w:p>
                   <w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="20"/></w:pPr>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$nameSz"/><w:color w:val="FFFFFF"/></w:rPr>
                     <w:t>${_escapeXml(profile.fullName.isNotEmpty ? profile.fullName.toUpperCase() : 'NOMBRE Y APELLIDOS')}</w:t>
                   </w:r>
                 </w:p>''');
@@ -1493,7 +1638,7 @@ class DocxExportService {
                 <w:p>
                   <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="40"/></w:pPr>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/></w:rPr>
                     <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
                   </w:r>
                 </w:p>''');
@@ -1506,7 +1651,13 @@ class DocxExportService {
           <w:p><w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr></w:p>''');
   }
 
-  static void _addBoxedSectionHeader(StringBuffer docXml, String title, String accentHex, [CvProfileModel? profile]) {
+  static void _addBoxedSectionHeader(
+    StringBuffer docXml,
+    String title,
+    String accentHex, [
+    CvProfileModel? profile,
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     final sz = profile != null ? _scaleSz(17, profile.fontSizeScale) : 17;
 
     docXml.write('''
@@ -1530,7 +1681,7 @@ class DocxExportService {
                 <w:p>
                   <w:pPr><w:jc w:val="center"/><w:spacing w:before="20" w:after="20"/></w:pPr>
                   <w:r>
-                    <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="FFFFFF"/></w:rPr>
                     <w:t>${_escapeXml(title.toUpperCase())}</w:t>
                   </w:r>
                 </w:p>
@@ -1540,7 +1691,13 @@ class DocxExportService {
           <w:p><w:pPr><w:spacing w:before="0" w:after="80"/></w:pPr></w:p>''');
   }
 
-  static void _addSectionHeader(StringBuffer docXml, String title, String accentHex, [CvProfileModel? profile]) {
+  static void _addSectionHeader(
+    StringBuffer docXml,
+    String title,
+    String accentHex, [
+    CvProfileModel? profile,
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     final sz = profile != null ? _scaleSz(21, profile.fontSizeScale) : 21;
 
     docXml.write('''
@@ -1550,7 +1707,7 @@ class DocxExportService {
               <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="4" w:color="$accentHex"/></w:pBdr>
             </w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/></w:rPr>
               <w:t>${_escapeXml(title.toUpperCase())}</w:t>
             </w:r>
           </w:p>''');
@@ -1566,13 +1723,18 @@ class DocxExportService {
           </w:p>''');
   }
 
-  static void _addDocxExperience(StringBuffer docXml, CvExperience exp, String accentHex) {
+  static void _addDocxExperience(
+    StringBuffer docXml,
+    CvExperience exp,
+    String accentHex, [
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     final title = exp.jobTitle.isNotEmpty ? exp.jobTitle.toUpperCase() : 'PUESTO / OFICIO';
     docXml.write('''
           <w:p>
             <w:pPr><w:spacing w:before="80" w:after="15"/></w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="17"/><w:color w:val="0F172A"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="17"/><w:color w:val="0F172A"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(title)}</w:t>
             </w:r>
           </w:p>
@@ -1582,12 +1744,12 @@ class DocxExportService {
               <w:spacing w:before="0" w:after="25"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="15"/><w:color w:val="$accentHex"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="15"/><w:color w:val="$accentHex"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(exp.company)}</w:t>
             </w:r>
             <w:r><w:tab/></w:r>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="14"/><w:color w:val="64748B"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="14"/><w:color w:val="64748B"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(exp.period)}</w:t>
             </w:r>
           </w:p>''');
@@ -1605,7 +1767,7 @@ class DocxExportService {
               <w:spacing w:after="30" w:line="215" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:sz w:val="14"/><w:color w:val="475569"/></w:rPr>
+              <w:rPr>$fontTag<w:sz w:val="14"/><w:color w:val="475569"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(line)}</w:t>
             </w:r>
           </w:p>''');
@@ -1613,13 +1775,18 @@ class DocxExportService {
     }
   }
 
-  static void _addDocxEducation(StringBuffer docXml, CvEducation edu, String accentHex) {
+  static void _addDocxEducation(
+    StringBuffer docXml,
+    CvEducation edu,
+    String accentHex, [
+    String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
+  ]) {
     final title = edu.degree.isNotEmpty ? edu.degree.toUpperCase() : 'TITULACIÓN / CERTIFICADO';
     docXml.write('''
           <w:p>
             <w:pPr><w:spacing w:before="75" w:after="15"/></w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="17"/><w:color w:val="0F172A"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="17"/><w:color w:val="0F172A"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(title)}</w:t>
             </w:r>
           </w:p>
@@ -1629,12 +1796,12 @@ class DocxExportService {
               <w:spacing w:before="0" w:after="25"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="15"/><w:color w:val="$accentHex"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="15"/><w:color w:val="$accentHex"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(edu.institution)}</w:t>
             </w:r>
             <w:r><w:tab/></w:r>
             <w:r>
-              <w:rPr><w:b/><w:sz w:val="14"/><w:color w:val="64748B"/></w:rPr>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="14"/><w:color w:val="64748B"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(edu.period)}</w:t>
             </w:r>
           </w:p>''');
@@ -1652,7 +1819,7 @@ class DocxExportService {
               <w:spacing w:after="30" w:line="215" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
-              <w:rPr><w:sz w:val="14"/><w:color w:val="475569"/></w:rPr>
+              <w:rPr>$fontTag<w:sz w:val="14"/><w:color w:val="475569"/></w:rPr>
               <w:t xml:space="preserve">${_escapeXml(line)}</w:t>
             </w:r>
           </w:p>''');

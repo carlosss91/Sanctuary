@@ -40,11 +40,11 @@ class PdfExportService {
     final safeName = profile.fullName.trim().isEmpty ? 'Curriculum' : profile.fullName.trim();
     final jsonPayload = base64Encode(utf8.encode(jsonEncode(profile.toJson())));
 
-    // 2. Load Google Fonts if available for true Unicode rendering, fallback safely
+    // 2. Load selected Google Font for true Unicode rendering, fallback safely
     pw.ThemeData? docTheme;
     try {
-      final baseFont = await PdfGoogleFonts.interRegular().timeout(const Duration(milliseconds: 1500));
-      final boldFont = await PdfGoogleFonts.interBold().timeout(const Duration(milliseconds: 1500));
+      final baseFont = await _resolvePdfFont(profile.fontFamily, isBold: false).timeout(const Duration(milliseconds: 1500));
+      final boldFont = await _resolvePdfFont(profile.fontFamily, isBold: true).timeout(const Duration(milliseconds: 1500));
       docTheme = pw.ThemeData.withFont(
         base: baseFont,
         bold: boldFont,
@@ -238,6 +238,30 @@ class PdfExportService {
     return combined;
   }
 
+  static Future<pw.Font> _resolvePdfFont(String fontFamily, {required bool isBold}) async {
+    switch (fontFamily.toLowerCase().replaceAll(' ', '')) {
+      case 'outfit':
+        return isBold ? await PdfGoogleFonts.outfitBold() : await PdfGoogleFonts.outfitRegular();
+      case 'roboto':
+        return isBold ? await PdfGoogleFonts.robotoBold() : await PdfGoogleFonts.robotoRegular();
+      case 'montserrat':
+        return isBold ? await PdfGoogleFonts.montserratBold() : await PdfGoogleFonts.montserratRegular();
+      case 'poppins':
+        return isBold ? await PdfGoogleFonts.poppinsBold() : await PdfGoogleFonts.poppinsRegular();
+      case 'raleway':
+        return isBold ? await PdfGoogleFonts.ralewayBold() : await PdfGoogleFonts.ralewayRegular();
+      case 'merriweather':
+        return isBold ? await PdfGoogleFonts.merriweatherBold() : await PdfGoogleFonts.merriweatherRegular();
+      case 'lora':
+        return isBold ? await PdfGoogleFonts.loraBold() : await PdfGoogleFonts.loraRegular();
+      case 'firacode':
+        return isBold ? await PdfGoogleFonts.firaCodeBold() : await PdfGoogleFonts.firaCodeRegular();
+      case 'inter':
+      default:
+        return isBold ? await PdfGoogleFonts.interBold() : await PdfGoogleFonts.interRegular();
+    }
+  }
+
   // ==============================================================================
   // PHOTO FETCH & HELPER
   // ==============================================================================
@@ -360,12 +384,16 @@ class PdfExportService {
           child: pw.Stack(
             children: [
               if (sidebarWatermarkImg != null)
-                pw.Image(sidebarWatermarkImg, fit: pw.BoxFit.fill)
+                pw.Positioned.fill(
+                  child: pw.Image(sidebarWatermarkImg, fit: pw.BoxFit.fill),
+                )
               else
-                pw.Container(
-                  decoration: pw.BoxDecoration(
-                    color: accentColor,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                pw.Positioned.fill(
+                  child: pw.Container(
+                    decoration: pw.BoxDecoration(
+                      color: accentColor,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    ),
                   ),
                 ),
               pw.Padding(
@@ -422,55 +450,60 @@ class PdfExportService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              // Header Banner
+              // Header Banner (locked to 54pt height matching Word and A4 preview)
               pw.Container(
+                height: 54,
                 child: pw.Stack(
                   alignment: pw.Alignment.center,
                   children: [
                     if (bannerWatermarkImg != null)
-                      pw.Image(bannerWatermarkImg, fit: pw.BoxFit.fill)
+                      pw.Positioned.fill(
+                        child: pw.Image(bannerWatermarkImg, fit: pw.BoxFit.fill),
+                      )
                     else
-                      pw.Container(
-                        height: 54,
-                        decoration: pw.BoxDecoration(
-                          color: accentColor,
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                      pw.Positioned.fill(
+                        child: pw.Container(
+                          decoration: pw.BoxDecoration(
+                            color: accentColor,
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                          ),
                         ),
                       ),
                     pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       child: pw.Column(
+                        mainAxisAlignment: pw.MainAxisAlignment.center,
                         crossAxisAlignment: pw.CrossAxisAlignment.center,
                         children: [
+                          pw.Text(
+                            profile.fullName.toUpperCase(),
+                            textAlign: pw.TextAlign.center,
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 14,
+                              fontWeight: pw.FontWeight.bold,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                          if (profile.jobTitle.isNotEmpty) ...[
+                            pw.SizedBox(height: 2.5),
                             pw.Text(
-                              profile.fullName.toUpperCase(),
+                              profile.jobTitle.toUpperCase(),
                               textAlign: pw.TextAlign.center,
                               style: pw.TextStyle(
                                 color: PdfColors.white,
-                                fontSize: 15,
+                                fontSize: 8.5,
                                 fontWeight: pw.FontWeight.bold,
-                                letterSpacing: 1.2,
+                                letterSpacing: 0.8,
                               ),
                             ),
-                            if (profile.jobTitle.isNotEmpty) ...[
-                              pw.SizedBox(height: 3),
-                              pw.Text(
-                                profile.jobTitle.toUpperCase(),
-                                textAlign: pw.TextAlign.center,
-                                style: pw.TextStyle(
-                                  color: PdfColors.white,
-                                  fontSize: 9,
-                                  fontWeight: pw.FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
                           ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
               pw.SizedBox(height: 12),
 
@@ -1365,7 +1398,9 @@ class PdfExportService {
         child: pw.Stack(
           alignment: pw.Alignment.center,
           children: [
-            pw.Image(watermarkImg, fit: pw.BoxFit.fill),
+            pw.Positioned.fill(
+              child: pw.Image(watermarkImg, fit: pw.BoxFit.fill),
+            ),
             textWidget,
           ],
         ),
