@@ -104,7 +104,7 @@ class PdfExportService {
           sidebarWatermarkImg = pw.MemoryImage(sidebarBytes);
         }
 
-        // Header Banner watermark for sidebar_dark (358 x 54 pt logical)
+        // Header Banner watermark for sidebar_dark (358 x 46 pt logical)
         final bannerBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: profile.watermarkOpacity,
@@ -112,7 +112,7 @@ class PdfExportService {
           randomness: profile.watermarkRandomness,
           customWatermarkUrl: profile.customWatermarkUrl,
           width: 358,
-          height: 54,
+          height: 46,
           backgroundColor: flutterAccentColor,
           borderRadius: 8,
         );
@@ -130,7 +130,7 @@ class PdfExportService {
           width: 358,
           height: 22,
           backgroundColor: flutterAccentColor,
-          borderRadius: 12,
+          borderRadius: 8,
         );
         if (pillBytes != null) {
           pillWatermarkImg = pw.MemoryImage(pillBytes);
@@ -240,8 +240,14 @@ class PdfExportService {
 
   static Future<pw.Font> _resolvePdfFont(String fontFamily, {required bool isBold}) async {
     switch (fontFamily.toLowerCase().replaceAll(' ', '')) {
+      case 'segoeui':
+      case 'calibri':
+      case 'inter':
+        return isBold ? await PdfGoogleFonts.interBold() : await PdfGoogleFonts.interRegular();
+      case 'centurygothic':
       case 'outfit':
         return isBold ? await PdfGoogleFonts.outfitBold() : await PdfGoogleFonts.outfitRegular();
+      case 'arial':
       case 'roboto':
         return isBold ? await PdfGoogleFonts.robotoBold() : await PdfGoogleFonts.robotoRegular();
       case 'montserrat':
@@ -256,7 +262,6 @@ class PdfExportService {
         return isBold ? await PdfGoogleFonts.loraBold() : await PdfGoogleFonts.loraRegular();
       case 'firacode':
         return isBold ? await PdfGoogleFonts.firaCodeBold() : await PdfGoogleFonts.firaCodeRegular();
-      case 'inter':
       default:
         return isBold ? await PdfGoogleFonts.interBold() : await PdfGoogleFonts.interRegular();
     }
@@ -410,7 +415,7 @@ class PdfExportService {
                     ),
                     pw.SizedBox(height: 12),
 
-                    _buildPillOnColor(isEn ? 'CONTACT DETAILS' : 'DATOS'),
+                    _buildPillOnColor(isEn ? 'CONTACT DETAILS' : 'DATOS', accentColor),
                     pw.SizedBox(height: 8),
 
                     if (profile.phone.isNotEmpty) _buildContactRowWhiteIcon(_svgPhoneWhite, profile.phone),
@@ -421,7 +426,7 @@ class PdfExportService {
 
                     if (profile.summary.trim().isNotEmpty) ...[
                       pw.SizedBox(height: 12),
-                      _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ'),
+                      _buildPillOnColor(isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentColor),
                       pw.SizedBox(height: 6),
                       pw.Text(
                         profile.summary,
@@ -432,7 +437,7 @@ class PdfExportService {
 
                     if (_getSkillsList(profile).isNotEmpty) ...[
                       pw.SizedBox(height: 12),
-                      _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS'),
+                      _buildPillOnColor(isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentColor),
                       pw.SizedBox(height: 8),
                       ..._getSkillsList(profile).map((s) => _buildPdfCompetencyRow(s, accentColor, profile.skillRatingStyle == 'stars')),
                     ],
@@ -450,9 +455,9 @@ class PdfExportService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              // Header Banner (locked to 54pt height matching Word and A4 preview)
+              // Header Banner (46pt height matching A4SheetPreview and compact layout)
               pw.Container(
-                height: 54,
+                height: 46,
                 child: pw.Stack(
                   alignment: pw.Alignment.center,
                   children: [
@@ -470,7 +475,7 @@ class PdfExportService {
                         ),
                       ),
                     pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                       child: pw.Column(
                         mainAxisAlignment: pw.MainAxisAlignment.center,
                         crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -480,9 +485,9 @@ class PdfExportService {
                             textAlign: pw.TextAlign.center,
                             style: pw.TextStyle(
                               color: PdfColors.white,
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: pw.FontWeight.bold,
-                              letterSpacing: 1.1,
+                              letterSpacing: 1.0,
                             ),
                           ),
                           if (profile.jobTitle.isNotEmpty) ...[
@@ -1278,7 +1283,7 @@ class PdfExportService {
   // ==============================================================================
   // COMMON HELPER WIDGETS
   // ==============================================================================
-  static pw.Widget _buildPillOnColor(String title) {
+  static pw.Widget _buildPillOnColor(String title, [PdfColor? accentColor]) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: const pw.BoxDecoration(
@@ -1287,8 +1292,8 @@ class PdfExportService {
       ),
       child: pw.Text(
         title,
-        style: const pw.TextStyle(
-          color: PdfColors.black,
+        style: pw.TextStyle(
+          color: accentColor ?? PdfColors.black,
           fontSize: 7.5,
           fontWeight: pw.FontWeight.bold,
           letterSpacing: 0.5,
@@ -1379,39 +1384,47 @@ class PdfExportService {
 
   static pw.Widget _buildSectionPill(String title, PdfColor color, [pw.MemoryImage? watermarkImg]) {
     final textWidget = pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: pw.Text(
-        title,
+        title.toUpperCase(),
+        textAlign: pw.TextAlign.center,
         style: const pw.TextStyle(
           color: PdfColors.white,
-          fontSize: 8,
+          fontSize: 8.2,
           fontWeight: pw.FontWeight.bold,
-          letterSpacing: 0.6,
+          letterSpacing: 0.8,
         ),
       ),
     );
 
     if (watermarkImg != null) {
       return pw.Container(
+        width: double.infinity,
         height: 22,
         alignment: pw.Alignment.center,
-        child: pw.Stack(
-          alignment: pw.Alignment.center,
-          children: [
-            pw.Positioned.fill(
-              child: pw.Image(watermarkImg, fit: pw.BoxFit.fill),
-            ),
-            textWidget,
-          ],
+        child: pw.ClipRRect(
+          horizontalRadius: 8,
+          verticalRadius: 8,
+          child: pw.Stack(
+            alignment: pw.Alignment.center,
+            children: [
+              pw.Positioned.fill(
+                child: pw.Image(watermarkImg, fit: pw.BoxFit.fill),
+              ),
+              textWidget,
+            ],
+          ),
         ),
       );
     }
 
     return pw.Container(
+      width: double.infinity,
+      height: 22,
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(
         color: color,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: textWidget,
     );

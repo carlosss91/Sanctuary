@@ -12,6 +12,7 @@ function getDefaultConfig(targetEmail = '') {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     geminiModel: 'gemini-1.5-flash',
     emailNotifications: true,
+    notifyEmail: true,
     targetEmail: targetEmail || process.env.NOTIFICATION_EMAIL || '',
     checkFrequency: 'daily',
     enablePlaceFilter: true,
@@ -23,10 +24,14 @@ function getDefaultConfig(targetEmail = '') {
       'alquiler',
       'lanzarote',
       'arrecife',
+      'yaiza',
+      'playa blanca',
       'convocatoria',
       'subvención',
       'ayudas alquiler',
       'rehabilitación',
+      'vivienda pública',
+      'adjudicación',
     ],
     sources: [
       {
@@ -61,8 +66,16 @@ function getDefaultConfig(targetEmail = '') {
         enabled: true,
         isCustom: false,
       },
+      {
+        id: 'ayto_yaiza',
+        name: 'Ayuntamiento de Yaiza · Vivienda y Tablón Oficial',
+        url: 'https://yaiza.es/',
+        description: 'Convocatorias municipales de vivienda, ayudas sociales y VPO en Yaiza y Playa Blanca (Lanzarote)',
+        enabled: true,
+        isCustom: false,
+      },
     ],
-    activeSources: ['boc', 'boe', 'gobcan_vivienda', 'icv'],
+    activeSources: ['boc', 'boe', 'gobcan_vivienda', 'icv', 'ayto_yaiza'],
     lastScanDate: null,
     lastScanStatus: 'Pendiente de primer escaneo',
   };
@@ -80,12 +93,27 @@ function getBaselineNotices() {
 
   return [
     {
+      id: 'yaiza-vpo-' + d1 + '-04',
+      title: 'Ayuntamiento de Yaiza: Convocatoria pública y cesión de suelo municipal para promoción de Viviendas de Protección Oficial (VPO) en régimen de alquiler asequible',
+      source: 'Ayuntamiento de Yaiza',
+      date: d1,
+      bulletinNumber: 'Tablón Oficial Yaiza Exp. VPO-2026/02 · BOP Las Palmas',
+      summary: 'El Ayuntamiento de Yaiza (Lanzarote) aprueba la convocatoria pública de adjudicación y apertura de solicitudes para la promoción de nuevas viviendas de protección oficial y parcelas residenciales públicas para familias y personas empadronadas en el término municipal de Yaiza (Playa Blanca, Yaiza, Uga y Femés).',
+      aiAnalysis: '🤖 Resumen IA: Convocatoria municipal de vivienda protegida para empadronados en Yaiza. Subvención directa al alquiler asequible y adjudicación por baremo de arraigo y necesidad social.',
+      url: 'https://yaiza.es/',
+      island: 'Lanzarote (Yaiza)',
+      relevance: 'Alta (Lanzarote)',
+      isRead: false,
+      isEmailSent: false,
+      timestamp: new Date(now.getTime() - 1000 * 60 * 60 * 18).toISOString(),
+    },
+    {
       id: 'boc-lzt-' + d1 + '-01',
       title: 'Resolución de concesión de ayudas para el alquiler de vivienda en régimen de protección pública en la isla de Lanzarote',
       source: 'BOC',
       date: d1,
       bulletinNumber: 'BOC Núm. 194 · Anuncio 3218',
-      summary: 'Publicación de la convocatoria anual de subvenciones destinadas al alquiler de vivienda habitual para familias y jóvenes con residencia en Lanzarote (municipios de Arrecife, Teguise, Tías, San Bartolomé y Yaiza). Subvención de hasta el 50% de la renta mensual.',
+      summary: 'Publicación de la convocatoria anual de subvenciones destinadas al alquiler de vivienda habitual para familias y jóvenes con residencia en Lanzarote (municipios de Arrecife, Yaiza, Teguise, Tías y San Bartolomé). Subvención de hasta el 50% de la renta mensual.',
       aiAnalysis: '🤖 Resumen IA: Dirigido a residentes en Lanzarote con ingresos no superiores a 3 veces el IPREM. Plazo de presentación: 30 días hábiles. Cuantía máxima subvencionable: 600€/mes.',
       url: 'https://www.gobiernodecanarias.org/boc/2026/194/',
       island: 'Lanzarote',
@@ -191,6 +219,36 @@ async function fetchLiveOfficialBulletins() {
           url: 'https://www.gobiernodecanarias.org/boc/',
           island: 'Canarias / Lanzarote',
           relevance: 'Media',
+        });
+      }
+    }
+  } catch (_) {
+    // Graceful fallback
+  }
+
+  // 3. Fetch Ayuntamiento de Yaiza (Lanzarote)
+  try {
+    const yaizaController = new AbortController();
+    const yaizaTimeout = setTimeout(() => yaizaController.abort(), 4500);
+    const yaizaRes = await fetch('https://yaiza.es/', {
+      signal: yaizaController.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+    clearTimeout(yaizaTimeout);
+    if (yaizaRes.ok) {
+      const html = await yaizaRes.text();
+      const lower = html.toLowerCase();
+      if (lower.includes('vivienda') || lower.includes('alquiler') || lower.includes('vpo') || lower.includes('ayuda')) {
+        liveItems.push({
+          id: 'yaiza-live-' + Date.now(),
+          title: 'Ayuntamiento de Yaiza: Actualización oficial de vivienda y ayudas en el municipio',
+          source: 'Ayuntamiento de Yaiza',
+          date: new Date().toISOString().split('T')[0],
+          bulletinNumber: 'Tablón Oficial Yaiza',
+          summary: 'Detección de publicaciones en materia de vivienda, subvenciones y servicios públicos en el portal oficial del Ayuntamiento de Yaiza (Lanzarote).',
+          url: 'https://yaiza.es/',
+          island: 'Lanzarote (Yaiza)',
+          relevance: 'Alta (Lanzarote)',
         });
       }
     }
@@ -345,11 +403,22 @@ function filterNotices(notices, config) {
     config.activeSources.forEach(s => activeSourcesSet.add(s.toLowerCase()));
   }
 
+  // Key localities and municipalities of Lanzarote
+  const lanzaroteLocalities = [
+    'lanzarote', 'arrecife', 'yaiza', 'playa blanca', 'teguise',
+    'costa teguise', 'la graciosa', 'tías', 'tias', 'puerto del carmen',
+    'san bartolomé', 'san bartolome', 'playa honda', 'tinajo', 'haría', 'haria'
+  ];
+
   return notices.filter(n => {
     // Check if source is active
     if (activeSourcesSet.size > 0) {
       const srcLower = n.source.toLowerCase();
-      const isAllowed = [...activeSourcesSet].some(s => srcLower.includes(s) || s.includes(srcLower));
+      const isAllowed = [...activeSourcesSet].some(s => srcLower.includes(s) || s.includes(srcLower))
+        // Municipal or local sources matching Lanzarote or Yaiza are always permitted
+        || ((targetPlace.includes('lanzarote') || targetPlace.includes('yaiza')) && (
+          srcLower.includes('yaiza') || srcLower.includes('lanzarote') || srcLower.includes('arrecife')
+        ));
       if (!isAllowed) return false;
     }
 
@@ -364,10 +433,18 @@ function filterNotices(notices, config) {
     return true;
   }).map(n => {
     const textToMatch = `${n.title} ${n.summary} ${n.island || ''}`.toLowerCase();
-    const isTargetPlace = enablePlace && (
-      textToMatch.includes(targetPlace) ||
-      (targetPlace.includes('lanzarote') && textToMatch.includes('arrecife'))
-    );
+    
+    // Geographic match
+    let isTargetPlace = false;
+    if (enablePlace) {
+      if (targetPlace.includes('lanzarote')) {
+        isTargetPlace = lanzaroteLocalities.some(loc => textToMatch.includes(loc));
+      } else if (lanzaroteLocalities.includes(targetPlace)) {
+        isTargetPlace = textToMatch.includes(targetPlace) || textToMatch.includes('lanzarote');
+      } else {
+        isTargetPlace = textToMatch.includes(targetPlace);
+      }
+    }
 
     const placeLabel = config.targetPlace || config.targetIsland || 'Lanzarote';
 

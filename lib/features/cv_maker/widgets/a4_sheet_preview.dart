@@ -29,19 +29,67 @@ class A4SheetPreview extends StatefulWidget {
 class _A4SheetPreviewState extends State<A4SheetPreview> {
   double? _customScale;
   double _lastAutoFitScale = 0.85;
+  late TextEditingController _zoomTextCtrl;
+  late FocusNode _zoomFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _zoomTextCtrl = TextEditingController(text: '85%');
+    _zoomFocusNode = FocusNode();
+    _zoomFocusNode.addListener(() {
+      if (!_zoomFocusNode.hasFocus) {
+        _applyZoomFromText();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _zoomTextCtrl.dispose();
+    _zoomFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _syncZoomText(double scale) {
+    if (!_zoomFocusNode.hasFocus) {
+      final formatted = '${(scale * 100).round()}%';
+      if (_zoomTextCtrl.text != formatted) {
+        _zoomTextCtrl.text = formatted;
+      }
+    }
+  }
+
+  void _applyZoomFromText() {
+    final raw = _zoomTextCtrl.text.replaceAll('%', '').replaceAll(',', '.').trim();
+    final parsed = double.tryParse(raw);
+    if (parsed != null && parsed > 0) {
+      final clampedScale = (parsed / 100.0).clamp(0.3, 2.0);
+      setState(() => _customScale = clampedScale);
+      _zoomTextCtrl.text = '${(clampedScale * 100).round()}%';
+    } else {
+      final current = _customScale ?? _lastAutoFitScale;
+      _zoomTextCtrl.text = '${(current * 100).round()}%';
+    }
+  }
 
   void _zoomIn() {
     final current = _customScale ?? _lastAutoFitScale;
-    setState(() => _customScale = (current + 0.08).clamp(0.3, 1.8));
+    final next = (current + 0.08).clamp(0.3, 1.8);
+    setState(() => _customScale = next);
+    _zoomTextCtrl.text = '${(next * 100).round()}%';
   }
 
   void _zoomOut() {
     final current = _customScale ?? _lastAutoFitScale;
-    setState(() => _customScale = (current - 0.08).clamp(0.3, 1.8));
+    final next = (current - 0.08).clamp(0.3, 1.8);
+    setState(() => _customScale = next);
+    _zoomTextCtrl.text = '${(next * 100).round()}%';
   }
 
   void _resetZoom() {
     setState(() => _customScale = 1.0);
+    _zoomTextCtrl.text = '100%';
   }
 
   void _autoFit() {
@@ -314,9 +362,28 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                         constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                         onPressed: _zoomOut,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('${((_customScale ?? _lastAutoFitScale) * 100).toInt()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      SizedBox(
+                        width: 44,
+                        child: TextField(
+                          controller: _zoomTextCtrl,
+                          focusNode: _zoomFocusNode,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 2),
+                          ),
+                          onSubmitted: (_) {
+                            _applyZoomFromText();
+                            _zoomFocusNode.unfocus();
+                          },
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.add, size: 13),
@@ -339,6 +406,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                 final autoScale = (availableWidth / 595).clamp(0.40, 1.25);
                 _lastAutoFitScale = autoScale;
                 final effectiveScale = _customScale ?? autoScale;
+                _syncZoomText(effectiveScale);
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 84),
@@ -1245,10 +1313,10 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: accentColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -1416,13 +1484,13 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.22),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: _parseAccent(widget.profile.accentColor),
           fontSize: 8,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.8,

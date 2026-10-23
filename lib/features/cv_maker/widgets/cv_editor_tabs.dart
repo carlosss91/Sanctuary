@@ -1850,20 +1850,25 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
           ),
           const SizedBox(height: 8),
 
-          // Google Font Selector
+          // Tipografía
           DropdownButtonFormField<String>(
             value: [
-              'Inter', 'Outfit', 'Roboto', 'Montserrat', 'Poppins', 
+              'Inter', 'Segoe UI', 'Calibri', 'Century Gothic', 'Arial',
+              'Outfit', 'Roboto', 'Montserrat', 'Poppins', 
               'Merriweather', 'Raleway', 'Lora', 'Fira Code'
             ].contains(widget.profile.fontFamily)
                 ? widget.profile.fontFamily
                 : 'Inter',
             decoration: const InputDecoration(
-              labelText: 'Familia Tipográfica (Google Fonts)',
+              labelText: 'Familia Tipográfica (Coherente en Web, PDF y Word)',
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             items: [
-              _buildFontDropdownItem('Inter', 'Inter (Moderna y Nítida · Defecto)'),
+              _buildFontDropdownItem('Inter', 'Inter (Moderna y Nítida · Web / PDF)'),
+              _buildFontDropdownItem('Segoe UI', 'Segoe UI (Nativa de Windows & Word · Óptima)'),
+              _buildFontDropdownItem('Calibri', 'Calibri (Estándar Office · Nítida y Compacta)'),
+              _buildFontDropdownItem('Century Gothic', 'Century Gothic (Geométrica Elegante)'),
+              _buildFontDropdownItem('Arial', 'Arial (Universal y Clara)'),
               _buildFontDropdownItem('Outfit', 'Outfit (Geométrica Premium y Elegante)'),
               _buildFontDropdownItem('Roboto', 'Roboto (Neutral y Técnica)'),
               _buildFontDropdownItem('Montserrat', 'Montserrat (Titulares con Personalidad)'),

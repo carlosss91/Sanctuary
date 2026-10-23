@@ -771,8 +771,8 @@ class DocxExportService {
             <w:tcW w:w="$col1W" w:type="dxa"/>
             ${hasSidebarBg ? '<w:shd w:val="none"/>' : '<w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>'}
             <w:tcMar>
-              <w:top w:w="260" w:type="dxa"/><w:bottom w:w="260" w:type="dxa"/>
-              <w:left w:w="240" w:type="dxa"/><w:right w:w="240" w:type="dxa"/>
+              <w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>
+              <w:left w:w="280" w:type="dxa"/><w:right w:w="280" w:type="dxa"/>
             </w:tcMar>
           </w:tcPr>
 ''');
@@ -807,11 +807,11 @@ class DocxExportService {
           </w:p>''');
     }
 
-    // Photo / Initials Badge
+    // Photo / Initials Badge (Centered inside sidebar with balanced top padding)
     if (hasAssets && hasPhoto) {
       docXml.write('''
           <w:p>
-            <w:pPr><w:jc w:val="center"/><w:spacing w:before="20" w:after="80"/></w:pPr>
+            <w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="80"/></w:pPr>
             <w:r>
               <w:drawing>
                 <wp:inline distT="0" distB="0" distL="0" distR="0">
@@ -860,7 +860,7 @@ class DocxExportService {
             <w:pPr>
               <w:spacing w:before="0" w:after="50" w:line="220" w:lineRule="auto"/>
               <w:jc w:val="both"/>
-              <w:ind w:left="30" w:right="30"/>
+              <w:ind w:left="60" w:right="60"/>
             </w:pPr>
             <w:r><w:rPr>$fontTag<w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.summary)}</w:t>
@@ -880,9 +880,9 @@ class DocxExportService {
         docXml.write('''
           <w:p>
             <w:pPr>
-              <w:tabs><w:tab w:val="right" w:pos="3160"/></w:tabs>
+              <w:tabs><w:tab w:val="right" w:pos="2920"/></w:tabs>
               <w:spacing w:before="45" w:after="5"/>
-              <w:ind w:left="30"/>
+              <w:ind w:left="60"/>
             </w:pPr>
             <w:r>
               <w:rPr>$fontTag<w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
@@ -898,7 +898,7 @@ class DocxExportService {
           docXml.write('''
           <w:p>
             <w:pPr>
-              <w:ind w:left="30"/>
+              <w:ind w:left="60"/>
               <w:spacing w:before="0" w:after="40" w:line="200" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
@@ -918,7 +918,7 @@ class DocxExportService {
           <w:tcPr>
             <w:tcW w:w="$col2W" w:type="dxa"/>
             <w:tcMar>
-              <w:top w:w="260" w:type="dxa"/><w:bottom w:w="260" w:type="dxa"/>
+              <w:top w:w="0" w:type="dxa"/><w:bottom w:w="260" w:type="dxa"/>
               <w:left w:w="320" w:type="dxa"/><w:right w:w="120" w:type="dxa"/>
             </w:tcMar>
           </w:tcPr>
@@ -1388,81 +1388,42 @@ class DocxExportService {
   }) {
     final sz = profile != null ? _scaleSz(15, profile.fontSizeScale) : 15;
 
-    if (hasWhitePill) {
-      docXml.write('''
+    docXml.write('''
           <w:tbl>
             <w:tblPr>
-              <w:tblW w:w="3100" w:type="dxa"/>
+              <w:tblW w:w="2400" w:type="dxa"/>
               <w:jc w:val="center"/>
               <w:tblLayout w:type="fixed"/>
               <w:tblCellMar>
-                <w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>
-                <w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
+                <w:top w:w="40" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/>
+                <w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/>
               </w:tblCellMar>
               <w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="none"/><w:right w:val="none"/></w:tblBorders>
             </w:tblPr>
-            <w:tblGrid><w:gridCol w:w="3100"/></w:tblGrid>
+            <w:tblGrid><w:gridCol w:w="2400"/></w:tblGrid>
             <w:tr>
-              <w:trPr><w:trHeight w:val="400" w:hRule="exact"/></w:trPr>
+              <w:trPr><w:trHeight w:val="340" w:hRule="exact"/></w:trPr>
               <w:tc>
                 <w:tcPr>
-                  <w:tcW w:w="3100" w:type="dxa"/>
-                  <w:shd w:val="none"/>
+                  <w:tcW w:w="2400" w:type="dxa"/>
+                  <w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/>
                   <w:tcMar>
-                    <w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>
-                    <w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
+                    <w:top w:w="40" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/>
+                    <w:left w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/>
                   </w:tcMar>
                   <w:vAlign w:val="center"/>
                 </w:tcPr>
                 <w:p>
                   <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="exact"/></w:pPr>
                   <w:r>
-                    <w:drawing>
-                      <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">
-                        <wp:simplePos x="0" y="0"/>
-                        <wp:positionH relativeFrom="column"><wp:align>center</wp:align></wp:positionH>
-                        <wp:positionV relativeFrom="paragraph"><wp:posOffset>-57150</wp:posOffset></wp:positionV>
-                        <wp:extent cx="1841500" cy="254000"/>
-                        <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                        <wp:wrapNone/>
-                        <wp:docPr id="1010" name="WhitePill"/><wp:cNvGraphicFramePr/>
-                        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-                          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                            <pic:pic>
-                              <pic:nvPicPr><pic:cNvPr id="1010" name="WhitePill"/><pic:cNvPicPr/></pic:nvPicPr>
-                              <pic:blipFill><a:blip r:embed="rIdWhitePill"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-                              <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1841500" cy="254000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
-                            </pic:pic>
-                          </a:graphicData>
-                        </a:graphic>
-                      </wp:anchor>
-                    </w:drawing>
-                  </w:r>
-                  <w:r>
-                    <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/><w:spacing w:val="10"/></w:rPr>
+                    <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/><w:spacing w:val="12"/></w:rPr>
                     <w:t>${_escapeXml(label)}</w:t>
                   </w:r>
                 </w:p>
               </w:tc>
             </w:tr>
           </w:tbl>
-          <w:p><w:pPr><w:spacing w:before="0" w:after="80"/></w:pPr></w:p>''');
-    } else {
-      docXml.write('''
-          <w:p>
-            <w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="80"/></w:pPr>
-            <w:r>
-              <w:rPr>
-                $fontTag
-                <w:b/>
-                <w:sz w:val="$sz"/>
-                <w:color w:val="$accentHex"/>
-                <w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/>
-              </w:rPr>
-              <w:t xml:space="preserve">   ${_escapeXml(label)}   </w:t>
-            </w:r>
-          </w:p>''');
-    }
+          <w:p><w:pPr><w:spacing w:before="0" w:after="90"/></w:pPr></w:p>''');
   }
 
   static void _addSidebarContactItem(
@@ -1476,7 +1437,7 @@ class DocxExportService {
           <w:p>
             <w:pPr>
               <w:spacing w:before="20" w:after="34" w:line="220" w:lineRule="auto"/>
-              <w:ind w:left="30"/>
+              <w:ind w:left="140"/>
             </w:pPr>
             <w:r>
               <w:drawing>
@@ -1512,7 +1473,7 @@ class DocxExportService {
     docXml.write('''
           <w:p>
             <w:pPr>
-              <w:ind w:left="60"/>
+              <w:ind w:left="140"/>
               <w:spacing w:before="20" w:after="40"/>
             </w:pPr>
             <w:r>

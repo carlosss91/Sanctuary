@@ -102,6 +102,14 @@ class AiWatchdogConfig {
       enabled: true,
       isCustom: false,
     ),
+    AiWatchdogSource(
+      id: 'ayto_yaiza',
+      name: 'Ayuntamiento de Yaiza · Vivienda y Tablón Oficial',
+      url: 'https://yaiza.es/',
+      description: 'Convocatorias municipales de vivienda, ayudas sociales y VPO en Yaiza y Playa Blanca (Lanzarote)',
+      enabled: true,
+      isCustom: false,
+    ),
   ];
 
   const AiWatchdogConfig({
@@ -116,11 +124,15 @@ class AiWatchdogConfig {
       'vivienda protegida',
       'vpo',
       'lanzarote',
+      'arrecife',
+      'yaiza',
+      'playa blanca',
       'ayudas alquiler',
       'vivienda social',
       'promoción pública',
       'instituto canario de la vivienda',
-      'arrecife',
+      'vivienda pública',
+      'adjudicación',
     ],
     this.sources = defaultSources,
     this.lastScanDate,
@@ -141,11 +153,17 @@ class AiWatchdogConfig {
       parsedSources = (json['sources'] as List)
           .map((e) => AiWatchdogSource.fromJson(e as Map<String, dynamic>))
           .toList();
+      // Ensure any newly added default source (such as ayto_yaiza) is included
+      for (final defSource in defaultSources) {
+        if (!parsedSources.any((s) => s.id.toLowerCase() == defSource.id.toLowerCase())) {
+          parsedSources.add(defSource);
+        }
+      }
     } else {
       final activeList = (json['activeSources'] as List<dynamic>?)
               ?.map((e) => e.toString().toLowerCase())
               .toList() ??
-          ['boc', 'boe', 'gobcan_vivienda', 'icv'];
+          ['boc', 'boe', 'gobcan_vivienda', 'icv', 'ayto_yaiza'];
       parsedSources = defaultSources
           .map((ds) => ds.copyWith(enabled: activeList.contains(ds.id.toLowerCase())))
           .toList();
@@ -158,7 +176,7 @@ class AiWatchdogConfig {
     return AiWatchdogConfig(
       geminiApiKey: json['geminiApiKey'] as String? ?? '',
       geminiModel: json['geminiModel'] as String? ?? 'gemini-1.5-flash',
-      notifyEmail: json['notifyEmail'] as bool? ?? true,
+      notifyEmail: json['notifyEmail'] as bool? ?? json['emailNotifications'] as bool? ?? true,
       targetEmail: json['targetEmail'] as String? ?? '',
       checkFrequency: json['checkFrequency'] as String? ?? 'daily',
       enablePlaceFilter: hasPlaceFilter,
@@ -168,11 +186,15 @@ class AiWatchdogConfig {
             'vivienda protegida',
             'vpo',
             'lanzarote',
+            'arrecife',
+            'yaiza',
+            'playa blanca',
             'ayudas alquiler',
             'vivienda social',
             'promoción pública',
             'instituto canario de la vivienda',
-            'arrecife',
+            'vivienda pública',
+            'adjudicación',
           ],
       sources: parsedSources,
       lastScanDate: json['lastScanDate'] as String?,
@@ -185,6 +207,7 @@ class AiWatchdogConfig {
       'geminiApiKey': geminiApiKey,
       'geminiModel': geminiModel,
       'notifyEmail': notifyEmail,
+      'emailNotifications': notifyEmail,
       'targetEmail': targetEmail,
       'checkFrequency': checkFrequency,
       'enablePlaceFilter': enablePlaceFilter,

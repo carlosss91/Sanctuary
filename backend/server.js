@@ -3476,14 +3476,51 @@ app.get('/api/slides/download', async (req, res) => {
 // ==============================================================================
 const aiWatchdogService = require('./services/ai_watchdog_service');
 
+function ensureDefaultWatchdogSources(config) {
+  if (!config) return;
+  const def = aiWatchdogService.getDefaultConfig();
+  if (!Array.isArray(config.sources)) {
+    config.sources = def.sources;
+  } else {
+    for (const defSrc of def.sources) {
+      if (!config.sources.some(s => s.id === defSrc.id)) {
+        config.sources.push(defSrc);
+      }
+    }
+  }
+  if (Array.isArray(config.activeSources)) {
+    if (!config.activeSources.includes('ayto_yaiza')) {
+      config.activeSources.push('ayto_yaiza');
+    }
+  } else {
+    config.activeSources = def.activeSources;
+  }
+  if (Array.isArray(config.keywords)) {
+    ['yaiza', 'playa blanca', 'vivienda pública', 'adjudicación'].forEach(kw => {
+      if (!config.keywords.some(k => k.toLowerCase() === kw)) {
+        config.keywords.push(kw);
+      }
+    });
+  } else {
+    config.keywords = def.keywords;
+  }
+  const isNotify = (config.notifyEmail !== undefined ? config.notifyEmail : config.emailNotifications) !== false;
+  config.notifyEmail = isNotify;
+  config.emailNotifications = isNotify;
+}
+
 async function getAiWatchdogConfigFromDb() {
   const ldb = getLocalDb();
-  if (ldb.ai_watchdog_config) return ldb.ai_watchdog_config;
+  if (ldb.ai_watchdog_config) {
+    ensureDefaultWatchdogSources(ldb.ai_watchdog_config);
+    return ldb.ai_watchdog_config;
+  }
 
   try {
     const q = await safeQuery("SELECT value FROM app_settings WHERE key = 'ai_watchdog_config'");
     if (q && q.rows && q.rows.length > 0) {
       const val = typeof q.rows[0].value === 'string' ? JSON.parse(q.rows[0].value) : q.rows[0].value;
+      ensureDefaultWatchdogSources(val);
       ldb.ai_watchdog_config = val;
       return val;
     }
@@ -3496,6 +3533,7 @@ async function getAiWatchdogConfigFromDb() {
 }
 
 async function saveAiWatchdogConfigToDb(config) {
+  ensureDefaultWatchdogSources(config);
   const ldb = getLocalDb();
   ldb.ai_watchdog_config = config;
   saveLocalDb(ldb);
@@ -3606,6 +3644,7 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
     const incomingConfig = req.body || {};
     const dbConfig = await getAiWatchdogConfigFromDb();
     const config = { ...dbConfig, ...incomingConfig };
+    ensureDefaultWatchdogSources(config);
 
     // 1. Fetch live notices, custom sources, and combine with baseline notices
     const liveNotices = await aiWatchdogService.fetchLiveOfficialBulletins();
@@ -3641,15 +3680,30 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
       }
     }
 
-    // 2. Dispatch email alerts if new notices were found and email is enabled
+    // 2. Dispatch email alerts if email is enabled and destination email is set
     const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
-    if (config.emailNotifications && config.targetEmail && brandNewAlerts.length > 0) {
+    const isEmailEnabled = (config.notifyEmail !== undefined ? config.notifyEmail : config.emailNotifications) !== false;
+    const targetEmail = (config.targetEmail && typeof config.targetEmail === 'string') ? config.targetEmail.trim() : '';
+
+    let alertsToSend = [];
+    if (brandNewAlerts.length > 0) {
+      alertsToSend = brandNewAlerts;
+    } else {
+      const unemailed = updatedNotifs.filter(n => !n.isEmailSent);
+      if (unemailed.length > 0) {
+        alertsToSend = unemailed.slice(0, 5);
+      } else if (req.body && req.body.forceEmail) {
+        alertsToSend = updatedNotifs.slice(0, 5);
+      }
+    }
+
+    if (isEmailEnabled && targetEmail && alertsToSend.length > 0) {
       try {
         const templates = await getEmailTemplates();
         const sentinelTpl = templates.ai_sentinel || getDefaultEmailTemplates().ai_sentinel;
-        const mailSubject = (sentinelTpl.subject || `🪐 Alerta AI Sentinel: ${brandNewAlerts.length} Nueva(s) Convocatoria(s) (${placeTitle})`)
+        const mailSubject = (sentinelTpl.subject || `🪐 Alerta AI Sentinel: ${alertsToSend.length} Convocatoria(s) (${placeTitle})`)
           .replace(/\{place\}/g, placeTitle)
-          .replace(/\{count\}/g, String(brandNewAlerts.length));
+          .replace(/\{count\}/g, String(alertsToSend.length));
         const emailHtml = buildSanctuaryEmailHtml({
           templateType: 'ai_sentinel',
           theme: sentinelTpl.theme || 'dark',
@@ -3659,27 +3713,28 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
           cometFrequency: sentinelTpl.cometFrequency,
           subject: mailSubject,
           title: sentinelTpl.title || `Vigilancia Oficial Automatizada (${placeTitle})`,
-          body: sentinelTpl.body || `El motor inteligente AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) o publicación(es) relevante(s) para ${placeTitle}:`,
+          body: sentinelTpl.body || `El motor inteligente AI Sentinel ha detectado ${alertsToSend.length} convocatoria(s) o publicación(es) relevante(s) para ${placeTitle}:`,
           ctaText: sentinelTpl.ctaText || 'Ver Convocatorias en el Hub',
           ctaLink: 'https://carlosss91.github.io/Sanctuary/',
           footerNote: sentinelTpl.footerNote,
-          extraInfo: { notices: brandNewAlerts, placeTitle },
+          extraInfo: { notices: alertsToSend, placeTitle },
         });
 
         await sendMailNotification({
-          to: config.targetEmail,
+          to: targetEmail,
           subject: mailSubject,
           html: emailHtml,
-          text: `AI Sentinel ha detectado ${brandNewAlerts.length} nueva(s) convocatoria(s) para ${placeTitle}. Revisa el Hub en Sanctuary Suite.`,
+          text: `AI Sentinel ha detectado ${alertsToSend.length} convocatoria(s) para ${placeTitle}. Revisa el Hub en Sanctuary Suite.`,
         });
-        brandNewAlerts.forEach(n => { n.isEmailSent = true; });
+        alertsToSend.forEach(n => { n.isEmailSent = true; });
+        console.log(`[AI Sentinel] Alerta por correo enviada con éxito a ${targetEmail} (${alertsToSend.length} convocatorias).`);
       } catch (mailErr) {
         console.warn('[AI Sentinel] Error al enviar notificación por correo:', mailErr.message);
       }
     }
 
     config.lastScanDate = new Date().toISOString();
-    config.lastScanStatus = `Completado exitosamente (${updatedNotifs.length} publicaciones analizadas)`;
+    config.lastScanStatus = `Completado exitosamente (${updatedNotifs.length} analizadas, ${alertsToSend.length} enviadas por email)`;
     await saveAiWatchdogConfigToDb(config);
     await saveAiWatchdogNotificationsToDb(updatedNotifs);
 
@@ -3687,6 +3742,7 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
       success: true,
       notifications: updatedNotifs,
       newAlertsCount: brandNewAlerts.length,
+      emailedAlertsCount: alertsToSend.length,
       config,
     });
   } catch (err) {
@@ -3694,6 +3750,122 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// Periodic background runner for AI Sentinel (Daily / 12h / 6h)
+async function runScheduledWatchdogScan() {
+  try {
+    const config = await getAiWatchdogConfigFromDb();
+    const frequency = config.checkFrequency || 'daily';
+    if (frequency === 'manual') return;
+
+    const now = new Date();
+    const lastScan = config.lastScanDate ? new Date(config.lastScanDate) : null;
+    const hoursSinceLast = lastScan ? (now.getTime() - lastScan.getTime()) / (1000 * 60 * 60) : 999;
+
+    let shouldRun = false;
+    if (frequency === '6h' && hoursSinceLast >= 6) {
+      shouldRun = true;
+    } else if (frequency === '12h' && hoursSinceLast >= 12) {
+      shouldRun = true;
+    } else if (frequency === 'daily') {
+      const isDifferentDay = !lastScan || (now.toDateString() !== lastScan.toDateString());
+      if (hoursSinceLast >= 24 || (isDifferentDay && now.getHours() >= 8)) {
+        shouldRun = true;
+      }
+    }
+
+    if (!shouldRun) return;
+
+    console.log(`[AI Sentinel Scheduler] Ejecutando escaneo automático programado (${frequency})...`);
+
+    ensureDefaultWatchdogSources(config);
+    const liveNotices = await aiWatchdogService.fetchLiveOfficialBulletins();
+    const customNotices = await aiWatchdogService.fetchCustomSources(config.sources, config.keywords, config.targetPlace);
+    const baselineNotices = aiWatchdogService.getBaselineNotices();
+    const existingNotifs = await getAiWatchdogNotificationsFromDb();
+
+    const knownKeys = new Set(existingNotifs.map(n => n.title.toLowerCase().trim()));
+    const candidatePool = [...customNotices, ...baselineNotices, ...liveNotices];
+    const filtered = aiWatchdogService.filterNotices(candidatePool, config);
+
+    const updatedNotifs = [...existingNotifs];
+    const brandNewAlerts = [];
+
+    for (const notice of filtered) {
+      const key = notice.title.toLowerCase().trim();
+      if (!knownKeys.has(key)) {
+        if (config.geminiApiKey) {
+          notice.aiAnalysis = await aiWatchdogService.analyzeWithGemini(notice, config);
+        }
+        notice.timestamp = new Date().toISOString();
+        notice.isRead = false;
+        notice.isEmailSent = false;
+        updatedNotifs.unshift(notice);
+        brandNewAlerts.push(notice);
+        knownKeys.add(key);
+      }
+    }
+
+    const isEmailEnabled = (config.notifyEmail !== undefined ? config.notifyEmail : config.emailNotifications) !== false;
+    const targetEmail = (config.targetEmail && typeof config.targetEmail === 'string') ? config.targetEmail.trim() : '';
+    const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
+
+    let alertsToSend = [];
+    if (brandNewAlerts.length > 0) {
+      alertsToSend = brandNewAlerts;
+    } else {
+      const unemailed = updatedNotifs.filter(n => !n.isEmailSent);
+      if (unemailed.length > 0) {
+        alertsToSend = unemailed.slice(0, 5);
+      }
+    }
+
+    if (isEmailEnabled && targetEmail && alertsToSend.length > 0) {
+      try {
+        const templates = await getEmailTemplates();
+        const sentinelTpl = templates.ai_sentinel || getDefaultEmailTemplates().ai_sentinel;
+        const mailSubject = (sentinelTpl.subject || `🪐 Alerta AI Sentinel: ${alertsToSend.length} Convocatoria(s) (${placeTitle})`)
+          .replace(/\{place\}/g, placeTitle)
+          .replace(/\{count\}/g, String(alertsToSend.length));
+
+        const emailHtml = buildSanctuaryEmailHtml({
+          templateType: 'ai_sentinel',
+          theme: sentinelTpl.theme || 'dark',
+          animated: sentinelTpl.animated !== false,
+          animationType: sentinelTpl.animationType || 'comets',
+          cometCount: sentinelTpl.cometCount,
+          cometFrequency: sentinelTpl.cometFrequency,
+          subject: mailSubject,
+          title: sentinelTpl.title || `Vigilancia Oficial Automatizada (${placeTitle})`,
+          body: sentinelTpl.body || `El motor inteligente AI Sentinel ha detectado ${alertsToSend.length} convocatoria(s) relevante(s) para ${placeTitle}:`,
+          ctaText: sentinelTpl.ctaText || 'Ver Convocatorias en el Hub',
+          ctaLink: 'https://carlosss91.github.io/Sanctuary/',
+          footerNote: sentinelTpl.footerNote,
+          extraInfo: { notices: alertsToSend, placeTitle },
+        });
+
+        await sendMailNotification({
+          to: targetEmail,
+          subject: mailSubject,
+          html: emailHtml,
+          text: `AI Sentinel ha detectado ${alertsToSend.length} convocatoria(s) para ${placeTitle}. Revisa el Hub en Sanctuary Suite.`,
+        });
+
+        alertsToSend.forEach(n => { n.isEmailSent = true; });
+        console.log(`[AI Sentinel Scheduler] Correo automático programado enviado con éxito a ${targetEmail} (${alertsToSend.length} convocatorias).`);
+      } catch (mailErr) {
+        console.warn('[AI Sentinel Scheduler] Error enviando correo programado:', mailErr.message);
+      }
+    }
+
+    config.lastScanDate = new Date().toISOString();
+    config.lastScanStatus = `Escaneo automático completado (${updatedNotifs.length} analizadas, ${alertsToSend.length} notificadas)`;
+    await saveAiWatchdogConfigToDb(config);
+    await saveAiWatchdogNotificationsToDb(updatedNotifs);
+  } catch (err) {
+    console.error('[AI Sentinel Scheduler] Error en escaneo programado:', err.message);
+  }
+}
 
 app.post('/api/ai-watchdog/test-gemini', async (req, res) => {
   try {
@@ -3851,5 +4023,13 @@ app.post('/api/ai-watchdog/list-models', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`✨ Sanctuary API running on port ${port}`);
+
+  // Iniciar planificador automático de AI Sentinel (revisa cada 10 min si toca escaneo)
+  setTimeout(() => {
+    runScheduledWatchdogScan().catch(err => console.warn('[AI Sentinel Scheduler] Init run error:', err.message));
+  }, 15000);
+  setInterval(() => {
+    runScheduledWatchdogScan().catch(err => console.warn('[AI Sentinel Scheduler] Cron error:', err.message));
+  }, 10 * 60 * 1000);
 });
 
