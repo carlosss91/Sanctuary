@@ -196,7 +196,6 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final isNarrow = constraints.maxWidth < 680;
-                    final isEn = widget.profile.isEnglishVersion;
                     return TabBar(
                       controller: _tabController,
                       isScrollable: isNarrow,
@@ -205,13 +204,13 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
                       dividerColor: Colors.transparent,
                       labelPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 2),
                       tabs: [
-                        _buildTabPill(Icons.person_outline, isEn ? '1. Identity' : '1. Identidad', 0, isDark, isExpanded: !isNarrow),
-                        _buildTabPill(Icons.phone_outlined, isEn ? '2. Contact' : '2. Contacto', 1, isDark, isExpanded: !isNarrow),
-                        _buildTabPill(Icons.article_outlined, isEn ? '3. About Me' : '3. Sobre Mí', 2, isDark, isExpanded: !isNarrow),
-                        _buildTabPill(Icons.star_outline, isEn ? '4. Skills' : '4. Competencias', 3, isDark, isExpanded: !isNarrow),
-                        _buildTabPill(Icons.work_outline, isEn ? '5. Experience' : '5. Experiencia', 4, isDark, isExpanded: !isNarrow),
-                        _buildTabPill(Icons.school_outlined, isEn ? '6. Education' : '6. Formación', 5, isDark, isExpanded: !isNarrow),
-                        _buildTabPill(Icons.palette_outlined, isEn ? '7. Design' : '7. Diseño', 6, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.person_outline, '1. Identidad', 0, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.phone_outlined, '2. Contacto', 1, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.article_outlined, '3. Sobre Mí', 2, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.star_outline, '4. Competencias', 3, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.work_outline, '5. Experiencia', 4, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.school_outlined, '6. Formación', 5, isDark, isExpanded: !isNarrow),
+                        _buildTabPill(Icons.palette_outlined, '7. Diseño', 6, isDark, isExpanded: !isNarrow),
                       ],
                     );
                   },
@@ -2039,11 +2038,17 @@ class _CvEditorTabsState extends State<CvEditorTabs> with SingleTickerProviderSt
   }
 
   DropdownMenuItem<String> _buildFontDropdownItem(String fontName, String label) {
+    TextStyle style;
+    try {
+      style = GoogleFonts.getFont(fontName, fontSize: 12);
+    } catch (_) {
+      style = TextStyle(fontFamily: fontName, fontSize: 12);
+    }
     return DropdownMenuItem<String>(
       value: fontName,
       child: Text(
         label,
-        style: GoogleFonts.getFont(fontName, fontSize: 12),
+        style: style,
       ),
     );
   }
