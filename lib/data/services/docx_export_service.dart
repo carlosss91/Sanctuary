@@ -327,7 +327,7 @@ class DocxExportService {
       borderRadius: 10,
     );
 
-    // Banner: 358pt wide x 54pt high, radius 8pt
+    // Banner: 358pt wide x 48pt high, radius 8pt
     final bannerBgBytes = await renderThemedWatermarkPng(
       pattern: pattern,
       backgroundColor: accentColor,
@@ -336,7 +336,7 @@ class DocxExportService {
       randomness: randomness,
       customWatermarkUrl: profile.customWatermarkUrl,
       width: 358,
-      height: 54,
+      height: 48,
       borderRadius: 8,
     );
 
@@ -811,7 +811,7 @@ class DocxExportService {
     if (hasAssets && hasPhoto) {
       docXml.write('''
           <w:p>
-            <w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="80"/></w:pPr>
+            <w:pPr><w:jc w:val="center"/><w:spacing w:before="160" w:after="60"/></w:pPr>
             <w:r>
               <w:drawing>
                 <wp:inline distT="0" distB="0" distL="0" distR="0">
@@ -852,7 +852,7 @@ class DocxExportService {
 
     // Sobre Mí
     if (profile.summary.trim().isNotEmpty) {
-      docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="200"/></w:pPr></w:p>');
+      docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>');
       _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
       final summarySz = _scaleSz(14, profile.fontSizeScale);
       docXml.write('''
@@ -860,7 +860,7 @@ class DocxExportService {
             <w:pPr>
               <w:spacing w:before="0" w:after="50" w:line="220" w:lineRule="auto"/>
               <w:jc w:val="both"/>
-              <w:ind w:left="60" w:right="60"/>
+              <w:ind w:left="140" w:right="140"/>
             </w:pPr>
             <w:r><w:rPr>$fontTag<w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.summary)}</w:t>
@@ -871,7 +871,7 @@ class DocxExportService {
     // Competencias
     final skillsList = _getSkillsList(profile);
     if (skillsList.isNotEmpty) {
-      docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="200"/></w:pPr></w:p>');
+      docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>');
       _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
       for (final item in skillsList) {
         final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
@@ -880,9 +880,9 @@ class DocxExportService {
         docXml.write('''
           <w:p>
             <w:pPr>
-              <w:tabs><w:tab w:val="right" w:pos="2920"/></w:tabs>
+              <w:tabs><w:tab w:val="right" w:pos="2840"/></w:tabs>
               <w:spacing w:before="45" w:after="5"/>
-              <w:ind w:left="60"/>
+              <w:ind w:left="140" w:right="140"/>
             </w:pPr>
             <w:r>
               <w:rPr>$fontTag<w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
@@ -898,7 +898,7 @@ class DocxExportService {
           docXml.write('''
           <w:p>
             <w:pPr>
-              <w:ind w:left="60"/>
+              <w:ind w:left="140" w:right="140"/>
               <w:spacing w:before="0" w:after="40" w:line="200" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
@@ -928,9 +928,6 @@ class DocxExportService {
     final nameSz = _scaleSz(28, profile.fontSizeScale);
     final jobSz = _scaleSz(17, profile.fontSizeScale);
     final hasJob = profile.jobTitle.trim().isNotEmpty;
-    final bannerTextH = hasJob ? 620 : 320;
-    final bannerOffsetDxa = (1080 - bannerTextH) ~/ 2;
-    final bannerOffsetEmu = -bannerOffsetDxa * 635;
 
     if (hasBannerBg) {
       docXml.write('''
@@ -946,7 +943,7 @@ class DocxExportService {
             </w:tblPr>
             <w:tblGrid><w:gridCol w:w="7160"/></w:tblGrid>
             <w:tr>
-              <w:trPr><w:trHeight w:val="1080" w:hRule="exact"/></w:trPr>
+              <w:trPr><w:trHeight w:val="960" w:hRule="exact"/></w:trPr>
               <w:tc>
                 <w:tcPr>
                   <w:tcW w:w="7160" w:type="dxa"/>
@@ -958,14 +955,14 @@ class DocxExportService {
                   <w:vAlign w:val="center"/>
                 </w:tcPr>
                 <w:p>
-                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="320" w:lineRule="exact"/></w:pPr>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="0" w:line="280" w:lineRule="exact"/></w:pPr>
                   <w:r>
                     <w:drawing>
                       <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">
                         <wp:simplePos x="0" y="0"/>
                         <wp:positionH relativeFrom="column"><wp:align>center</wp:align></wp:positionH>
-                        <wp:positionV relativeFrom="paragraph"><wp:posOffset>$bannerOffsetEmu</wp:posOffset></wp:positionV>
-                        <wp:extent cx="4546600" cy="685800"/>
+                        <wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>
+                        <wp:extent cx="4546600" cy="609600"/>
                         <wp:effectExtent l="0" t="0" r="0" b="0"/>
                         <wp:wrapNone/>
                         <wp:docPr id="1005" name="HeaderBanner"/><wp:cNvGraphicFramePr/>
@@ -974,7 +971,7 @@ class DocxExportService {
                             <pic:pic>
                               <pic:nvPicPr><pic:cNvPr id="1005" name="HeaderBanner"/><pic:cNvPicPr/></pic:nvPicPr>
                               <pic:blipFill><a:blip r:embed="rIdBannerBg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-                              <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="4546600" cy="685800"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                              <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="4546600" cy="609600"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
                             </pic:pic>
                           </a:graphicData>
                         </a:graphic>
@@ -989,7 +986,7 @@ class DocxExportService {
       if (profile.jobTitle.isNotEmpty) {
         docXml.write('''
                 <w:p>
-                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="0" w:line="240" w:lineRule="exact"/></w:pPr>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="40" w:line="220" w:lineRule="exact"/></w:pPr>
                   <w:r>
                     <w:rPr>$fontTag<w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/><w:spacing w:val="16"/></w:rPr>
                     <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
@@ -1387,6 +1384,45 @@ class DocxExportService {
     String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final sz = profile != null ? _scaleSz(15, profile.fontSizeScale) : 15;
+    final pillDocId = 2000 + (label.hashCode.abs() % 4000);
+
+    if (hasWhitePill) {
+      docXml.write('''
+          <w:p>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:spacing w:before="60" w:after="0" w:line="240" w:lineRule="exact"/>
+            </w:pPr>
+            <w:r>
+              <w:drawing>
+                <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">
+                  <wp:simplePos x="0" y="0"/>
+                  <wp:positionH relativeFrom="column"><wp:align>center</wp:align></wp:positionH>
+                  <wp:positionV relativeFrom="paragraph"><wp:posOffset>-25400</wp:posOffset></wp:positionV>
+                  <wp:extent cx="1841500" cy="254000"/>
+                  <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                  <wp:wrapNone/>
+                  <wp:docPr id="$pillDocId" name="WhitePill"/><wp:cNvGraphicFramePr/>
+                  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                      <pic:pic>
+                        <pic:nvPicPr><pic:cNvPr id="$pillDocId" name="WhitePill"/><pic:cNvPicPr/></pic:nvPicPr>
+                        <pic:blipFill><a:blip r:embed="rIdWhitePill"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1841500" cy="254000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                      </pic:pic>
+                    </a:graphicData>
+                  </a:graphic>
+                </wp:anchor>
+              </w:drawing>
+            </w:r>
+            <w:r>
+              <w:rPr>$fontTag<w:b/><w:sz w:val="$sz"/><w:color w:val="$accentHex"/><w:spacing w:val="14"/></w:rPr>
+              <w:t>${_escapeXml(label)}</w:t>
+            </w:r>
+          </w:p>
+          <w:p><w:pPr><w:spacing w:before="0" w:after="80"/></w:pPr></w:p>''');
+      return;
+    }
 
     docXml.write('''
           <w:tbl>
@@ -1437,7 +1473,7 @@ class DocxExportService {
           <w:p>
             <w:pPr>
               <w:spacing w:before="20" w:after="34" w:line="220" w:lineRule="auto"/>
-              <w:ind w:left="140"/>
+              <w:ind w:left="280"/>
             </w:pPr>
             <w:r>
               <w:drawing>
@@ -1473,7 +1509,7 @@ class DocxExportService {
     docXml.write('''
           <w:p>
             <w:pPr>
-              <w:ind w:left="140"/>
+              <w:ind w:left="280"/>
               <w:spacing w:before="20" w:after="40"/>
             </w:pPr>
             <w:r>

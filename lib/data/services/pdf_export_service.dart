@@ -104,7 +104,7 @@ class PdfExportService {
           sidebarWatermarkImg = pw.MemoryImage(sidebarBytes);
         }
 
-        // Header Banner watermark for sidebar_dark (358 x 46 pt logical)
+        // Header Banner watermark for sidebar_dark (358 x 48 pt logical)
         final bannerBytes = await WatermarkPainter.renderWatermarkPng(
           pattern: profile.watermarkPattern,
           opacity: profile.watermarkOpacity,
@@ -112,7 +112,7 @@ class PdfExportService {
           randomness: profile.watermarkRandomness,
           customWatermarkUrl: profile.customWatermarkUrl,
           width: 358,
-          height: 46,
+          height: 48,
           backgroundColor: flutterAccentColor,
           borderRadius: 8,
         );
@@ -455,9 +455,9 @@ class PdfExportService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              // Header Banner (46pt height matching A4SheetPreview and compact layout)
+              // Header Banner (48pt height matching A4SheetPreview and compact layout)
               pw.Container(
-                height: 46,
+                height: 48,
                 child: pw.Stack(
                   alignment: pw.Alignment.center,
                   children: [
@@ -475,7 +475,7 @@ class PdfExportService {
                         ),
                       ),
                     pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       child: pw.Column(
                         mainAxisAlignment: pw.MainAxisAlignment.center,
                         crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -1285,10 +1285,10 @@ class PdfExportService {
   // ==============================================================================
   static pw.Widget _buildPillOnColor(String title, [PdfColor? accentColor]) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
       decoration: const pw.BoxDecoration(
         color: PdfColors.white,
-        borderRadius: pw.BorderRadius.all(pw.Radius.circular(10)),
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(7)),
       ),
       child: pw.Text(
         title,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sanctuary/data/models/cv_profile_model.dart';
 import 'package:sanctuary/features/cv_maker/widgets/cv_editor_tabs.dart';
+import 'package:sanctuary/features/cv_maker/widgets/a4_sheet_preview.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -108,4 +109,63 @@ void main() {
       expect(find.text('Familia Tipográfica (Coherente en Web, PDF y Word)'), findsOneWidget);
     }
   });
+
+  testWidgets('A4SheetPreview zoom controls (+, -, 1:1, Ajustar, and manual text input) work seamlessly', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: A4SheetPreview(
+            profile: sampleProfile,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // 1. Initial zoom textfield should exist
+    final textFieldFinder = find.byType(TextField);
+    expect(textFieldFinder, findsOneWidget);
+
+    // 2. Tap '+' button to zoom in
+    final addBtn = find.byTooltip('Aumentar zoom');
+    expect(addBtn, findsOneWidget);
+    await tester.tap(addBtn);
+    await tester.pumpAndSettle();
+
+    final zoomCtrl = tester.widget<TextField>(textFieldFinder).controller!;
+    expect(zoomCtrl.text, isNot('100%'));
+
+    // 3. Tap '1:1' button to reset zoom to 100%
+    final oneToOneBtn = find.text('1:1');
+    expect(oneToOneBtn, findsOneWidget);
+    await tester.tap(oneToOneBtn);
+    await tester.pumpAndSettle();
+    expect(zoomCtrl.text, '100%');
+
+    // 4. Tap '-' button to zoom out from 100%
+    final minusBtn = find.byTooltip('Reducir zoom');
+    expect(minusBtn, findsOneWidget);
+    await tester.tap(minusBtn);
+    await tester.pumpAndSettle();
+    expect(zoomCtrl.text, '90%');
+
+    // 5. Test manual number typing into TextField
+    await tester.enterText(textFieldFinder, '60%');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(zoomCtrl.text, '60%');
+
+    // 6. Test 'Ajustar' button
+    final autoFitBtn = find.text('Ajustar');
+    expect(autoFitBtn, findsOneWidget);
+    await tester.tap(autoFitBtn);
+    await tester.pumpAndSettle();
+    expect(zoomCtrl.text, isNot('60%'));
+  });
 }
+

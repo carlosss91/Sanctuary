@@ -37,7 +37,12 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
     _zoomTextCtrl = TextEditingController(text: '85%');
     _zoomFocusNode = FocusNode();
     _zoomFocusNode.addListener(() {
-      if (!_zoomFocusNode.hasFocus) {
+      if (_zoomFocusNode.hasFocus) {
+        _zoomTextCtrl.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _zoomTextCtrl.text.length,
+        );
+      } else {
         _applyZoomFromText();
       }
     });
@@ -51,19 +56,21 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
   }
 
   void _syncZoomText(double scale) {
-    if (!_zoomFocusNode.hasFocus) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _zoomFocusNode.hasFocus) return;
       final formatted = '${(scale * 100).round()}%';
       if (_zoomTextCtrl.text != formatted) {
         _zoomTextCtrl.text = formatted;
       }
-    }
+    });
   }
 
-  void _applyZoomFromText() {
-    final raw = _zoomTextCtrl.text.replaceAll('%', '').replaceAll(',', '.').trim();
+  void _applyZoomFromText([String? textVal]) {
+    final raw = (textVal ?? _zoomTextCtrl.text).replaceAll('%', '').replaceAll(',', '.').trim();
     final parsed = double.tryParse(raw);
     if (parsed != null && parsed > 0) {
-      final clampedScale = (parsed / 100.0).clamp(0.3, 2.0);
+      final scale = parsed > 5 ? (parsed / 100.0) : parsed;
+      final clampedScale = scale.clamp(0.3, 2.0);
       setState(() => _customScale = clampedScale);
       _zoomTextCtrl.text = '${(clampedScale * 100).round()}%';
     } else {
@@ -74,16 +81,18 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
 
   void _zoomIn() {
     final current = _customScale ?? _lastAutoFitScale;
-    final next = (current + 0.08).clamp(0.3, 1.8);
-    setState(() => _customScale = next);
-    _zoomTextCtrl.text = '${(next * 100).round()}%';
+    final next = ((current + 0.10) * 10).round() / 10.0;
+    final clamped = next.clamp(0.3, 2.0);
+    setState(() => _customScale = clamped);
+    _zoomTextCtrl.text = '${(clamped * 100).round()}%';
   }
 
   void _zoomOut() {
     final current = _customScale ?? _lastAutoFitScale;
-    final next = (current - 0.08).clamp(0.3, 1.8);
-    setState(() => _customScale = next);
-    _zoomTextCtrl.text = '${(next * 100).round()}%';
+    final next = ((current - 0.10) * 10).round() / 10.0;
+    final clamped = next.clamp(0.3, 2.0);
+    setState(() => _customScale = clamped);
+    _zoomTextCtrl.text = '${(clamped * 100).round()}%';
   }
 
   void _resetZoom() {
@@ -93,6 +102,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
 
   void _autoFit() {
     setState(() => _customScale = null);
+    _zoomTextCtrl.text = '${(_lastAutoFitScale * 100).round()}%';
   }
 
   Color _parseAccent(String hex) {
@@ -356,13 +366,14 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove, size: 13),
+                        tooltip: 'Reducir zoom',
+                        icon: const Icon(Icons.remove, size: 14),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                         onPressed: _zoomOut,
                       ),
                       SizedBox(
-                        width: 44,
+                        width: 56,
                         child: TextField(
                           controller: _zoomTextCtrl,
                           focusNode: _zoomFocusNode,
@@ -376,18 +387,23 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 2),
+                            contentPadding: EdgeInsets.symmetric(vertical: 2, horizontal: 2),
                           ),
-                          onSubmitted: (_) {
+                          onSubmitted: (val) {
+                            _applyZoomFromText(val);
+                            _zoomFocusNode.unfocus();
+                          },
+                          onEditingComplete: () {
                             _applyZoomFromText();
                             _zoomFocusNode.unfocus();
                           },
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.add, size: 13),
+                        tooltip: 'Aumentar zoom',
+                        icon: const Icon(Icons.add, size: 14),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                         onPressed: _zoomIn,
                       ),
                     ],
@@ -397,7 +413,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
             ),
           ),
 
-          // Main Sheet Canvas (Proportional A4 Layout, Auto-fits width gracefully)
+          // Main Sheet Canvas (Proportional A4 Layout, Auto-fits width gracefully with bidirectional scrolling)
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -408,32 +424,36 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                 _syncZoomText(effectiveScale);
 
                 return SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
                   padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 84),
-                  child: Center(
-                    child: SizedBox(
-                      width: 595 * effectiveScale,
-                      height: 842 * effectiveScale,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        alignment: Alignment.topCenter,
-                        child: Container(
-                          width: 595,
-                          height: 842,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.35),
-                                blurRadius: 28,
-                                offset: const Offset(0, 12),
-                              ),
-                            ],
-                          ),
-                          child: DefaultTextStyle.merge(
-                            style: _getTextStyle(fontSize: 8.8, color: const Color(0xFF1E293B)),
-                            child: _buildTemplateLayout(accentColor, isEn),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Center(
+                      child: SizedBox(
+                        width: 595 * effectiveScale,
+                        height: 842 * effectiveScale,
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            width: 595,
+                            height: 842,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.35),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
+                            ),
+                            child: DefaultTextStyle.merge(
+                              style: _getTextStyle(fontSize: 8.8, color: const Color(0xFF1E293B)),
+                              child: _buildTemplateLayout(accentColor, isEn),
+                            ),
                           ),
                         ),
                       ),
@@ -555,6 +575,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
               // Header Banner with Name & Job Title
               Container(
                 width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 48),
                 decoration: BoxDecoration(
                   color: accentColor,
                   borderRadius: BorderRadius.circular(8),
@@ -568,7 +589,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                         child: _buildWatermarkOverlay(),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
