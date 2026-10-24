@@ -45611,7 +45611,7 @@ $S:3}
 A.bFB.prototype={
 $1(a){var s=A.fk().b
 s=s==null?null:s.canvasKitBaseUrl
-return(s==null?"https://www.gstatic.com/flutter-canvaskit/deb287481e3ce9468f3434937ced4240a70539ca/":s)+a},
+return(s==null?"https://www.gstatic.com/flutter-canvaskit/cf636b1dfb818dd6a3ff16e390e93b1a036969c8/":s)+a},
 $S:17}
 A.atD.prototype={
 gB(a){var s=this.a
@@ -146554,8 +146554,8 @@ c=A.u(b,a1,a1,a1,a1,a0.RK(B.q,11.5*c.fx,B.bp),a1,a1)
 b=a0.a.c
 a=a4?B.aI:B.aE
 return A.dV(A.a8(A.d([B.bzp,B.aK,B.bBj,B.be,a3,B.eT,B.hz,B.bd,s,B.eT,B.hz,B.bd,B.bC3,B.be,q,B.hi,o,B.be,r,B.cy,n,m,B.bb,k,l,B.bb,i,j,B.aK,A.F(a1,A.a8(A.d([e,B.be,d,B.c9,c,B.c9,A.u("Curriculum Vitae profesional optimizado con tipograf\xeda "+b.fr+". A4 milim\xe9tricamente ajustado.",a1,a1,a1,a1,a0.azm(a,10*b.fx),a1,a1)],p),B.a2,B.v,B.z),B.A,a1,a1,new A.K(h,a1,f,g,a1,a1,B.K),a1,a1,a1,B.dA,a1,a1,1/0)],p),B.a2,B.v,B.z),a1,B.ac,B.j_,a1,B.aO)},
-lt(a,b){var s=null
-return A.bJw(A.u(b,s,s,s,s,A.bJQ(a,s,s,12,s,s,s,s),s,s),a,t.N)},
+lt(a,b){var s,r=null,q=null
+try{q=A.bJQ(a,r,r,12,r,r,r,r)}catch(s){q=A.ab(r,r,r,r,r,r,r,r,a,r,r,12,r,r,r,r,r,!0,r,r,r,r,r,r,r,r)}return A.bJw(A.u(b,r,r,r,r,q,r,r),a,t.N)},
 RK(a,b,c){var s,r,q=null
 try{s=this.a.c
 s=A.bJQ(s.fr,a,q,b,q,c,s.go,s.fy)
@@ -146688,20 +146688,13 @@ A.bn2.prototype={
 $0(){this.a.ay=null},
 $S:1}
 A.bn4.prototype={
-$2(a,b){var s,r,q,p,o,n,m,l,k,j,i=null,h=b.b<680,g=this.a,f=g.a.c.id,e=g.d
-e===$&&A.b()
-s=h?B.XG:B.nA
-r=h?4:2
-q=f?"1. Identity":"1. Identidad"
-p=this.b
-o=!h
-q=g.uY(B.pq,q,0,p,o)
-n=g.uY(B.Ey,f?"2. Contact":"2. Contacto",1,p,o)
-m=g.uY(B.Er,f?"3. About Me":"3. Sobre M\xed",2,p,o)
-l=g.uY(B.wQ,f?"4. Skills":"4. Competencias",3,p,o)
-k=g.uY(B.ps,f?"5. Experience":"5. Experiencia",4,p,o)
-j=g.uY(B.pu,f?"6. Education":"6. Formaci\xf3n",5,p,o)
-return A.bLd(e,B.ae,i,B.ae,i,2,h,i,new A.a3(r,0,r,0),i,i,i,s,A.d([q,n,m,l,k,j,g.uY(B.abx,f?"7. Design":"7. Dise\xf1o",6,p,o)],t.p),i,i)},
+$2(a,b){var s,r,q,p,o=null,n=b.b<680,m=this.a,l=m.d
+l===$&&A.b()
+s=n?B.XG:B.nA
+r=n?4:2
+q=this.b
+p=!n
+return A.bLd(l,B.ae,o,B.ae,o,2,n,o,new A.a3(r,0,r,0),o,o,o,s,A.d([m.uY(B.pq,"1. Identidad",0,q,p),m.uY(B.Ey,"2. Contacto",1,q,p),m.uY(B.Er,"3. Sobre M\xed",2,q,p),m.uY(B.wQ,"4. Competencias",3,q,p),m.uY(B.ps,"5. Experiencia",4,q,p),m.uY(B.pu,"6. Formaci\xf3n",5,q,p),m.uY(B.abx,"7. Dise\xf1o",6,q,p)],t.p),o,o)},
 $S:311}
 A.bmT.prototype={
 $1(a){var s=this.a
