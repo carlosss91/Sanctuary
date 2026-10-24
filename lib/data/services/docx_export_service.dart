@@ -8,6 +8,18 @@ import 'package:printing/printing.dart';
 import '../models/cv_profile_model.dart';
 import '../../features/cv_maker/widgets/watermark_painter.dart';
 
+/// Pre-rendered pill badge asset with dimensions.
+class PillBadgeAsset {
+  final Uint8List bytes;
+  final double width;
+  final double height;
+  const PillBadgeAsset({
+    required this.bytes,
+    required this.width,
+    required this.height,
+  });
+}
+
 /// Pre-rendered assets bundle for high-fidelity DOCX generation matching the PDF and A4 Preview.
 class DocxAssets {
   final Uint8List? photoBytes;
@@ -20,6 +32,9 @@ class DocxAssets {
   final Uint8List? iconLocationBytes;
   final Uint8List? iconClockBytes;
   final Uint8List? iconCarBytes;
+  final PillBadgeAsset? pillContact;
+  final PillBadgeAsset? pillAbout;
+  final PillBadgeAsset? pillSkills;
 
   const DocxAssets({
     this.photoBytes,
@@ -32,6 +47,9 @@ class DocxAssets {
     this.iconLocationBytes,
     this.iconClockBytes,
     this.iconCarBytes,
+    this.pillContact,
+    this.pillAbout,
+    this.pillSkills,
   });
 }
 
@@ -201,6 +219,58 @@ class DocxExportService {
     return byteData!.buffer.asUint8List();
   }
 
+  static Future<PillBadgeAsset> renderPillBadgePng({
+    required String text,
+    required Color accentColor,
+    double height = 22.0,
+    String fontFamily = 'Segoe UI',
+  }) async {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: accentColor,
+          fontSize: 9.5,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.8,
+          fontFamily: fontFamily,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    final width = (textPainter.width + 24.0).clamp(55.0, 160.0);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width * 2, height * 2));
+    canvas.scale(2.0, 2.0);
+
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, width, height),
+      Radius.circular(height / 2),
+    );
+
+    final bgPaint = Paint()
+      ..color = Colors.white
+      ..isAntiAlias = true;
+    canvas.drawRRect(rrect, bgPaint);
+
+    final textOffset = Offset(
+      (width - textPainter.width) / 2,
+      (height - textPainter.height) / 2,
+    );
+    textPainter.paint(canvas, textOffset);
+
+    final pic = recorder.endRecording();
+    final outImg = await pic.toImage((width * 2).round(), (height * 2).round());
+    final byteData = await outImg.toByteData(format: ui.ImageByteFormat.png);
+    return PillBadgeAsset(
+      bytes: byteData!.buffer.asUint8List(),
+      width: width,
+      height: height,
+    );
+  }
+
   static Future<Uint8List> renderAvatarBadgePng({
     Uint8List? photoBytes,
     required String initials,
@@ -314,7 +384,7 @@ class DocxExportService {
     final density = profile.watermarkDensity.clamp(0.4, 3.0);
     final randomness = profile.watermarkRandomness.clamp(0.0, 1.0);
 
-    // Sidebar: 185pt wide x 780pt high, radius 10pt (matching PDF & A4 Preview)
+    // Sidebar: 185pt wide x 806pt high, radius 10pt (matching full printable height of A4)
     final sidebarBgBytes = await renderThemedWatermarkPng(
       pattern: pattern,
       backgroundColor: accentColor,
@@ -323,7 +393,7 @@ class DocxExportService {
       randomness: randomness,
       customWatermarkUrl: profile.customWatermarkUrl,
       width: 185,
-      height: 780,
+      height: 806,
       borderRadius: 10,
     );
 
@@ -353,7 +423,7 @@ class DocxExportService {
       borderRadius: 11,
     );
 
-    // White Sidebar Pill: 145pt wide x 20pt high, radius 10pt
+    // White Sidebar Pill fallback: 145pt wide x 20pt high, radius 10pt
     final whitePillBytes = await renderThemedWatermarkPng(
       pattern: 'none',
       backgroundColor: Colors.white,
@@ -363,6 +433,25 @@ class DocxExportService {
       width: 145,
       height: 20,
       borderRadius: 10,
+    );
+
+    // Subtitle Pill Badges with text centered in true capsule shapes
+    final isEn = profile.isEnglishVersion;
+    final fontName = profile.fontFamily.trim().isNotEmpty ? profile.fontFamily.trim() : 'Segoe UI';
+    final pillContact = await renderPillBadgePng(
+      text: isEn ? 'CONTACT DETAILS' : 'DATOS',
+      accentColor: accentColor,
+      fontFamily: fontName,
+    );
+    final pillAbout = await renderPillBadgePng(
+      text: isEn ? 'ABOUT ME' : 'SOBRE MÍ',
+      accentColor: accentColor,
+      fontFamily: fontName,
+    );
+    final pillSkills = await renderPillBadgePng(
+      text: isEn ? 'KEY SKILLS' : 'COMPETENCIAS',
+      accentColor: accentColor,
+      fontFamily: fontName,
     );
 
     // Photo/Avatar badge
@@ -397,6 +486,9 @@ class DocxExportService {
       iconLocationBytes: iconLocationBytes,
       iconClockBytes: iconClockBytes,
       iconCarBytes: iconCarBytes,
+      pillContact: pillContact,
+      pillAbout: pillAbout,
+      pillSkills: pillSkills,
     );
   }
 
@@ -429,6 +521,9 @@ class DocxExportService {
     final Uint8List? pillBg = preloadedAssets?.pillBgBytes;
     final Uint8List? whitePill = preloadedAssets?.whitePillBytes;
     final Uint8List? photoBytes = preloadedAssets?.photoBytes ?? preloadedPhotoBytes;
+    final PillBadgeAsset? pillContact = preloadedAssets?.pillContact;
+    final PillBadgeAsset? pillAbout = preloadedAssets?.pillAbout;
+    final PillBadgeAsset? pillSkills = preloadedAssets?.pillSkills;
 
     if (sidebarBg != null && sidebarBg.isNotEmpty) {
       archive.addFile(ArchiveFile('word/media/sidebar_bg.png', sidebarBg.length, sidebarBg));
@@ -449,6 +544,15 @@ class DocxExportService {
     if (photoBytes != null && photoBytes.isNotEmpty) {
       archive.addFile(ArchiveFile('word/media/photo.png', photoBytes.length, photoBytes));
       archive.addFile(ArchiveFile('word/media/image1.png', photoBytes.length, photoBytes));
+    }
+    if (pillContact != null) {
+      archive.addFile(ArchiveFile('word/media/pill_contact.png', pillContact.bytes.length, pillContact.bytes));
+    }
+    if (pillAbout != null) {
+      archive.addFile(ArchiveFile('word/media/pill_about.png', pillAbout.bytes.length, pillAbout.bytes));
+    }
+    if (pillSkills != null) {
+      archive.addFile(ArchiveFile('word/media/pill_skills.png', pillSkills.bytes.length, pillSkills.bytes));
     }
 
     if (hasAssets) {
@@ -511,6 +615,15 @@ class DocxExportService {
     }
     if (whitePill != null && whitePill.isNotEmpty) {
       docRelsXml.write('\n  <Relationship Id="rIdWhitePill" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/white_pill.png"/>');
+    }
+    if (pillContact != null) {
+      docRelsXml.write('\n  <Relationship Id="rIdPillContact" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/pill_contact.png"/>');
+    }
+    if (pillAbout != null) {
+      docRelsXml.write('\n  <Relationship Id="rIdPillAbout" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/pill_about.png"/>');
+    }
+    if (pillSkills != null) {
+      docRelsXml.write('\n  <Relationship Id="rIdPillSkills" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/pill_skills.png"/>');
     }
     if (hasAssets) {
       docRelsXml.write('\n  <Relationship Id="rIdIconPhone" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/icon_phone.png"/>');
@@ -704,6 +817,9 @@ class DocxExportService {
           hasBannerBg: bannerBg != null,
           hasWhitePill: whitePill != null,
           hasSidebarBg: sidebarBg != null && sidebarBg.isNotEmpty,
+          pillContact: pillContact,
+          pillAbout: pillAbout,
+          pillSkills: pillSkills,
           fontTag: fontTag,
         );
         break;
@@ -740,6 +856,9 @@ class DocxExportService {
     required bool hasBannerBg,
     required bool hasWhitePill,
     required bool hasSidebarBg,
+    PillBadgeAsset? pillContact,
+    PillBadgeAsset? pillAbout,
+    PillBadgeAsset? pillSkills,
     String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final col1W = hasAssets ? 3700 : 3300;
@@ -772,12 +891,12 @@ class DocxExportService {
             ${hasSidebarBg ? '<w:shd w:val="none"/>' : '<w:shd w:val="clear" w:color="auto" w:fill="$accentHex"/>'}
             <w:tcMar>
               <w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>
-              <w:left w:w="280" w:type="dxa"/><w:right w:w="280" w:type="dxa"/>
+              <w:left w:w="240" w:type="dxa"/><w:right w:w="240" w:type="dxa"/>
             </w:tcMar>
           </w:tcPr>
 ''');
 
-    // Sidebar Background Watermark inside Document Body (100% vibrant, aligned to margins, rounded corners)
+    // Sidebar Background Watermark inside Document Body (reaching full printable height to bottom margin)
     if (hasSidebarBg) {
       docXml.write('''
           <w:p>
@@ -788,7 +907,7 @@ class DocxExportService {
                   <wp:simplePos x="0" y="0"/>
                   <wp:positionH relativeFrom="margin"><wp:posOffset>0</wp:posOffset></wp:positionH>
                   <wp:positionV relativeFrom="margin"><wp:posOffset>0</wp:posOffset></wp:positionV>
-                  <wp:extent cx="2349500" cy="9906000"/>
+                  <wp:extent cx="2349500" cy="10234930"/>
                   <wp:effectExtent l="0" t="0" r="0" b="0"/>
                   <wp:wrapNone/>
                   <wp:docPr id="1001" name="SidebarBackground"/><wp:cNvGraphicFramePr/>
@@ -797,7 +916,7 @@ class DocxExportService {
                       <pic:pic>
                         <pic:nvPicPr><pic:cNvPr id="1001" name="SidebarBackground"/><pic:cNvPicPr/></pic:nvPicPr>
                         <pic:blipFill><a:blip r:embed="rIdSidebarBg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="2349500" cy="9906000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="2349500" cy="10234930"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
                       </pic:pic>
                     </a:graphicData>
                   </a:graphic>
@@ -835,7 +954,7 @@ class DocxExportService {
     }
 
     // Datos de Contacto
-    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
+    _addSidebarPill(docXml, isEn ? 'CONTACT DETAILS' : 'DATOS', accentHex, profile: profile, badge: pillContact, relId: 'rIdPillContact', hasWhitePill: hasWhitePill, fontTag: fontTag);
     if (hasAssets) {
       if (profile.phone.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconPhone', profile.phone, fontTag);
       if (profile.email.isNotEmpty) _addSidebarContactItem(docXml, 'rIdIconEmail', profile.email, fontTag);
@@ -853,14 +972,14 @@ class DocxExportService {
     // Sobre Mí
     if (profile.summary.trim().isNotEmpty) {
       docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>');
-      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
+      _addSidebarPill(docXml, isEn ? 'ABOUT ME' : 'SOBRE MÍ', accentHex, profile: profile, badge: pillAbout, relId: 'rIdPillAbout', hasWhitePill: hasWhitePill, fontTag: fontTag);
       final summarySz = _scaleSz(14, profile.fontSizeScale);
       docXml.write('''
           <w:p>
             <w:pPr>
               <w:spacing w:before="0" w:after="50" w:line="220" w:lineRule="auto"/>
               <w:jc w:val="both"/>
-              <w:ind w:left="140" w:right="140"/>
+              <w:ind w:left="100" w:right="100"/>
             </w:pPr>
             <w:r><w:rPr>$fontTag<w:sz w:val="$summarySz"/><w:color w:val="FFFFFF"/></w:rPr>
               <w:t>${_escapeXml(profile.summary)}</w:t>
@@ -872,7 +991,7 @@ class DocxExportService {
     final skillsList = _getSkillsList(profile);
     if (skillsList.isNotEmpty) {
       docXml.write('<w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>');
-      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentHex, profile: profile, hasWhitePill: hasWhitePill, fontTag: fontTag);
+      _addSidebarPill(docXml, isEn ? 'KEY SKILLS' : 'COMPETENCIAS', accentHex, profile: profile, badge: pillSkills, relId: 'rIdPillSkills', hasWhitePill: hasWhitePill, fontTag: fontTag);
       for (final item in skillsList) {
         final dots = _formatRatingDots(item.level, profile.skillRatingStyle);
         final skillSz = _scaleSz(13, profile.fontSizeScale);
@@ -880,9 +999,9 @@ class DocxExportService {
         docXml.write('''
           <w:p>
             <w:pPr>
-              <w:tabs><w:tab w:val="right" w:pos="2840"/></w:tabs>
+              <w:tabs><w:tab w:val="right" w:pos="3020"/></w:tabs>
               <w:spacing w:before="45" w:after="5"/>
-              <w:ind w:left="140" w:right="140"/>
+              <w:ind w:left="100" w:right="100"/>
             </w:pPr>
             <w:r>
               <w:rPr>$fontTag<w:b/><w:sz w:val="$skillSz"/><w:color w:val="FFFFFF"/></w:rPr>
@@ -898,7 +1017,7 @@ class DocxExportService {
           docXml.write('''
           <w:p>
             <w:pPr>
-              <w:ind w:left="140" w:right="140"/>
+              <w:ind w:left="100" w:right="100"/>
               <w:spacing w:before="0" w:after="40" w:line="200" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
@@ -924,12 +1043,15 @@ class DocxExportService {
           </w:tcPr>
 ''');
 
-    // Header Banner Box (Full circuit watermark with rounded corners & centered text)
+    // Header Banner Box (Full circuit watermark with rounded corners & vertically centered text)
     final nameSz = _scaleSz(28, profile.fontSizeScale);
     final jobSz = _scaleSz(17, profile.fontSizeScale);
     final hasJob = profile.jobTitle.trim().isNotEmpty;
 
     if (hasBannerBg) {
+      final bannerVOffset = hasJob ? -101600 : -177800;
+      final nameBefore = hasJob ? 160 : 280;
+      final nameAfter = hasJob ? 20 : 280;
       docXml.write('''
           <w:tbl>
             <w:tblPr>
@@ -952,16 +1074,16 @@ class DocxExportService {
                     <w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>
                     <w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
                   </w:tcMar>
-                  <w:vAlign w:val="center"/>
+                  <w:vAlign w:val="top"/>
                 </w:tcPr>
                 <w:p>
-                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="0" w:line="280" w:lineRule="exact"/></w:pPr>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="$nameBefore" w:after="$nameAfter" w:line="280" w:lineRule="exact"/></w:pPr>
                   <w:r>
                     <w:drawing>
                       <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">
                         <wp:simplePos x="0" y="0"/>
-                        <wp:positionH relativeFrom="column"><wp:align>center</wp:align></wp:positionH>
-                        <wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>
+                        <wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH>
+                        <wp:positionV relativeFrom="paragraph"><wp:posOffset>$bannerVOffset</wp:posOffset></wp:positionV>
                         <wp:extent cx="4546600" cy="609600"/>
                         <wp:effectExtent l="0" t="0" r="0" b="0"/>
                         <wp:wrapNone/>
@@ -986,7 +1108,7 @@ class DocxExportService {
       if (profile.jobTitle.isNotEmpty) {
         docXml.write('''
                 <w:p>
-                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="40" w:line="220" w:lineRule="exact"/></w:pPr>
+                  <w:pPr><w:jc w:val="center"/><w:spacing w:before="20" w:after="160" w:line="220" w:lineRule="exact"/></w:pPr>
                   <w:r>
                     <w:rPr>$fontTag<w:b/><w:sz w:val="$jobSz"/><w:color w:val="FFFFFF"/><w:spacing w:val="16"/></w:rPr>
                     <w:t>${_escapeXml(profile.jobTitle.toUpperCase())}</w:t>
@@ -1380,11 +1502,43 @@ class DocxExportService {
     String label,
     String accentHex, {
     CvProfileModel? profile,
+    PillBadgeAsset? badge,
+    String? relId,
     bool hasWhitePill = false,
     String fontTag = '<w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>',
   }) {
     final sz = profile != null ? _scaleSz(15, profile.fontSizeScale) : 15;
     final pillDocId = 2000 + (label.hashCode.abs() % 4000);
+
+    if (badge != null && relId != null) {
+      final wEmu = (badge.width * 12700).round();
+      final hEmu = (badge.height * 12700).round();
+      docXml.write('''
+          <w:p>
+            <w:pPr>
+              <w:jc w:val="center"/>
+              <w:spacing w:before="120" w:after="70"/>
+            </w:pPr>
+            <w:r>
+              <w:drawing>
+                <wp:inline distT="0" distB="0" distL="0" distR="0">
+                  <wp:extent cx="$wEmu" cy="$hEmu"/>
+                  <wp:docPr id="$pillDocId" name="Pill"/><wp:cNvGraphicFramePr/>
+                  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                      <pic:pic>
+                        <pic:nvPicPr><pic:cNvPr id="$pillDocId" name="Pill"/><pic:cNvPicPr/></pic:nvPicPr>
+                        <pic:blipFill><a:blip r:embed="$relId"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$wEmu" cy="$hEmu"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+                      </pic:pic>
+                    </a:graphicData>
+                  </a:graphic>
+                </wp:inline>
+              </w:drawing>
+            </w:r>
+          </w:p>''');
+      return;
+    }
 
     if (hasWhitePill) {
       docXml.write('''
@@ -1473,7 +1627,7 @@ class DocxExportService {
           <w:p>
             <w:pPr>
               <w:spacing w:before="20" w:after="34" w:line="220" w:lineRule="auto"/>
-              <w:ind w:left="280"/>
+              <w:ind w:left="100"/>
             </w:pPr>
             <w:r>
               <w:drawing>
@@ -1509,7 +1663,7 @@ class DocxExportService {
     docXml.write('''
           <w:p>
             <w:pPr>
-              <w:ind w:left="280"/>
+              <w:ind w:left="100"/>
               <w:spacing w:before="20" w:after="40"/>
             </w:pPr>
             <w:r>

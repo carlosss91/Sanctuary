@@ -1383,50 +1383,42 @@ class PdfExportService {
   }
 
   static pw.Widget _buildSectionPill(String title, PdfColor color, [pw.MemoryImage? watermarkImg]) {
-    final textWidget = pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      child: pw.Text(
-        title.toUpperCase(),
-        textAlign: pw.TextAlign.center,
-        style: const pw.TextStyle(
-          color: PdfColors.white,
-          fontSize: 8.2,
-          fontWeight: pw.FontWeight.bold,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-
-    if (watermarkImg != null) {
-      return pw.Container(
-        width: double.infinity,
-        height: 22,
-        alignment: pw.Alignment.center,
-        child: pw.ClipRRect(
-          horizontalRadius: 8,
-          verticalRadius: 8,
-          child: pw.Stack(
-            alignment: pw.Alignment.center,
-            children: [
-              pw.Positioned.fill(
-                child: pw.Image(watermarkImg, fit: pw.BoxFit.fill),
-              ),
-              textWidget,
-            ],
-          ),
-        ),
-      );
-    }
-
     return pw.Container(
       width: double.infinity,
       height: 22,
-      alignment: pw.Alignment.center,
-      decoration: pw.BoxDecoration(
-        color: color,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+      child: pw.Stack(
+        alignment: pw.Alignment.center,
+        children: [
+          if (watermarkImg != null)
+            pw.Positioned.fill(
+              child: pw.Image(watermarkImg, fit: pw.BoxFit.fill),
+            )
+          else
+            pw.Positioned.fill(
+              child: pw.Container(
+                decoration: pw.BoxDecoration(
+                  color: color,
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                ),
+              ),
+            ),
+          pw.Center(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: pw.Text(
+                title.toUpperCase(),
+                textAlign: pw.TextAlign.center,
+                style: const pw.TextStyle(
+                  color: PdfColors.white,
+                  fontSize: 8.2,
+                  fontWeight: pw.FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      child: textWidget,
     );
   }
 

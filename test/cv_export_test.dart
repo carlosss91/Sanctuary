@@ -128,6 +128,36 @@ void main() {
       expect(archive.findFile('word/media/sidebar_bg.png'), isNotNull);
       expect(archive.findFile('word/media/banner_bg.png'), isNotNull);
     });
+
+    test('DocxExportService renders full-height sidebar reaching bottom margin, centered pill badges, and vertically centered banner', () async {
+      final assets = await DocxExportService.prepareAssets(sampleProfile);
+      expect(assets.pillContact, isNotNull);
+      expect(assets.pillAbout, isNotNull);
+      expect(assets.pillSkills, isNotNull);
+
+      final bytes = DocxExportService.generateDocxBytes(sampleProfile, null, null, null, assets);
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final docFile = archive.findFile('word/document.xml');
+      expect(docFile, isNotNull);
+      final docXml = utf8.decode(docFile!.content as List<int>);
+
+      // 1. Sidebar background reaches exact bottom margin (10,234,930 EMU)
+      expect(docXml, contains('cy="10234930"'));
+
+      // 2. Centered inline subtitle pills embedded
+      expect(docXml, contains('rIdPillContact'));
+      expect(archive.findFile('word/media/pill_contact.png'), isNotNull);
+      expect(archive.findFile('word/media/pill_about.png'), isNotNull);
+      expect(archive.findFile('word/media/pill_skills.png'), isNotNull);
+
+      // 3. Banner text vertically centered with exact padding
+      expect(docXml, contains('<w:vAlign w:val="top"/>'));
+      expect(docXml, contains('<wp:posOffset>-101600</wp:posOffset>'));
+
+      // 4. Balanced indents & competencies right-aligned tab stop
+      expect(docXml, contains('w:ind w:left="100"'));
+      expect(docXml, contains('w:pos="3020"'));
+    });
   });
 
   group('PdfExportService Tests', () {
