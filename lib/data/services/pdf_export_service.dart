@@ -548,9 +548,13 @@ class PdfExportService {
                         ),
                         if (exp.description.isNotEmpty) ...[
                           pw.SizedBox(height: 2.5),
-                          pw.Text(
-                            exp.description,
-                            style: pw.TextStyle(color: textMutedColor, fontSize: 8, lineSpacing: 1.3),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(left: 4),
+                            child: pw.Text(
+                              exp.description,
+                              style: pw.TextStyle(color: textMutedColor, fontSize: 8, lineSpacing: 1.3),
+                              textAlign: pw.TextAlign.justify,
+                            ),
                           ),
                         ],
                       ],
@@ -596,9 +600,13 @@ class PdfExportService {
                         ),
                         if (edu.details.isNotEmpty) ...[
                           pw.SizedBox(height: 2.5),
-                          pw.Text(
-                            edu.details,
-                            style: pw.TextStyle(color: textMutedColor, fontSize: 8, lineSpacing: 1.3),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(left: 4),
+                            child: pw.Text(
+                              edu.details,
+                              style: pw.TextStyle(color: textMutedColor, fontSize: 8, lineSpacing: 1.3),
+                              textAlign: pw.TextAlign.justify,
+                            ),
                           ),
                         ],
                       ],
@@ -1285,18 +1293,18 @@ class PdfExportService {
   // ==============================================================================
   static pw.Widget _buildPillOnColor(String title, [PdfColor? accentColor]) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 3.5),
       decoration: const pw.BoxDecoration(
         color: PdfColors.white,
-        borderRadius: pw.BorderRadius.all(pw.Radius.circular(7)),
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: pw.Text(
         title,
         style: pw.TextStyle(
           color: accentColor ?? PdfColors.black,
-          fontSize: 7.5,
+          fontSize: 8.0,
           fontWeight: pw.FontWeight.bold,
-          letterSpacing: 0.5,
+          letterSpacing: 0.8,
         ),
       ),
     );

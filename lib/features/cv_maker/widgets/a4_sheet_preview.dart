@@ -1414,6 +1414,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                   const SizedBox(height: 2.5),
                   Text(
                     exp.description,
+                    textAlign: TextAlign.justify,
                     style: const TextStyle(
                       fontSize: 7.5,
                       color: Color(0xFF475569),
@@ -1485,6 +1486,7 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
                   const SizedBox(height: 2.5),
                   Text(
                     edu.details,
+                    textAlign: TextAlign.justify,
                     style: const TextStyle(
                       fontSize: 7.5,
                       color: Color(0xFF475569),
@@ -1502,16 +1504,16 @@ class _A4SheetPreviewState extends State<A4SheetPreview> {
 
   Widget _buildPillOnColor(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3.5),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: _getTextStyle(
           color: _parseAccent(widget.profile.accentColor),
-          fontSize: 8,
+          fontSize: 8.0,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.8,
         ),
