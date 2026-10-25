@@ -6,6 +6,8 @@ import 'package:sanctuary/data/models/cv_profile_model.dart';
 import 'package:sanctuary/data/services/docx_export_service.dart';
 import 'package:sanctuary/features/pdf_signer/models/signature_document_model.dart';
 import 'package:sanctuary/features/pdf_signer/widgets/security_standards_dialog.dart';
+import 'package:sanctuary/features/pdf_signer/widgets/signature_canvas_widget.dart';
+import 'package:sanctuary/features/pdf_signer/widgets/signer_identification_dialog.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -223,6 +225,42 @@ void main() {
       expect(shareUrl.contains('docId=doc-gh-test-456'), isTrue);
       expect(shareUrl.contains('token=tok-abc-123'), isTrue);
       expect(shareUrl.contains('sanctuary.app'), isFalse);
+    });
+
+    test('SignerIdentity parses and formats full names accurately without unexpected suffixes', () {
+      const id1 = SignerIdentity(name: 'Carlos', surname: 'Santana');
+      expect(id1.fullName, equals('Carlos Santana'));
+
+      const id2 = SignerIdentity(name: 'Carlos', surname: '');
+      expect(id2.fullName, equals('Carlos'));
+
+      const id3 = SignerIdentity(name: 'Carlos Santana', surname: 'Rodríguez');
+      expect(id3.fullName, equals('Carlos Santana Rodríguez'));
+    });
+
+    testWidgets('SignatureCanvasWidget displays editable signer name input and updates signature identity', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SignatureCanvasWidget(
+              initialIdentity: const SignerIdentity(name: 'Carlos', surname: 'Santana', nationalId: '12345678Z'),
+              onSaveSignature: ({strokes, imageBytes, updatedIdentity}) {},
+            ),
+          ),
+        ),
+      );
+
+      // Verify that the signer name input is rendered with the initial value
+      expect(find.text('NOMBRE DEL FIRMANTE'), findsOneWidget);
+      expect(find.text('Carlos Santana'), findsOneWidget);
+      expect(find.text('12345678Z'), findsOneWidget);
+
+      // Edit the signer name in the input field
+      await tester.enterText(find.byType(TextField).first, 'María Gómez');
+      await tester.pumpAndSettle();
+
+      // Verify live baseline reflects the updated name
+      expect(find.text('Firma de: María Gómez'), findsOneWidget);
     });
   });
 }

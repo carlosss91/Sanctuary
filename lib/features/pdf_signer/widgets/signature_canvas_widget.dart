@@ -6,17 +6,23 @@ import 'package:image/image.dart' as img;
 import '../../../core/theme/app_theme.dart';
 import '../models/signature_document_model.dart';
 import 'signature_image_cropper_widget.dart';
+import 'signer_identification_dialog.dart';
 
 class SignatureCanvasWidget extends StatefulWidget {
+  final SignerIdentity? initialIdentity;
+  final String? initialSignerName;
   final void Function({
     List<SignatureStroke>? strokes,
     Uint8List? imageBytes,
+    SignerIdentity? updatedIdentity,
   }) onSaveSignature;
   final VoidCallback? onCancel;
 
   const SignatureCanvasWidget({
     super.key,
     required this.onSaveSignature,
+    this.initialIdentity,
+    this.initialSignerName,
     this.onCancel,
   });
 
@@ -25,6 +31,10 @@ class SignatureCanvasWidget extends StatefulWidget {
 }
 
 class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
+  // Signer Identity Controllers
+  late TextEditingController _signerNameController;
+  late TextEditingController _dniController;
+
   // Mode: 'draw' (vector strokes) | 'image' (attached & cropped image)
   String _activeMode = 'draw';
 
@@ -34,6 +44,59 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
   Color _selectedColor = const Color(0xFF1D4ED8); // Default notary blue
   double _strokeWidth = 3.5;
   String _activeTool = 'pen'; // 'pen' | 'ballpoint' | 'highlighter'
+
+  @override
+  void initState() {
+    super.initState();
+    final prefill = (widget.initialIdentity?.fullName.trim().isNotEmpty ?? false)
+        ? widget.initialIdentity!.fullName.trim()
+        : (widget.initialSignerName?.trim() ?? '');
+    _signerNameController = TextEditingController(text: prefill);
+    _dniController = TextEditingController(text: widget.initialIdentity?.nationalId.trim() ?? '');
+    _signerNameController.addListener(_onFieldChanged);
+    _dniController.addListener(_onFieldChanged);
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _signerNameController.removeListener(_onFieldChanged);
+    _dniController.removeListener(_onFieldChanged);
+    _signerNameController.dispose();
+    _dniController.dispose();
+    super.dispose();
+  }
+
+  void _submitSignature({List<SignatureStroke>? strokes, Uint8List? imageBytes}) {
+    final rawName = _signerNameController.text.trim();
+    if (rawName.isEmpty) return;
+
+    final rawDni = _dniController.text.trim();
+    String name = rawName;
+    String surname = '';
+    final spaceIdx = rawName.indexOf(' ');
+    if (spaceIdx > 0) {
+      name = rawName.substring(0, spaceIdx).trim();
+      surname = rawName.substring(spaceIdx + 1).trim();
+    }
+
+    final identity = SignerIdentity(
+      name: name,
+      surname: surname,
+      nationalId: rawDni.isNotEmpty
+          ? rawDni
+          : (widget.initialIdentity?.nationalId ?? ''),
+    );
+
+    widget.onSaveSignature(
+      strokes: strokes,
+      imageBytes: imageBytes,
+      updatedIdentity: identity,
+    );
+  }
 
   // Image attachment state
   Uint8List? _uploadedRawBytes;
@@ -261,9 +324,12 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
           ),
           const Divider(height: 1),
 
+          // Signer Identity Input (Editable name and optional ID)
+          _buildSignerNameInput(isDark),
+
           // Mode Selector (Firmar a mano vs Adjuntar Imagen)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: SizedBox(
               width: double.infinity,
               child: SegmentedButton<String>(
@@ -444,7 +510,7 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                     left: 24,
                     bottom: 24,
                     child: Text(
-                      'Firma del Interesado / Signer',
+                      'Firma de: ${_signerNameController.text.trim().isEmpty ? "Interesado / Signer" : _signerNameController.text.trim()}',
                       style: TextStyle(
                         fontSize: 10,
                         color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
@@ -518,10 +584,10 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
               ),
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: _strokes.isEmpty
+                onPressed: (_strokes.isEmpty || _signerNameController.text.trim().isEmpty)
                     ? null
                     : () {
-                        widget.onSaveSignature(strokes: _strokes);
+                        _submitSignature(strokes: _strokes);
                       },
                 icon: const Icon(Icons.check_circle_outline, size: 15),
                 label: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -629,7 +695,7 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                     left: 24,
                     bottom: 20,
                     child: Text(
-                      'Firma del Interesado / Signer (Imagen recortada)',
+                      'Firma de: ${_signerNameController.text.trim().isEmpty ? "Interesado / Signer" : _signerNameController.text.trim()} (Imagen recortada)',
                       style: TextStyle(
                         fontSize: 10,
                         color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
@@ -682,9 +748,11 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    widget.onSaveSignature(imageBytes: _croppedSignatureBytes);
-                  },
+                  onPressed: (_croppedSignatureBytes == null || _signerNameController.text.trim().isEmpty)
+                      ? null
+                      : () {
+                          _submitSignature(imageBytes: _croppedSignatureBytes);
+                        },
                   icon: const Icon(Icons.check_circle_outline, size: 15),
                   label: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   style: ElevatedButton.styleFrom(
@@ -812,6 +880,140 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
       selectedColor: AppTheme.emerald.withOpacity(0.25),
       visualDensity: VisualDensity.compact,
       onSelected: (_) => setState(() => _strokeWidth = width),
+    );
+  }
+
+  Widget _buildSignerNameInput(bool isDark) {
+    final hasName = _signerNameController.text.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withOpacity(0.65) : const Color(0xFFF1F5F9).withOpacity(0.85),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: !hasName
+              ? Colors.amber.withOpacity(0.8)
+              : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.badge_outlined, size: 14, color: AppTheme.emerald),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'NOMBRE DEL FIRMANTE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: AppTheme.emerald,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Aparecerá en el sello oficial',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  child: TextField(
+                    controller: _signerNameController,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Nombre y apellidos (ej. Juan Pérez)',
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.normal),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      prefixIcon: Icon(Icons.edit_outlined, size: 15, color: Colors.grey),
+                      prefixIconConstraints: BoxConstraints(minWidth: 26, minHeight: 0),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: TextField(
+                    controller: _dniController,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'DNI / NIF (opc.)',
+                      hintStyle: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.normal),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      prefixIcon: Icon(Icons.numbers_outlined, size: 14, color: Colors.grey),
+                      prefixIconConstraints: BoxConstraints(minWidth: 24, minHeight: 0),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (!hasName) ...[
+            const SizedBox(height: 6),
+            const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 13, color: Colors.amber),
+                SizedBox(width: 4),
+                Text(
+                  'Indica el nombre del firmante para habilitar el guardado de la firma.',
+                  style: TextStyle(fontSize: 10.5, color: Colors.amber, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

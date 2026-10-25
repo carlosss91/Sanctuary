@@ -78,16 +78,31 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   static const double sigCardWidth = 185.0;
   static const double sigCardHeight = 78.0;
 
+  SignerIdentity _identityFromUser(UserModel user) {
+    final rawFullName = (user.fullName != null && user.fullName!.trim().isNotEmpty)
+        ? user.fullName!.trim()
+        : user.username.trim();
+
+    final parts = rawFullName.split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      return SignerIdentity(
+        name: parts.first,
+        surname: parts.sublist(1).join(' '),
+      );
+    }
+    return SignerIdentity(
+      name: rawFullName,
+      surname: '',
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     final user = widget.apiService.storage.getCurrentUser();
     if (user != null && user.role != 'Invitado') {
       _currentUser = user;
-      _currentIdentity = SignerIdentity(
-        name: user.fullName ?? user.username,
-        surname: user.role == 'Docente' ? 'Profesor FC0003' : 'Santuario',
-      );
+      _currentIdentity = _identityFromUser(user);
     }
 
     // Comprobar parámetros de URL si se abrió mediante enlace compartido de GitHub Pages
@@ -358,16 +373,17 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   }
 
   Future<void> _openSignModal() async {
-    // 1. If user is not yet identified, prompt identification modal first
+    // Si no hay identidad inicial, intentar obtenerla del usuario autenticado
     if (_currentIdentity == null || _currentIdentity!.name.isEmpty) {
-      final id = await SignerIdentificationDialog.show(context, _currentIdentity);
-      if (id == null) return;
-      setState(() => _currentIdentity = id);
+      final user = _currentUser ?? widget.apiService.storage.getCurrentUser();
+      if (user != null && user.role != 'Invitado') {
+        _currentIdentity = _identityFromUser(user);
+      }
     }
 
     if (!mounted) return;
 
-    // 2. Open signature drawing canvas modal
+    // Abrir modal de firma interactivo con edicion directa de nombre del firmante
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -376,12 +392,17 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: SignatureCanvasWidget(
+            initialIdentity: _currentIdentity,
             onCancel: () => Navigator.of(ctx).pop(),
-            onSaveSignature: ({strokes, imageBytes}) {
+            onSaveSignature: ({strokes, imageBytes, updatedIdentity}) {
               Navigator.of(ctx).pop();
+              if (updatedIdentity != null && updatedIdentity.name.isNotEmpty) {
+                setState(() => _currentIdentity = updatedIdentity);
+              }
+              final effectiveIdentity = updatedIdentity ?? _currentIdentity ?? const SignerIdentity(name: 'Usuario', surname: '');
               _registerNewSignature(
                 strokes ?? const [],
-                _currentIdentity!,
+                effectiveIdentity,
                 imageBytes: imageBytes,
               );
             },
@@ -1167,10 +1188,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             onUserUpdated: (updated) {
               setState(() {
                 _currentUser = updated;
-                _currentIdentity = SignerIdentity(
-                  name: updated.fullName ?? updated.username,
-                  surname: updated.role == 'Docente' ? 'Profesor FC0003' : 'Santuario',
-                );
+                _currentIdentity = _identityFromUser(updated);
               });
             },
           );
@@ -2043,7 +2061,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${sig.signerName} ${sig.signerSurname} (Pág. ${sig.pageNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                Text('${sig.fullName} (Pág. ${sig.pageNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 if (sig.nationalId != null)
                   Text('DNI/NIF: ${sig.nationalId}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 const SizedBox(height: 2),
