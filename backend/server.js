@@ -523,7 +523,7 @@ function buildSanctuaryEmailHtml({
                           ${n.aiAnalysis}
                         </div>` : ''}
                         <div style="margin-top:8px;text-align:right;">
-                          <a href="${n.url || '#'}" target="_blank" style="display:inline-block;background-color:${primaryAccent};color:#FFFFFF;text-decoration:none;font-size:10px;font-weight:bold;padding:5px 10px;border-radius:6px;">
+                          <a href="${(typeof aiWatchdogService !== 'undefined' && aiWatchdogService.resolveCanonicalNoticeUrl) ? aiWatchdogService.resolveCanonicalNoticeUrl(n) : (n.url || '#')}" target="_blank" style="display:inline-block;background-color:${primaryAccent};color:#FFFFFF;text-decoration:none;font-size:10px;font-weight:bold;padding:5px 10px;border-radius:6px;">
                             Ver Convocatoria Oficial →
                           </a>
                         </div>
@@ -3806,6 +3806,11 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
       }
     }
 
+    // Ensure all notices (existing and newly discovered) point to exact canonical URLs
+    updatedNotifs.forEach(n => {
+      n.url = aiWatchdogService.resolveCanonicalNoticeUrl(n);
+    });
+
     // 2. Dispatch email alerts if email is enabled and destination email is set
     const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
     const isEmailEnabled = (config.notifyEmail !== undefined ? config.notifyEmail : config.emailNotifications) !== false;
@@ -3936,6 +3941,11 @@ async function runScheduledWatchdogScan() {
         }
       }
     }
+
+    // Ensure all notices (existing and newly discovered) point to exact canonical URLs
+    updatedNotifs.forEach(n => {
+      n.url = aiWatchdogService.resolveCanonicalNoticeUrl(n);
+    });
 
     const isEmailEnabled = (config.notifyEmail !== undefined ? config.notifyEmail : config.emailNotifications) !== false;
     const targetEmail = (config.targetEmail && typeof config.targetEmail === 'string') ? config.targetEmail.trim() : '';

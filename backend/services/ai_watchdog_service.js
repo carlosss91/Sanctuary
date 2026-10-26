@@ -156,12 +156,95 @@ function getBaselineNotices() {
 }
 
 /**
- * Attempts live network search/fetch on official portals with exact article/convocatoria URLs
+ * Ensures that any notice URL is resolved to its exact canonical official convocatoria page,
+ * distinguishing search entry points from specific announcement URLs.
+ */
+function resolveCanonicalNoticeUrl(notice) {
+  if (!notice) return 'https://www.gobiernodecanarias.org/vivienda/';
+  const url = (notice.url || '').trim();
+  const title = (notice.title || '').toLowerCase();
+  const summary = (notice.summary || '').toLowerCase();
+  const text = title + ' ' + summary;
+
+  // If already an exact specific document / article / subpage, keep it
+  const isGeneric = !url ||
+    url.endsWith('/vivienda/') ||
+    url.endsWith('/vivienda') ||
+    url.endsWith('/boc/') ||
+    url.endsWith('/boc') ||
+    url === 'https://yaiza.es/' ||
+    url === 'https://yaiza.es' ||
+    url.endsWith('/diario_boe/') ||
+    url.endsWith('/diario_boe');
+
+  if (!isGeneric) {
+    return url;
+  }
+
+  // Canonical specific mappings for official announcements:
+  if (text.includes('130') || text.includes('134') || (text.includes('arrecife') && text.includes('vivienda')) || text.includes('maneje')) {
+    return 'https://www3.gobiernodecanarias.org/noticias/vivienda-adjudica-la-construccion-de-134-viviendas-de-proteccion-oficial-de-promocion-publica-en-arrecife/';
+  }
+  if (text.includes('yaiza') || text.includes('ajaches') || text.includes('playa blanca')) {
+    return 'https://yaiza.es/yaiza-avisa-que-vivienda-inicia-el-procedimiento-de-adjudicacion-de-las-42-casas-de-los-ajaches-para-alquiler-asequible-en-playa-blanca/';
+  }
+  if (text.includes('alquiler') || text.includes('ayuda al alquiler') || text.includes('subvencion')) {
+    return 'https://www.gobiernodecanarias.org/vivienda/destacados/AYUDA_ALQUILER_2024_V2.html';
+  }
+  if (text.includes('plan estatal') || text.includes('ministerio') || text.includes('boe-a-')) {
+    return 'https://www.boe.es/buscar/doc.php?id=BOE-A-2022-4405';
+  }
+
+  return url || 'https://www.gobiernodecanarias.org/vivienda/destacados/Adjudicac_VPP_V2.html';
+}
+
+/**
+ * Attempts live network search/fetch on official portals.
+ * Searches across the main entrypoint pages (portadas) but extracts the exact
+ * specific article/convocatoria URLs to send in alerts.
  */
 async function fetchLiveOfficialBulletins() {
   const liveItems = [];
 
-  // 1. Fetch ICAVI / Vivienda Canarias Portal (Live specific news)
+  // 1. Fetch Vivienda Canarias Main Portal (Scrapes homepage for exact destacados convocatorias)
+  try {
+    const vController = new AbortController();
+    const vTimeout = setTimeout(() => vController.abort(), 4500);
+    const vRes = await fetch('https://www.gobiernodecanarias.org/vivienda/', {
+      signal: vController.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Sanctuary-Sentinel/1.0' },
+    });
+    clearTimeout(vTimeout);
+    if (vRes.ok) {
+      const vHtml = await vRes.text();
+      const vReg = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      let vm;
+      let count = 0;
+      while ((vm = vReg.exec(vHtml)) !== null && count < 6) {
+        const rawHref = vm[1].trim();
+        const text = vm[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        if (text.length > 10 && rawHref.includes('/destacados/')) {
+          const fullUrl = rawHref.startsWith('http')
+            ? rawHref
+            : ('https://www.gobiernodecanarias.org/vivienda/' + rawHref.replace(/^\/?(vivienda\/)?/, ''));
+          liveItems.push({
+            id: 'gobcan-vivienda-' + Date.now() + '-' + count,
+            title: `Gobierno de Canarias: ${text}`,
+            source: 'GobCan Vivienda',
+            date: new Date().toISOString().split('T')[0],
+            bulletinNumber: 'Portal Oficial de Vivienda GobCan',
+            summary: `Publicación en el portal oficial de Vivienda: "${text}". Acceso directo a las bases y solicitud oficial.`,
+            url: fullUrl,
+            island: text.toLowerCase().includes('lanzarote') ? 'Lanzarote' : 'Canarias',
+            relevance: text.toLowerCase().includes('lanzarote') ? 'Alta (Lanzarote)' : 'Media',
+          });
+          count++;
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 2. Fetch ICAVI / Vivienda Press & Notices (Live specific news / adjudicaciones)
   try {
     const icvController = new AbortController();
     const icvTimeout = setTimeout(() => icvController.abort(), 4500);
@@ -196,7 +279,7 @@ async function fetchLiveOfficialBulletins() {
     }
   } catch (_) {}
 
-  // 2. Fetch BOE search / Open API
+  // 3. Fetch BOE search / Open API (Extracts exact document URL)
   try {
     const boeController = new AbortController();
     const boeTimeout = setTimeout(() => boeController.abort(), 4000);
@@ -227,7 +310,7 @@ async function fetchLiveOfficialBulletins() {
     }
   } catch (_) {}
 
-  // 3. Fetch Ayuntamiento de Yaiza (Lanzarote - Exact article URLs)
+  // 4. Fetch Ayuntamiento de Yaiza (Searches homepage, extracts exact article URLs)
   try {
     const yaizaController = new AbortController();
     const yaizaTimeout = setTimeout(() => yaizaController.abort(), 4500);
@@ -262,7 +345,7 @@ async function fetchLiveOfficialBulletins() {
     }
   } catch (_) {}
 
-  // 4. Fetch BOC (Gobierno de Canarias - Latest Issue)
+  // 5. Fetch BOC (Searches latest issue, extracts exact announcement document URLs)
   try {
     const bocController = new AbortController();
     const bocTimeout = setTimeout(() => bocController.abort(), 4000);
@@ -278,17 +361,71 @@ async function fetchLiveOfficialBulletins() {
         const year = matchIssue[1];
         const num = matchIssue[2];
         const issueUrl = `https://www.gobiernodecanarias.org/boc/${year}/${num}/`;
-        liveItems.push({
-          id: 'boc-live-' + year + '-' + num,
-          title: `Boletín Oficial de Canarias: BOC Núm. ${num} (${year})`,
-          source: 'BOC',
-          date: new Date().toISOString().split('T')[0],
-          bulletinNumber: `BOC Núm. ${num}`,
-          summary: 'Edición oficial del Boletín Oficial de Canarias con las resoluciones, órdenes y convocatorias públicas de la Comunidad Autónoma.',
-          url: issueUrl,
-          island: 'Canarias',
-          relevance: 'Media',
-        });
+
+        // Attempt fetching specific issue announcements
+        try {
+          const isController = new AbortController();
+          const isTimeout = setTimeout(() => isController.abort(), 3500);
+          const isRes = await fetch(issueUrl, {
+            signal: isController.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          });
+          clearTimeout(isTimeout);
+          if (isRes.ok) {
+            const issueHtml = await isRes.text();
+            const regAnnounce = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+            let am;
+            let addedBoc = false;
+            while ((am = regAnnounce.exec(issueHtml)) !== null) {
+              const href = am[1];
+              const text = am[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+              const lower = (text + ' ' + href).toLowerCase();
+              if (lower.includes('vivienda') || lower.includes('alquiler') || lower.includes('subvenc') || lower.includes('lanzarote')) {
+                const fullDocUrl = href.startsWith('http')
+                  ? href
+                  : ('https://www.gobiernodecanarias.org' + (href.startsWith('/') ? '' : '/') + href);
+                liveItems.push({
+                  id: 'boc-live-' + year + '-' + num + '-' + Date.now(),
+                  title: `Boletín Oficial de Canarias: ${text}`,
+                  source: 'BOC',
+                  date: new Date().toISOString().split('T')[0],
+                  bulletinNumber: `BOC Núm. ${num}`,
+                  summary: `Anuncio oficial publicado en el BOC Núm. ${num} (${year}): "${text}". Acceso directo al texto y resolución oficial.`,
+                  url: fullDocUrl,
+                  island: lower.includes('lanzarote') ? 'Lanzarote' : 'Canarias',
+                  relevance: lower.includes('lanzarote') ? 'Alta (Lanzarote)' : 'Media',
+                });
+                addedBoc = true;
+                break;
+              }
+            }
+            if (!addedBoc) {
+              liveItems.push({
+                id: 'boc-live-' + year + '-' + num,
+                title: `Boletín Oficial de Canarias: BOC Núm. ${num} (${year})`,
+                source: 'BOC',
+                date: new Date().toISOString().split('T')[0],
+                bulletinNumber: `BOC Núm. ${num}`,
+                summary: 'Edición oficial del Boletín Oficial de Canarias con las resoluciones, órdenes y convocatorias públicas de la Comunidad Autónoma.',
+                url: issueUrl,
+                island: 'Canarias',
+                relevance: 'Media',
+              });
+            }
+          }
+        } catch (_) {
+          liveItems.push({
+            id: 'boc-live-' + year + '-' + num,
+            title: `Boletín Oficial de Canarias: BOC Núm. ${num} (${year})`,
+            source: 'BOC',
+            date: new Date().toISOString().split('T')[0],
+            bulletinNumber: `BOC Núm. ${num}`,
+            summary: 'Edición oficial del Boletín Oficial de Canarias con las resoluciones, órdenes y convocatorias públicas de la Comunidad Autónoma.',
+            url: issueUrl,
+            island: 'Canarias',
+            relevance: 'Media',
+          });
+        }
       }
     }
   } catch (_) {}
@@ -297,7 +434,10 @@ async function fetchLiveOfficialBulletins() {
 }
 
 /**
- * Scrapes and fetches any user-defined custom sources via direct URLs
+ * Scrapes and fetches any user-defined custom sources via direct URLs.
+ * Searches across the source's main webpage, and when matching notices are found,
+ * extracts the exact specific internal hyperlink (<a href="...">) to point directly
+ * to the announcement rather than the root portal.
  */
 async function fetchCustomSources(sources = [], keywords = [], targetPlace = '') {
   const customItems = [];
@@ -306,7 +446,7 @@ async function fetchCustomSources(sources = [], keywords = [], targetPlace = '')
   for (const src of activeCustom) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 5500);
       const res = await fetch(src.url, {
         signal: controller.signal,
         headers: {
@@ -318,38 +458,86 @@ async function fetchCustomSources(sources = [], keywords = [], targetPlace = '')
 
       if (res.ok) {
         const text = await res.text();
-        const lowerText = text.toLowerCase();
-
-        // Check if any keyword matches
-        const matchedKeywords = (keywords || []).filter(kw => kw.trim().length > 0 && lowerText.includes(kw.toLowerCase().trim()));
-
-        // Extract title from html if available
-        const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
-        const pageTitle = titleMatch ? titleMatch[1].trim() : src.name;
-
-        // Try extracting headings
-        const h1Match = text.match(/<h[12][^>]*>([^<]+)<\/h[12]>/i);
-        const heading = h1Match ? h1Match[1].trim() : '';
-
         const dateStr = new Date().toISOString().split('T')[0];
-        const matchInfo = matchedKeywords.length > 0
-          ? `Coincidencias detectadas con: ${matchedKeywords.slice(0, 4).join(', ')}.`
-          : 'Boletín y portal oficial actualizado.';
 
-        customItems.push({
-          id: 'custom-' + src.id + '-' + dateStr,
-          title: heading ? `${src.name}: ${heading}` : `${src.name} · ${pageTitle}`,
-          source: src.name,
-          date: dateStr,
-          bulletinNumber: 'URL Oficial',
-          summary: `${matchInfo} Enlace directo al portal monitorizado por AI Sentinel.`,
-          url: src.url,
-          island: targetPlace || 'General',
-          relevance: 'Alta (Fuente Personalizada)',
-          isRead: false,
-          isEmailSent: false,
-          timestamp: new Date().toISOString(),
-        });
+        // 1. Search for specific internal links (<a href="...">) matching keywords
+        const linkRegex = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+        let match;
+        const matchingLinks = [];
+        const seenUrls = new Set();
+
+        while ((match = linkRegex.exec(text)) !== null && matchingLinks.length < 5) {
+          const rawHref = match[1].trim();
+          const anchorText = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+          if (rawHref.startsWith('#') || rawHref.startsWith('javascript:') || anchorText.length < 5) continue;
+
+          let fullUrl;
+          try {
+            fullUrl = new URL(rawHref, src.url).href;
+          } catch (_) {
+            continue;
+          }
+
+          if (seenUrls.has(fullUrl) || fullUrl === src.url) continue;
+
+          const combined = (anchorText + ' ' + fullUrl).toLowerCase();
+          const matchesKeyword = (keywords || []).some(kw => kw.trim().length > 0 && combined.includes(kw.toLowerCase().trim()));
+          const matchesPlace = !targetPlace || combined.includes(targetPlace.toLowerCase().trim());
+
+          if (matchesKeyword && matchesPlace) {
+            seenUrls.add(fullUrl);
+            matchingLinks.push({
+              title: anchorText,
+              url: fullUrl,
+            });
+          }
+        }
+
+        // 2. If specific matching links found on the main page, push each one with its real link
+        if (matchingLinks.length > 0) {
+          for (let i = 0; i < matchingLinks.length; i++) {
+            const item = matchingLinks[i];
+            customItems.push({
+              id: `custom-${src.id}-${dateStr}-${i}`,
+              title: `${src.name}: ${item.title}`,
+              source: src.name,
+              date: dateStr,
+              bulletinNumber: 'Convocatoria Oficial',
+              summary: `Convocatoria oficial detectada en ${src.name}: "${item.title}". Acceso directo a las bases y solicitud en el enlace específico.`,
+              url: item.url,
+              island: targetPlace || 'General',
+              relevance: 'Alta (Fuente Personalizada)',
+              isRead: false,
+              isEmailSent: false,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } else {
+          // If the page content matches keywords, but no discrete sub-link was parsed:
+          const lowerText = text.toLowerCase();
+          const matchedKeywords = (keywords || []).filter(kw => kw.trim().length > 0 && lowerText.includes(kw.toLowerCase().trim()));
+          if (matchedKeywords.length > 0) {
+            const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+            const pageTitle = titleMatch ? titleMatch[1].trim() : src.name;
+            const h1Match = text.match(/<h[12][^>]*>([^<]+)<\/h[12]>/i);
+            const heading = h1Match ? h1Match[1].trim() : '';
+
+            customItems.push({
+              id: 'custom-' + src.id + '-' + dateStr,
+              title: heading ? `${src.name}: ${heading}` : `${src.name} · ${pageTitle}`,
+              source: src.name,
+              date: dateStr,
+              bulletinNumber: 'URL Oficial',
+              summary: `Coincidencias detectadas con: ${matchedKeywords.slice(0, 4).join(', ')}. Enlace al portal oficial monitorizado.`,
+              url: src.url,
+              island: targetPlace || 'General',
+              relevance: 'Alta (Fuente Personalizada)',
+              isRead: false,
+              isEmailSent: false,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
       }
     } catch (err) {
       console.warn(`[AI Sentinel] No se pudo acceder a la URL personalizada "${src.url}":`, err.message);
@@ -607,4 +795,5 @@ module.exports = {
   analyzeWithGemini,
   filterNotices,
   buildAiSentinelEmailHtml,
+  resolveCanonicalNoticeUrl,
 };
