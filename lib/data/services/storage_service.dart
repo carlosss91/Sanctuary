@@ -33,167 +33,12 @@ class StorageService {
       await saveLocalUser(const UserModel(id: 1, username: 'admin', role: 'admin'), 'Sanctuary#2026*');
     }
 
-    // 2. Default CV profiles
-    final profiles = getCvProfiles();
+    // 2. Default CV profiles (seeded for admin)
+    final profiles = getCvProfiles('admin');
     if (profiles.isEmpty) {
-      final defaultProfiles = [
-        const CvProfileModel(
-          id: 'profile-1',
-          moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
-          workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
-          fullName: 'JOSÉ MARIO SUÁREZ MÉNDEZ',
-          jobTitle: 'OPERARIO/A DE MANTENIMIENTO URBANO',
-          photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-          photoZoom: 1.0,
-          phone: '+34 600 000 000',
-          email: 'jose.suarez.mendez88@correo.es',
-          location: 'Arucas, Gran Canaria',
-          availability: 'Disponibilidad horaria e incorporación inmediata',
-          drivingLicense: 'Permiso B y vehículo propio',
-          summary: 'Soy un profesional comprometido y responsable, con vocación práctica, puntualidad y constante disposición para trabajar en equipo.\n\nManejo herramientas y métodos del oficio con destreza técnica, priorizando siempre la prevención de riesgos y el uso de EPIs.',
-          skills: [
-            'TRABAJO EN EQUIPO',
-            'PREVENCIÓN Y EPIS',
-            'PUNTUALIDAD Y SERIEDAD',
-            'MANEJO DE HERRAMIENTAS',
-            'CAPACIDAD DE APRENDIZAJE',
-          ],
-          skillItems: [
-            CvSkillItem(name: 'TRABAJO EN EQUIPO', level: 2, description: 'Compañerismo y coordinación en cuadrilla'),
-            CvSkillItem(name: 'PREVENCIÓN Y EPIS', level: 5, description: 'Seguridad y prevención de riesgos en obra'),
-            CvSkillItem(name: 'PUNTUALIDAD Y SERIEDAD', level: 5, description: 'Compromiso riguroso con horarios y tareas'),
-            CvSkillItem(name: 'MANEJO DE HERRAMIENTAS', level: 4, description: 'Destreza con útiles manuales y eléctricos'),
-            CvSkillItem(name: 'CAPACIDAD DE APRENDIZAJE', level: 5, description: 'Asimilación rápida de nuevas técnicas'),
-          ],
-          experiences: [
-            CvExperience(
-              jobTitle: 'APRENDIZ TRABAJADOR/A - OPERARIO/A DE MANTENIMIENTO URBANO',
-              company: 'Ayuntamiento de Arucas (Programa de Empleo y Formación Trayectoria)',
-              period: '2024 - 2025',
-              description: 'Tareas prácticas en obras y servicios públicos municipales, conservación y manejo de herramientas y maquinaria ligera, y aplicación estricta de medidas de seguridad y EPIs.',
-            ),
-          ],
-          educations: [
-            CvEducation(
-              degree: 'CERTIFICADO DE PROFESIONALIDAD (EN CURSO)',
-              institution: 'Servicio Canario de Empleo / Ayuntamiento de Arucas',
-              period: '2024 - 2025',
-              details: 'Formación teórico-práctica acreditada con módulos de Competencias Clave y PRL.',
-            ),
-            CvEducation(
-              degree: 'COMPETENCIAS CLAVE Y HABILIDADES LABORALES',
-              institution: 'Programa de Empleo y Formación Trayectoria Arucas',
-              period: '2024 - 2025',
-              details: 'Módulos transversales de Matemáticas, Lengua Castellana, Competencias Digitales y Orientación Laboral.',
-            ),
-          ],
-          template: 'sidebar_dark',
-          accentColor: '#10B981',
-          fontFamily: 'Inter',
-        ),
-        const CvProfileModel(
-          id: 'profile-2',
-          moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
-          workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
-          fullName: 'ANTONIO JOSÉ GÓMEZ CABRERA',
-          jobTitle: 'OPERARIO/A DE MANTENIMIENTO URBANO',
-          photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-          photoZoom: 1.0,
-          phone: '+34 611 222 333',
-          email: 'antonio.gomez.c@correo.es',
-          location: 'Las Palmas de Gran Canaria',
-          availability: 'Disponibilidad completa e incorporación inmediata',
-          drivingLicense: 'Permiso B y vehículo propio',
-          summary: 'Persona proactiva con sólida experiencia práctica en conservación vial, mantenimiento de edificios e infraestructuras comunitarias.',
-          skills: [
-            'MANTENIMIENTO PREVENTIVO',
-            'JARDINERÍA BÁSICA',
-            'REPARACIONES RÁPIDAS',
-            'MANEJO DE MAQUINARIA',
-          ],
-          skillItems: [
-            CvSkillItem(name: 'MANTENIMIENTO PREVENTIVO', level: 5, description: 'Revisión y conservación de instalaciones'),
-            CvSkillItem(name: 'JARDINERÍA BÁSICA', level: 4, description: 'Poda y mantenimiento de zonas verdes'),
-            CvSkillItem(name: 'REPARACIONES RÁPIDAS', level: 4, description: 'Solución eficaz de incidencias operativas'),
-            CvSkillItem(name: 'MANEJO DE MAQUINARIA', level: 5, description: 'Control de herramienta y maquinaria ligera'),
-          ],
-          experiences: [
-            CvExperience(
-              jobTitle: 'PEÓN DE MANTENIMIENTO URBANO',
-              company: 'Servicios Urbanos Integrados',
-              period: '2023 - 2024',
-              description: 'Limpieza y acondicionamiento de viales públicos, mantenimiento de mobiliario y apoyo a cuadrillas de especialistas.',
-            ),
-          ],
-          educations: [
-            CvEducation(
-              degree: 'GRADUADO EN EDUCACIÓN SECUNDARIA OBLIGATORIA',
-              institution: 'IES Gran Canaria',
-              period: '2018 - 2022',
-              details: 'Graduado con mención en tecnología aplicada.',
-            ),
-          ],
-          template: 'sidebar_dark',
-          accentColor: '#10B981',
-          fontFamily: 'Inter',
-        ),
-        const CvProfileModel(
-          id: 'profile-3',
-          moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
-          workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
-          fullName: 'ANDRIUCHA CASTILLO NAVARRO',
-          jobTitle: 'OPERARIO/A DE MANTENIMIENTO URBANO',
-          photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-          photoZoom: 1.0,
-          phone: '+34 600 000 000',
-          email: 'andriucha.castillo.navarro28@correo.es',
-          location: 'Arucas, Gran Canaria',
-          availability: 'Disponibilidad horaria e incorporación inmediata',
-          drivingLicense: 'Permiso B y vehículo propio',
-          summary: '',
-          skills: [
-            'TRABAJO EN EQUIPO',
-            'PREVENCIÓN Y EPIS',
-            'PUNTUALIDAD Y SERIEDAD',
-            'MANEJO DE HERRAMIENTAS',
-            'CAPACIDAD DE APRENDIZAJE',
-          ],
-          skillItems: [
-            CvSkillItem(name: 'TRABAJO EN EQUIPO', level: 2, description: 'Compañerismo y coordinación en cuadrilla'),
-            CvSkillItem(name: 'PREVENCIÓN Y EPIS', level: 5, description: 'Seguridad y prevención de riesgos en obra'),
-            CvSkillItem(name: 'PUNTUALIDAD Y SERIEDAD', level: 5, description: 'Compromiso riguroso con horarios y tareas'),
-            CvSkillItem(name: 'MANEJO DE HERRAMIENTAS', level: 4, description: 'Destreza con útiles manuales y eléctricos'),
-            CvSkillItem(name: 'CAPACIDAD DE APRENDIZAJE', level: 5, description: 'Asimilación rápida de nuevas técnicas'),
-          ],
-          experiences: [
-            CvExperience(
-              jobTitle: 'APRENDIZ TRABAJADOR/A - OPERARIO/A DE MANTENIMIENTO URBANO',
-              company: 'Ayuntamiento de Arucas (Programa de Empleo y Formación Trayectoria)',
-              period: '2024 - 2025',
-              description: 'Tareas prácticas en obras y servicios públicos municipales, conservación y manejo de herramientas y maquinaria ligera, y aplicación estricta de medidas de seguridad y EPIs.',
-            ),
-          ],
-          educations: [
-            CvEducation(
-              degree: 'CERTIFICADO DE PROFESIONALIDAD (EN CURSO)',
-              institution: 'Servicio Canario de Empleo / Ayuntamiento de Arucas',
-              period: '2024 - 2025',
-              details: 'Formación teórico-práctica acreditada con módulos de Competencias Clave y PRL.',
-            ),
-            CvEducation(
-              degree: 'COMPETENCIAS CLAVE Y HABILIDADES LABORALES',
-              institution: 'Programa de Empleo y Formación Trayectoria Arucas',
-              period: '2024 - 2025',
-              details: 'Módulos transversales de Matemáticas, Lengua Castellana, Competencias Digitales y Orientación Laboral.',
-            ),
-          ],
-          template: 'sidebar_dark',
-          accentColor: '#0D9488',
-          fontFamily: 'Inter',
-        ),
-      ];
-      await saveCvProfiles(defaultProfiles);
-      await setActiveCvId('profile-1');
+      final defaultProfiles = _getDefaultWorkshopProfiles();
+      await saveCvProfiles(defaultProfiles, 'admin');
+      await setActiveCvId('profile-1', 'admin');
     }
 
     // 3. Default repo links
@@ -342,25 +187,312 @@ class StorageService {
     return false;
   }
 
-  // --- CV Profiles ---
-  List<CvProfileModel> getCvProfiles() {
-    final str = _prefs.getString(_keyCvProfiles);
-    if (str == null) return [];
+  // --- CV Profiles Privacy & User Isolation ---
+  bool _isCarlosProfile(CvProfileModel p) {
+    final str = jsonEncode(p.toJson()).toLowerCase();
+    return str.contains('carlos s') ||
+        str.contains('carlosss91') ||
+        str.contains('616787') ||
+        str.contains('616 787') ||
+        str.contains('carlossantana') ||
+        str.contains('carlos_face');
+  }
+
+  CvProfileModel getGenericSampleCvProfile([String? identifier]) {
+    final id = identifier ?? 'sample-1';
+    return CvProfileModel(
+      id: 'profile-sample-$id',
+      moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
+      workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
+      fullName: 'ALEJANDRO MARTÍNEZ RIVERA',
+      jobTitle: 'DOCENTE Y FORMADOR TÉCNICO',
+      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      photoZoom: 1.0,
+      phone: '+34 600 123 456',
+      email: 'alejandro.martinez.docente@correo.es',
+      location: 'Arrecife, Lanzarote',
+      availability: 'Disponibilidad horaria e incorporación inmediata',
+      drivingLicense: 'Permiso B y vehículo propio',
+      summary: 'Profesional proactivo con amplia experiencia en capacitación técnica, diseño de contenidos didácticos y gestión de entornos virtuales de aprendizaje.\n\nVocación docente orientada a resultados, metodologías activas y trabajo colaborativo.',
+      skills: const [
+        'METODOLOGÍAS DOCENTES',
+        'GESTIÓN DE AULAS VIRTUALES',
+        'HERRAMIENTAS TIC APLICADAS',
+        'PREVENCIÓN DE RIESGOS',
+        'COMUNICACIÓN ASERTIVA',
+      ],
+      skillItems: const [
+        CvSkillItem(name: 'METODOLOGÍAS DOCENTES', level: 5, description: 'Diseño instruccional y dinamización de grupos'),
+        CvSkillItem(name: 'GESTIÓN DE AULAS VIRTUALES', level: 5, description: 'Moodle, Google Classroom y entornos e-learning'),
+        CvSkillItem(name: 'HERRAMIENTAS TIC APLICADAS', level: 4, description: 'Ofimática avanzada y recursos multimedia'),
+        CvSkillItem(name: 'PREVENCIÓN DE RIESGOS', level: 4, description: 'Seguridad en el aula y talleres formativos'),
+        CvSkillItem(name: 'COMUNICACIÓN ASERTIVA', level: 5, description: 'Tutorización y resolución de conflictos'),
+      ],
+      experiences: const [
+        CvExperience(
+          jobTitle: 'DOCENTE Y FORMADOR TÉCNICO',
+          company: 'Centro Insular de Formación y Empleo',
+          period: '2023 - 2025',
+          description: 'Impartición de módulos formativos para el empleo, orientación sociolaboral y tutorización técnica.',
+        ),
+        CvExperience(
+          jobTitle: 'COORDINADOR DE PROYECTOS EDUCATIVOS',
+          company: 'Academia Formativa Canarias',
+          period: '2021 - 2023',
+          description: 'Planificación pedagógica de cursos presenciales y telemáticos, supervisión de prácticas y evaluación.',
+        ),
+      ],
+      educations: const [
+        CvEducation(
+          degree: 'GRADO EN PEDAGOGÍA / MAGISTERIO',
+          institution: 'Universidad de Las Palmas de Gran Canaria (ULPGC)',
+          period: '2016 - 2020',
+          details: 'Mención en tecnologías aplicadas a la enseñanza.',
+        ),
+        CvEducation(
+          degree: 'CERTIFICADO DE DOCENCIA DE LA FORMACIÓN PROFESIONAL (SSCE0110)',
+          institution: 'Servicio Canario de Empleo (SCE)',
+          period: '2021',
+          details: 'Acreditación oficial para impartición y tutorización de certificados profesionales.',
+        ),
+      ],
+      template: 'sidebar_dark',
+      accentColor: '#10B981',
+      fontFamily: 'Inter',
+    );
+  }
+
+  List<CvProfileModel> _getDefaultWorkshopProfiles() {
+    return const [
+      CvProfileModel(
+        id: 'profile-1',
+        moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
+        workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
+        fullName: 'JOSÉ MARIO SUÁREZ MÉNDEZ',
+        jobTitle: 'OPERARIO/A DE MANTENIMIENTO URBANO',
+        photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        photoZoom: 1.0,
+        phone: '+34 600 000 000',
+        email: 'jose.suarez.mendez88@correo.es',
+        location: 'Arucas, Gran Canaria',
+        availability: 'Disponibilidad horaria e incorporación inmediata',
+        drivingLicense: 'Permiso B y vehículo propio',
+        summary: 'Soy un profesional comprometido y responsable, con vocación práctica, puntualidad y constante disposición para trabajar en equipo.\n\nManejo herramientas y métodos del oficio con destreza técnica, priorizando siempre la prevención de riesgos y el uso de EPIs.',
+        skills: [
+          'TRABAJO EN EQUIPO',
+          'PREVENCIÓN Y EPIS',
+          'PUNTUALIDAD Y SERIEDAD',
+          'MANEJO DE HERRAMIENTAS',
+          'CAPACIDAD DE APRENDIZAJE',
+        ],
+        skillItems: [
+          CvSkillItem(name: 'TRABAJO EN EQUIPO', level: 2, description: 'Compañerismo y coordinación en cuadrilla'),
+          CvSkillItem(name: 'PREVENCIÓN Y EPIS', level: 5, description: 'Seguridad y prevención de riesgos en obra'),
+          CvSkillItem(name: 'PUNTUALIDAD Y SERIEDAD', level: 5, description: 'Compromiso riguroso con horarios y tareas'),
+          CvSkillItem(name: 'MANEJO DE HERRAMIENTAS', level: 4, description: 'Destreza con útiles manuales y eléctricos'),
+          CvSkillItem(name: 'CAPACIDAD DE APRENDIZAJE', level: 5, description: 'Asimilación rápida de nuevas técnicas'),
+        ],
+        experiences: [
+          CvExperience(
+            jobTitle: 'APRENDIZ TRABAJADOR/A - OPERARIO/A DE MANTENIMIENTO URBANO',
+            company: 'Ayuntamiento de Arucas (Programa de Empleo y Formación Trayectoria)',
+            period: '2024 - 2025',
+            description: 'Tareas prácticas en obras y servicios públicos municipales, conservación y manejo de herramientas y maquinaria ligera, y aplicación estricta de medidas de seguridad y EPIs.',
+          ),
+        ],
+        educations: [
+          CvEducation(
+            degree: 'CERTIFICADO DE PROFESIONALIDAD (EN CURSO)',
+            institution: 'Servicio Canario de Empleo / Ayuntamiento de Arucas',
+            period: '2024 - 2025',
+            details: 'Formación teórico-práctica acreditada con módulos de Competencias Clave y PRL.',
+          ),
+          CvEducation(
+            degree: 'COMPETENCIAS CLAVE Y HABILIDADES LABORALES',
+            institution: 'Programa de Empleo y Formación Trayectoria Arucas',
+            period: '2024 - 2025',
+            details: 'Módulos transversales de Matemáticas, Lengua Castellana, Competencias Digitales y Orientación Laboral.',
+          ),
+        ],
+        template: 'sidebar_dark',
+        accentColor: '#10B981',
+        fontFamily: 'Inter',
+      ),
+      CvProfileModel(
+        id: 'profile-2',
+        moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
+        workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
+        fullName: 'ANTONIO JOSÉ GÓMEZ CABRERA',
+        jobTitle: 'OPERARIO/A DE MANTENIMIENTO URBANO',
+        photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+        photoZoom: 1.0,
+        phone: '+34 611 222 333',
+        email: 'antonio.gomez.c@correo.es',
+        location: 'Las Palmas de Gran Canaria',
+        availability: 'Disponibilidad completa e incorporación inmediata',
+        drivingLicense: 'Permiso B y vehículo propio',
+        summary: 'Persona proactiva con sólida experiencia práctica en conservación vial, mantenimiento de edificios e infraestructuras comunitarias.',
+        skills: [
+          'MANTENIMIENTO PREVENTIVO',
+          'JARDINERÍA BÁSICA',
+          'REPARACIONES RÁPIDAS',
+          'MANEJO DE MAQUINARIA',
+        ],
+        skillItems: [
+          CvSkillItem(name: 'MANTENIMIENTO PREVENTIVO', level: 5, description: 'Revisión y conservación de instalaciones'),
+          CvSkillItem(name: 'JARDINERÍA BÁSICA', level: 4, description: 'Poda y mantenimiento de zonas verdes'),
+          CvSkillItem(name: 'REPARACIONES RÁPIDAS', level: 4, description: 'Solución eficaz de incidencias operativas'),
+          CvSkillItem(name: 'MANEJO DE MAQUINARIA', level: 5, description: 'Control de herramienta y maquinaria ligera'),
+        ],
+        experiences: [
+          CvExperience(
+            jobTitle: 'PEÓN DE MANTENIMIENTO URBANO',
+            company: 'Servicios Urbanos Integrados',
+            period: '2023 - 2024',
+            description: 'Limpieza y acondicionamiento de viales públicos, mantenimiento de mobiliario y apoyo a cuadrillas de especialistas.',
+          ),
+        ],
+        educations: [
+          CvEducation(
+            degree: 'GRADUADO EN EDUCACIÓN SECUNDARIA OBLIGATORIA',
+            institution: 'IES Gran Canaria',
+            period: '2018 - 2022',
+            details: 'Graduado con mención en tecnología aplicada.',
+          ),
+        ],
+        template: 'sidebar_dark',
+        accentColor: '#10B981',
+        fontFamily: 'Inter',
+      ),
+      CvProfileModel(
+        id: 'profile-3',
+        moduleBadge: 'MÓDULO FC0003 · Inserción y Orientación Laboral',
+        workshopTitle: 'Taller de Curriculum Vitae · Gestión Docente',
+        fullName: 'ANDRIUCHA CASTILLO NAVARRO',
+        jobTitle: 'OPERARIO/A DE MANTENIMIENTO URBANO',
+        photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+        photoZoom: 1.0,
+        phone: '+34 600 000 000',
+        email: 'andriucha.castillo.navarro28@correo.es',
+        location: 'Arucas, Gran Canaria',
+        availability: 'Disponibilidad horaria e incorporación inmediata',
+        drivingLicense: 'Permiso B y vehículo propio',
+        summary: '',
+        skills: [
+          'TRABAJO EN EQUIPO',
+          'PREVENCIÓN Y EPIS',
+          'PUNTUALIDAD Y SERIEDAD',
+          'MANEJO DE HERRAMIENTAS',
+          'CAPACIDAD DE APRENDIZAJE',
+        ],
+        skillItems: [
+          CvSkillItem(name: 'TRABAJO EN EQUIPO', level: 2, description: 'Compañerismo y coordinación en cuadrilla'),
+          CvSkillItem(name: 'PREVENCIÓN Y EPIS', level: 5, description: 'Seguridad y prevención de riesgos en obra'),
+          CvSkillItem(name: 'PUNTUALIDAD Y SERIEDAD', level: 5, description: 'Compromiso riguroso con horarios y tareas'),
+          CvSkillItem(name: 'MANEJO DE HERRAMIENTAS', level: 4, description: 'Destreza con útiles manuales y eléctricos'),
+          CvSkillItem(name: 'CAPACIDAD DE APRENDIZAJE', level: 5, description: 'Asimilación rápida de nuevas técnicas'),
+        ],
+        experiences: [
+          CvExperience(
+            jobTitle: 'APRENDIZ TRABAJADOR/A - OPERARIO/A DE MANTENIMIENTO URBANO',
+            company: 'Ayuntamiento de Arucas (Programa de Empleo y Formación Trayectoria)',
+            period: '2024 - 2025',
+            description: 'Tareas prácticas en obras y servicios públicos municipales, conservación y manejo de herramientas y maquinaria ligera, y aplicación estricta de medidas de seguridad y EPIs.',
+          ),
+        ],
+        educations: [
+          CvEducation(
+            degree: 'CERTIFICADO DE PROFESIONALIDAD (EN CURSO)',
+            institution: 'Servicio Canario de Empleo / Ayuntamiento de Arucas',
+            period: '2024 - 2025',
+            details: 'Formación teórico-práctica acreditada con módulos de Competencias Clave y PRL.',
+          ),
+          CvEducation(
+            degree: 'COMPETENCIAS CLAVE Y HABILIDADES LABORALES',
+            institution: 'Programa de Empleo y Formación Trayectoria Arucas',
+            period: '2024 - 2025',
+            details: 'Módulos transversales de Matemáticas, Lengua Castellana, Competencias Digitales y Orientación Laboral.',
+          ),
+        ],
+        template: 'sidebar_dark',
+        accentColor: '#0D9488',
+        fontFamily: 'Inter',
+      ),
+    ];
+  }
+
+  List<CvProfileModel> getCvProfiles([String? username]) {
+    final curUser = getCurrentUser();
+    final effectiveUser = (username ?? curUser?.username ?? '').trim().toLowerCase();
+    final isAdmin = effectiveUser == 'admin' || curUser?.id == 1;
+
+    String? str;
+    if (effectiveUser.isNotEmpty) {
+      str = _prefs.getString('${_keyCvProfiles}_$effectiveUser');
+    }
+    if (str == null && isAdmin) {
+      str = _prefs.getString(_keyCvProfiles);
+    }
+
+    if (str == null) {
+      return isAdmin ? _getDefaultWorkshopProfiles() : [getGenericSampleCvProfile(effectiveUser.isNotEmpty ? effectiveUser : 'demo')];
+    }
+
     try {
       final list = jsonDecode(str) as List;
-      return list.map((e) => CvProfileModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      var parsed = list.map((e) => CvProfileModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      if (!isAdmin) {
+        // Enforce strict privacy: Carlos's CV is private to admin and must never leak
+        parsed = parsed.where((p) => !_isCarlosProfile(p)).toList();
+        if (parsed.isEmpty) {
+          parsed = [getGenericSampleCvProfile(effectiveUser.isNotEmpty ? effectiveUser : 'demo')];
+          saveCvProfiles(parsed, effectiveUser);
+        }
+      }
+      return parsed;
     } catch (_) {
-      return [];
+      return isAdmin ? _getDefaultWorkshopProfiles() : [getGenericSampleCvProfile(effectiveUser.isNotEmpty ? effectiveUser : 'demo')];
     }
   }
 
-  Future<void> saveCvProfiles(List<CvProfileModel> profiles) async {
-    await _prefs.setString(_keyCvProfiles, jsonEncode(profiles.map((p) => p.toJson()).toList()));
+  Future<void> saveCvProfiles(List<CvProfileModel> profiles, [String? username]) async {
+    final curUser = getCurrentUser();
+    final effectiveUser = (username ?? curUser?.username ?? '').trim().toLowerCase();
+    final isAdmin = effectiveUser == 'admin' || curUser?.id == 1;
+
+    var toSave = profiles;
+    if (!isAdmin) {
+      toSave = toSave.where((p) => !_isCarlosProfile(p)).toList();
+      if (toSave.isEmpty) {
+        toSave = [getGenericSampleCvProfile(effectiveUser.isNotEmpty ? effectiveUser : 'demo')];
+      }
+    }
+
+    final jsonStr = jsonEncode(toSave.map((p) => p.toJson()).toList());
+    if (effectiveUser.isNotEmpty) {
+      await _prefs.setString('${_keyCvProfiles}_$effectiveUser', jsonStr);
+    }
+    if (isAdmin) {
+      await _prefs.setString(_keyCvProfiles, jsonStr);
+    }
   }
 
-  String? getActiveCvId() => _prefs.getString(_keyActiveCvId);
+  String? getActiveCvId([String? username]) {
+    final curUser = getCurrentUser();
+    final effectiveUser = (username ?? curUser?.username ?? '').trim().toLowerCase();
+    if (effectiveUser.isNotEmpty) {
+      final userActive = _prefs.getString('${_keyActiveCvId}_$effectiveUser');
+      if (userActive != null) return userActive;
+    }
+    return _prefs.getString(_keyActiveCvId);
+  }
 
-  Future<void> setActiveCvId(String id) async {
+  Future<void> setActiveCvId(String id, [String? username]) async {
+    final curUser = getCurrentUser();
+    final effectiveUser = (username ?? curUser?.username ?? '').trim().toLowerCase();
+    if (effectiveUser.isNotEmpty) {
+      await _prefs.setString('${_keyActiveCvId}_$effectiveUser', id);
+    }
     await _prefs.setString(_keyActiveCvId, id);
   }
 

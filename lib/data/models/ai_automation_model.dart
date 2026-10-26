@@ -97,7 +97,7 @@ class AiWatchdogConfig {
     AiWatchdogSource(
       id: 'icv',
       name: 'Instituto Canario de la Vivienda (ICV)',
-      url: 'https://www.gobiernodecanarias.org/icv/',
+      url: 'https://www.gobiernodecanarias.org/vivienda/',
       description: 'Convocatorias de VPO, alquiler y programas públicos',
       enabled: true,
       isCustom: false,

@@ -61,7 +61,7 @@ function getDefaultConfig(targetEmail = '') {
       {
         id: 'icv',
         name: 'Instituto Canario de la Vivienda (ICV)',
-        url: 'https://www.gobiernodecanarias.org/icv/',
+        url: 'https://www.gobiernodecanarias.org/vivienda/',
         description: 'Convocatorias de VPO, alquiler y programas públicos',
         enabled: true,
         isCustom: false,
@@ -115,7 +115,7 @@ function getBaselineNotices() {
       bulletinNumber: 'BOC Núm. 194 · Anuncio 3218',
       summary: 'Publicación de la convocatoria anual de subvenciones destinadas al alquiler de vivienda habitual para familias y jóvenes con residencia en Lanzarote (municipios de Arrecife, Yaiza, Teguise, Tías y San Bartolomé). Subvención de hasta el 50% de la renta mensual.',
       aiAnalysis: '🤖 Resumen IA: Dirigido a residentes en Lanzarote con ingresos no superiores a 3 veces el IPREM. Plazo de presentación: 30 días hábiles. Cuantía máxima subvencionable: 600€/mes.',
-      url: 'https://www.gobiernodecanarias.org/boc/2026/194/',
+      url: 'https://www.gobiernodecanarias.org/boc/',
       island: 'Lanzarote',
       relevance: 'Alta (Lanzarote)',
       isRead: false,
@@ -130,7 +130,7 @@ function getBaselineNotices() {
       bulletinNumber: 'Expediente ICV-LZT-2026/04',
       summary: 'Apertura de la lista de reserva para adjudicación de nueva promoción de viviendas protegidas energéticamente eficientes en Maneje (Arrecife, Lanzarote), en el marco del Plan de Vivienda de Canarias.',
       aiAnalysis: '🤖 Resumen IA: Promoción pública directa para demandantes inscritos en el Registro Público de Vivienda Protegida de Canarias con arraigo en Lanzarote.',
-      url: 'https://www.gobiernodecanarias.org/icv/',
+      url: 'https://www.gobiernodecanarias.org/vivienda/',
       island: 'Lanzarote',
       relevance: 'Alta (Lanzarote)',
       isRead: false,
@@ -471,7 +471,10 @@ function buildAiSentinelEmailHtml(newNotices, config = {}) {
   const subtextColor = '#94A3B8';
   const primaryAccent = '#8B5CF6';
   const placeTitle = config.enablePlaceFilter !== false ? (config.targetPlace || config.targetIsland || 'General') : 'Ámbito Global';
-  const logoUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets/icon-192.png';
+  const assetBaseUrl = 'https://raw.githubusercontent.com/carlosss91/Sanctuary/main/web/assets';
+  const logoUrl = `${assetBaseUrl}/icon-192.png`;
+  const count = Math.min(Math.max(config.cometCount !== undefined ? parseInt(config.cometCount, 10) : 1, 1), 4);
+  const canvasGifUrl = `${assetBaseUrl}/cosmic-c${count}-dark.gif`;
 
   const itemsHtml = newNotices.map(n => {
     return `
@@ -489,7 +492,7 @@ function buildAiSentinelEmailHtml(newNotices, config = {}) {
         </div>` : ''}
         <div style="margin-top:12px;text-align:right;">
           <a href="${n.url || '#'}" target="_blank" style="display:inline-block;background-color:#8B5CF6;color:#FFFFFF;text-decoration:none;font-size:11.5px;font-weight:bold;padding:7px 14px;border-radius:8px;">
-            Ver en ${n.source} Oficial →
+            Ver Convocatoria Oficial →
           </a>
         </div>
       </div>
@@ -508,80 +511,17 @@ function buildAiSentinelEmailHtml(newNotices, config = {}) {
       .side-sky-col { display: none !important; width: 0 !important; }
       .email-card { width: 100% !important; border-radius: 18px !important; }
     }
-    @keyframes twinklePulse {
-      0%, 100% { opacity: 0.25; transform: scale(0.85); }
-      50% { opacity: 1; transform: scale(1.35); }
-    }
-    @keyframes cometSweep1 {
-      0% { transform: translate(-100px, -40px) rotate(-22deg); opacity: 0; }
-      15% { opacity: 1; }
-      75% { opacity: 1; }
-      100% { transform: translate(780px, 320px) rotate(-22deg); opacity: 0; }
-    }
-    @keyframes cometSweep2 {
-      0% { transform: translate(750px, 40px) rotate(158deg); opacity: 0; }
-      15% { opacity: 1; }
-      70% { opacity: 1; }
-      100% { transform: translate(-120px, 400px) rotate(158deg); opacity: 0; }
-    }
-    .star-t1 { display: inline-block; animation: twinklePulse 2.4s ease-in-out infinite !important; }
-    .star-t2 { display: inline-block; animation: twinklePulse 3.8s ease-in-out infinite 0.9s !important; }
-    .star-t3 { display: inline-block; animation: twinklePulse 4.6s ease-in-out infinite 1.8s !important; }
-    .star-t4 { display: inline-block; animation: twinklePulse 3.1s ease-in-out infinite 0.4s !important; }
-    .comet-anim-1 { display: inline-block; animation: cometSweep1 6.5s linear infinite !important; }
-    .comet-anim-2 { display: inline-block; animation: cometSweep2 8.5s linear infinite 3s !important; }
   </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, #0F1E36 0%, #070D19 45%, #03050A 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;color:${textColor};">
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};background:radial-gradient(ellipse at 50% 12%, #0F1E36 0%, #070D19 45%, #03050A 100%);width:100%;padding:24px 4px 38px 4px;margin:0;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;width:100% !important;min-width:100%;background-color:${outerBg};background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center top;background-size:cover;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;color:${textColor};">
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center top;background-size:cover;width:100% !important;min-width:100%;padding:28px 12px 42px 12px;margin:0;">
     <tr>
-      <td align="center">
-
-        <!-- Top Open Canopy -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto 16px auto;">
+      <td align="center" valign="middle">
+        <!-- Center Card -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:560px;background-color:${cardBg};border:1px solid ${cardBorder};border-radius:24px;box-shadow:0 24px 50px rgba(0,0,0,0.65);overflow:hidden;margin:0 auto;">
           <tr>
-            <td align="left" width="30%" valign="bottom" style="padding:10px 14px;">
-              <div class="comet-anim-1" style="display:inline-block;white-space:nowrap;">
-                <span style="font-size:16px;color:#FFFFFF;text-shadow:0 0 10px #38BDF8;">☄</span>
-                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to right, #38BDF8, transparent);vertical-align:middle;border-radius:2px;"></span>
-              </div>
-            </td>
-            <td align="center" width="40%" valign="middle" style="letter-spacing:12px;white-space:nowrap;">
-              <span class="star-t1" style="font-size:16px;color:#F59E0B;">✦</span>
-              <span class="star-t2" style="font-size:11px;color:#FFFFFF;">★</span>
-              <span class="star-t3" style="font-size:18px;color:#FDE68A;">✧</span>
-              <span class="star-t4" style="font-size:15px;color:#8B5CF6;">✦</span>
-              <span class="star-t1" style="font-size:12px;color:#FFFFFF;">★</span>
-            </td>
-            <td align="right" width="30%" valign="bottom" style="padding:10px 14px;text-align:right;">
-              <div class="comet-anim-2" style="display:inline-block;white-space:nowrap;">
-                <span style="display:inline-block;width:60px;height:2px;background:linear-gradient(to left, #F59E0B, transparent);vertical-align:middle;border-radius:2px;"></span>
-                <span style="font-size:16px;color:#FDE68A;">☄</span>
-              </div>
-            </td>
+            <td style="height:4px;background:linear-gradient(90deg, #8B5CF6 0%, #3B82F6 50%, #06B6D4 100%);"></td>
           </tr>
-        </table>
-
-        <!-- Main Wrapper -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:760px;margin:0 auto;">
-          <tr>
-            <!-- Left Side Stars -->
-            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;line-height:44px;">
-              <span class="star-t1" style="font-size:16px;color:#F59E0B;">✦</span><br>
-              <span class="star-t2" style="font-size:11px;color:#FFFFFF;">★</span><br>
-              <span class="star-t3" style="font-size:18px;color:#FDE68A;">✧</span><br>
-              <span class="star-t4" style="font-size:10px;color:#38BDF8;">⋆</span><br>
-              <span class="star-t1" style="font-size:15px;color:#8B5CF6;">✦</span><br>
-              <span class="star-t2" style="font-size:11px;color:#FFFFFF;">★</span><br>
-              <span class="star-t3" style="font-size:16px;color:#FDE68A;">✧</span>
-            </td>
-
-            <!-- Center Card -->
-            <td width="580" align="center" valign="top" style="max-width:580px;padding:0 4px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:560px;background-color:${cardBg};border:1px solid ${cardBorder};border-radius:24px;box-shadow:0 24px 50px rgba(0,0,0,0.65);overflow:hidden;">
-                <tr>
-                  <td style="height:4px;background:linear-gradient(90deg, #8B5CF6 0%, #3B82F6 50%, #06B6D4 100%);"></td>
-                </tr>
                 <tr>
                   <td align="center" style="padding:32px 28px 16px 28px;">
                     <div style="width:72px;height:72px;border-radius:22px;background:radial-gradient(circle at 35% 35%, #8B5CF6, #4C1D95);box-shadow:0 0 28px rgba(139,92,246,0.5);padding:2px;display:inline-block;box-sizing:border-box;">
@@ -613,20 +553,8 @@ function buildAiSentinelEmailHtml(newNotices, config = {}) {
                 </tr>
               </table>
             </td>
-
-            <!-- Right Side Stars -->
-            <td class="side-sky-col" width="85" align="center" valign="middle" style="width:85px;padding:8px 6px;vertical-align:middle;text-align:center;line-height:44px;">
-              <span class="star-t2" style="font-size:17px;color:#FDE68A;">✧</span><br>
-              <span class="star-t1" style="font-size:11px;color:#FFFFFF;">★</span><br>
-              <span class="star-t3" style="font-size:15px;color:#8B5CF6;">✦</span><br>
-              <span class="star-t4" style="font-size:10px;color:#38BDF8;">⋆</span><br>
-              <span class="star-t1" style="font-size:18px;color:#FDE68A;">✧</span><br>
-              <span class="star-t2" style="font-size:12px;color:#FFFFFF;">★</span><br>
-              <span class="star-t3" style="font-size:16px;color:#F59E0B;">✦</span>
-            </td>
           </tr>
         </table>
-
       </td>
     </tr>
   </table>

@@ -276,18 +276,46 @@ class ApiService {
     };
   }
 
-  // --- CV Profiles ---
+  // --- CV Profiles (User-Scoped & Strict Privacy) ---
+  bool _isCarlosProfile(CvProfileModel p) {
+    final str = jsonEncode(p.toJson()).toLowerCase();
+    return str.contains('carlos s') ||
+        str.contains('carlosss91') ||
+        str.contains('616787') ||
+        str.contains('616 787') ||
+        str.contains('carlossantana') ||
+        str.contains('carlos_face');
+  }
+
   Future<List<CvProfileModel>> getProfiles() async {
+    final curUser = storage.getCurrentUser();
+    final effectiveUser = (curUser?.username ?? '').trim().toLowerCase();
+    final userId = curUser?.id ?? 1;
+    final isAdmin = effectiveUser == 'admin' || userId == 1;
+
     try {
-      final res = await http.get(Uri.parse('$baseUrl/cv/profiles')).timeout(const Duration(seconds: 10));
+      final uri = Uri.parse('$baseUrl/cv/profiles').replace(queryParameters: {
+        'userId': userId.toString(),
+        'username': curUser?.username ?? 'admin',
+      });
+      final res = await http.get(uri, headers: {
+        'x-user-id': userId.toString(),
+        'x-username': curUser?.username ?? 'admin',
+      }).timeout(const Duration(seconds: 10));
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true && data['profiles'] is List) {
-          final list = (data['profiles'] as List)
+          var list = (data['profiles'] as List)
               .map((e) => CvProfileModel.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList();
+
+          if (!isAdmin) {
+            list = list.where((p) => !_isCarlosProfile(p)).toList();
+          }
+
           if (list.isNotEmpty) {
-            await storage.saveCvProfiles(list);
+            await storage.saveCvProfiles(list, curUser?.username);
             return list;
           }
         }
@@ -295,26 +323,38 @@ class ApiService {
     } catch (e) {
       debugPrint('Error fetching profiles from API: $e');
     }
-    return storage.getCvProfiles();
+    return storage.getCvProfiles(curUser?.username);
   }
 
   Future<bool> saveProfile(CvProfileModel profile) async {
+    final curUser = storage.getCurrentUser();
+    final effectiveUser = curUser?.username;
+    final userId = curUser?.id ?? 1;
+
     // 1. Save locally immediately (autoguardado guarantee)
-    final currentList = storage.getCvProfiles();
+    final currentList = storage.getCvProfiles(effectiveUser);
     final index = currentList.indexWhere((p) => p.id == profile.id);
     if (index >= 0) {
       currentList[index] = profile;
     } else {
       currentList.insert(0, profile);
     }
-    await storage.saveCvProfiles(currentList);
+    await storage.saveCvProfiles(currentList, effectiveUser);
 
     // 2. Sync to Backend in background
     try {
+      final profileMap = profile.toJson();
+      profileMap['userId'] = userId;
+      profileMap['username'] = curUser?.username ?? 'admin';
+
       final res = await http.post(
         Uri.parse('$baseUrl/cv/profiles'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(profile.toJson()),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId.toString(),
+          'x-username': curUser?.username ?? 'admin',
+        },
+        body: jsonEncode(profileMap),
       ).timeout(const Duration(seconds: 4));
       return res.statusCode == 200;
     } catch (e) {
@@ -324,11 +364,22 @@ class ApiService {
   }
 
   Future<bool> deleteProfile(String id) async {
-    final currentList = storage.getCvProfiles().where((p) => p.id != id).toList();
-    await storage.saveCvProfiles(currentList);
+    final curUser = storage.getCurrentUser();
+    final effectiveUser = curUser?.username;
+    final userId = curUser?.id ?? 1;
+
+    final currentList = storage.getCvProfiles(effectiveUser).where((p) => p.id != id).toList();
+    await storage.saveCvProfiles(currentList, effectiveUser);
 
     try {
-      final res = await http.delete(Uri.parse('$baseUrl/cv/profiles/$id')).timeout(const Duration(seconds: 3));
+      final uri = Uri.parse('$baseUrl/cv/profiles/$id').replace(queryParameters: {
+        'userId': userId.toString(),
+        'username': curUser?.username ?? 'admin',
+      });
+      final res = await http.delete(uri, headers: {
+        'x-user-id': userId.toString(),
+        'x-username': curUser?.username ?? 'admin',
+      }).timeout(const Duration(seconds: 3));
       return res.statusCode == 200;
     } catch (_) {
       return false;

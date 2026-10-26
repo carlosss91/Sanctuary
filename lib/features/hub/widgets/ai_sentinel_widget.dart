@@ -729,7 +729,7 @@ class _AiSentinelWidgetState extends State<AiSentinelWidget> {
                       _buildQuickPortalLink('BOC Canarias', 'https://www.gobiernodecanarias.org/boc/', isDark),
                       _buildQuickPortalLink('BOE Estado', 'https://www.boe.es/', isDark),
                       _buildQuickPortalLink('Vivienda GobCan', 'https://www.gobiernodecanarias.org/vivienda/', isDark),
-                      _buildQuickPortalLink('ICV', 'https://www.gobiernodecanarias.org/icv/', isDark),
+                      _buildQuickPortalLink('ICV', 'https://www.gobiernodecanarias.org/vivienda/', isDark),
                     ],
                   ),
                 ],

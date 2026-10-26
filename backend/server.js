@@ -460,19 +460,19 @@ function buildSanctuaryEmailHtml({
     }
   </style>
 </head>
-<body bgcolor="${outerBg}" style="margin:0;padding:0;background-color:${outerBg};font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
-  <!-- Outer Neutral Framing Container -->
-  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="background-color:${outerBg};width:100%;padding:24px 8px 32px 8px;margin:0;border-collapse:collapse;">
+<body bgcolor="${outerBg}" style="margin:0;padding:0;width:100% !important;min-width:100%;background-color:${outerBg};${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:repeat;background-position:center top;background-size:cover;` : ''}font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${textColor};-webkit-font-smoothing:antialiased;">
+  <!-- Outer 100% Full-Bleed Celestial Canvas Container -->
+  <table role="presentation" width="100%" bgcolor="${outerBg}" cellpadding="0" cellspacing="0" class="main-table" style="width:100% !important;min-width:100%;background-color:${outerBg};${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center top;background-size:cover;` : ''}padding:28px 8px 36px 8px;margin:0;border-collapse:collapse;">
     <tr>
       <td align="center" valign="middle" style="padding:0;">
 
-        <!-- Centered Celestial Stage (940x580 canvas: card vertically and horizontally centered with snug padding on all 4 sides) -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:940px;width:100%;${canvasGifUrl ? `background-image:url('${canvasGifUrl}');background-repeat:no-repeat;background-position:center center;background-size:940px 580px;border-radius:24px;` : ''}margin:0 auto;border-collapse:collapse;">
+        <!-- Centered Celestial Stage -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:${isAiSentinel ? '560px' : '460px'};width:100%;margin:0 auto;border-collapse:collapse;">
           <tr>
-            <td align="center" valign="middle" style="padding:40px 16px;">
+            <td align="center" valign="middle" style="padding:16px 8px;">
 
-              <!-- Main Card Container (Identical to Flutter Preview: 420px max-width, 18px border radius) -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:420px;width:100%;background:${cardBg};background-color:${cardBg};border-radius:18px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;margin:0 auto;border-collapse:separate;">
+              <!-- Main Card Container -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card" style="max-width:${isAiSentinel ? '540px' : '420px'};width:100%;background:${cardBg};background-color:${cardBg};border-radius:18px;border:1px solid ${cardBorder};box-shadow:${cardBoxShadow};overflow:hidden;margin:0 auto;border-collapse:separate;">
                 
                 <!-- Top Accent Iridescent Bar -->
                 <tr>
@@ -2534,63 +2534,175 @@ app.put('/api/users/profile', async (req, res) => {
   res.status(404).json({ success: false, message: 'Usuario no encontrado' });
 });
 
-// CV Profiles: List
+// --- CV Profiles: User Isolation & Privacy Safeguard ---
+function isCarlosProfile(p) {
+  if (!p) return false;
+  const str = JSON.stringify(p).toLowerCase();
+  return (
+    str.includes('carlos s') ||
+    str.includes('carlosss91') ||
+    str.includes('616787') ||
+    str.includes('616 787') ||
+    str.includes('carlos_face') ||
+    str.includes('carlossantana')
+  );
+}
+
+function getGenericSampleCvProfile(userId = 'demo') {
+  return {
+    id: `sample-profile-${userId}`,
+    fullName: 'ALEJANDRO MARTÍNEZ RIVERA',
+    jobTitle: 'DOCENTE Y FORMADOR TÉCNICO',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    photoZoom: 1.0,
+    phone: '+34 600 123 456',
+    email: 'alejandro.martinez.docente@correo.es',
+    location: 'Arrecife, Lanzarote',
+    availability: 'Disponibilidad horaria e incorporación inmediata',
+    drivingLicense: 'Permiso B y vehículo propio',
+    summary: 'Profesional proactivo con amplia experiencia en capacitación técnica, diseño de contenidos didácticos y gestión de entornos virtuales de aprendizaje.\n\nVocación docente orientada a resultados, metodologías activas y trabajo colaborativo.',
+    skills: [
+      'METODOLOGÍAS DOCENTES',
+      'GESTIÓN DE AULAS VIRTUALES',
+      'HERRAMIENTAS TIC APLICADAS',
+      'PREVENCIÓN DE RIESGOS',
+      'COMUNICACIÓN ASERTIVA',
+    ],
+    skillItems: [
+      { name: 'METODOLOGÍAS DOCENTES', level: 5, description: 'Diseño instruccional y dinamización de grupos' },
+      { name: 'GESTIÓN DE AULAS VIRTUALES', level: 5, description: 'Moodle, Google Classroom y entornos e-learning' },
+      { name: 'HERRAMIENTAS TIC APLICADAS', level: 4, description: 'Ofimática avanzada y recursos multimedia' },
+      { name: 'PREVENCIÓN DE RIESGOS', level: 4, description: 'Seguridad en el aula y talleres formativos' },
+      { name: 'COMUNICACIÓN ASERTIVA', level: 5, description: 'Tutorización y resolución de conflictos' },
+    ],
+    experiences: [
+      {
+        jobTitle: 'DOCENTE Y FORMADOR TÉCNICO',
+        company: 'Centro Insular de Formación y Empleo',
+        period: '2023 - 2025',
+        description: 'Impartición de módulos formativos para el empleo, orientación sociolaboral y tutorización técnica.',
+      },
+      {
+        jobTitle: 'COORDINADOR DE PROYECTOS EDUCATIVOS',
+        company: 'Academia Formativa Canarias',
+        period: '2021 - 2023',
+        description: 'Planificación pedagógica de cursos presenciales y telemáticos, supervisión de prácticas y evaluación.',
+      },
+    ],
+    educations: [
+      {
+        degree: 'GRADO EN PEDAGOGÍA / MAGISTERIO',
+        institution: 'Universidad de Las Palmas de Gran Canaria (ULPGC)',
+        period: '2016 - 2020',
+        details: 'Mención en tecnologías aplicadas a la enseñanza.',
+      },
+      {
+        degree: 'CERTIFICADO DE DOCENCIA DE LA FORMACIÓN PROFESIONAL (SSCE0110)',
+        institution: 'Servicio Canario de Empleo (SCE)',
+        period: '2021',
+        details: 'Acreditación oficial para impartición y tutorización de certificados profesionales.',
+      },
+    ],
+    template: 'sidebar_dark',
+    accentColor: '#10B981',
+    fontFamily: 'Inter',
+  };
+}
+
+// CV Profiles: List (Strictly scoped by user; Carlos's CV is private to Admin)
 app.get('/api/cv/profiles', async (req, res) => {
-  const result = await safeQuery('SELECT id, full_name, job_title, avatar_url, data_json, updated_at FROM cv_profiles ORDER BY updated_at DESC');
-  if (result) {
-    const profiles = result.rows.map(row => {
-      let data = row.data_json;
-      if (typeof data === 'string') {
-        try { data = JSON.parse(data); } catch(e) {}
-      }
-      return {
-        id: row.id,
-        fullName: row.full_name,
-        jobTitle: row.job_title,
-        avatarUrl: row.avatar_url,
-        updatedAt: row.updated_at,
-        ...data,
-      };
-    });
-    return res.json({ success: true, count: profiles.length, profiles });
+  const userId = req.query.userId || req.headers['x-user-id'] || (req.user && req.user.id);
+  const username = req.query.username || req.headers['x-username'] || (req.user && req.user.username);
+  const isAdmin = (userId && parseInt(userId, 10) === 1) || (username && String(username).toLowerCase() === 'admin');
+
+  let profiles = [];
+  try {
+    let result;
+    if (isAdmin) {
+      result = await safeQuery('SELECT id, full_name, job_title, avatar_url, data_json, updated_at FROM cv_profiles WHERE user_id = 1 OR user_id IS NULL ORDER BY updated_at DESC');
+    } else if (userId && !isNaN(parseInt(userId, 10))) {
+      result = await safeQuery('SELECT id, full_name, job_title, avatar_url, data_json, updated_at FROM cv_profiles WHERE user_id = $1 ORDER BY updated_at DESC', [parseInt(userId, 10)]);
+    }
+
+    if (result && result.rows) {
+      profiles = result.rows.map(row => {
+        let data = row.data_json;
+        if (typeof data === 'string') {
+          try { data = JSON.parse(data); } catch(e) {}
+        }
+        return {
+          id: row.id,
+          fullName: row.full_name,
+          jobTitle: row.job_title,
+          avatarUrl: row.avatar_url,
+          updatedAt: row.updated_at,
+          ...data,
+        };
+      });
+    }
+  } catch (dbErr) {
+    console.warn('[CV Profiles] Error querying database:', dbErr.message);
   }
 
-  const ldb = getLocalDb();
-  res.json({ success: true, count: (ldb.cv_profiles || []).length, profiles: ldb.cv_profiles || [] });
+  // Local DB Fallback
+  if (profiles.length === 0) {
+    const ldb = getLocalDb();
+    const allLocal = ldb.cv_profiles || [];
+    if (isAdmin) {
+      profiles = allLocal.filter(p => !p.userId || p.userId === 1);
+    } else if (userId) {
+      profiles = allLocal.filter(p => p.userId === parseInt(userId, 10));
+    }
+  }
+
+  // Absolute privacy guarantee: Never deliver Carlos's personal data to non-admin accounts
+  if (!isAdmin) {
+    profiles = profiles.filter(p => !isCarlosProfile(p));
+    if (profiles.length === 0) {
+      profiles = [getGenericSampleCvProfile(userId || 'new')];
+    }
+  }
+
+  return res.json({ success: true, count: profiles.length, profiles });
 });
 
-// CV Profiles: Save or Update (Upsert)
+// CV Profiles: Save or Update (Upsert with user_id)
 app.post('/api/cv/profiles', async (req, res) => {
   const profile = req.body;
   if (!profile || !profile.id) {
     return res.status(400).json({ success: false, message: 'Datos de perfil o ID faltantes' });
   }
 
+  const userId = req.body.userId || req.query.userId || req.headers['x-user-id'] || 1;
+  const parsedUserId = parseInt(userId, 10) || 1;
   const id = profile.id;
   const fullName = profile.fullName || 'Nuevo Perfil';
   const jobTitle = profile.jobTitle || '';
   const avatarUrl = profile.photoUrl || profile.avatarUrl || '';
-  const dataJson = JSON.stringify(profile);
+  const dataJson = JSON.stringify({ ...profile, userId: parsedUserId });
 
   await safeQuery(
-    `INSERT INTO cv_profiles (id, full_name, job_title, avatar_url, data_json, updated_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())
+    `INSERT INTO cv_profiles (id, full_name, job_title, avatar_url, data_json, user_id, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
      ON CONFLICT (id) DO UPDATE SET
        full_name = EXCLUDED.full_name,
        job_title = EXCLUDED.job_title,
        avatar_url = EXCLUDED.avatar_url,
        data_json = EXCLUDED.data_json,
+       user_id = EXCLUDED.user_id,
        updated_at = NOW()`,
-    [id, fullName, jobTitle, avatarUrl, dataJson]
+    [id, fullName, jobTitle, avatarUrl, dataJson, parsedUserId]
   );
 
   const ldb = getLocalDb();
   if (!ldb.cv_profiles) ldb.cv_profiles = [];
+  const profileToStore = { ...profile, userId: parsedUserId };
   const idx = ldb.cv_profiles.findIndex(p => p.id === id);
   if (idx >= 0) {
-    ldb.cv_profiles[idx] = profile;
+    ldb.cv_profiles[idx] = profileToStore;
   } else {
-    ldb.cv_profiles.unshift(profile);
+    ldb.cv_profiles.unshift(profileToStore);
   }
   saveLocalDb(ldb);
 
@@ -2600,7 +2712,16 @@ app.post('/api/cv/profiles', async (req, res) => {
 // CV Profiles: Delete
 app.delete('/api/cv/profiles/:id', async (req, res) => {
   const { id } = req.params;
-  await safeQuery('DELETE FROM cv_profiles WHERE id = $1', [id]);
+  const userId = req.query.userId || req.headers['x-user-id'];
+  const username = req.query.username || req.headers['x-username'];
+  const isAdmin = (userId && parseInt(userId, 10) === 1) || (username && String(username).toLowerCase() === 'admin');
+
+  if (isAdmin || !userId) {
+    await safeQuery('DELETE FROM cv_profiles WHERE id = $1', [id]);
+  } else {
+    await safeQuery('DELETE FROM cv_profiles WHERE id = $1 AND user_id = $2', [id, parseInt(userId, 10)]);
+  }
+
   const ldb = getLocalDb();
   if (ldb.cv_profiles) {
     ldb.cv_profiles = ldb.cv_profiles.filter(p => p.id !== id);
