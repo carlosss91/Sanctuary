@@ -100,7 +100,7 @@ function getBaselineNotices() {
       bulletinNumber: 'Tablón Oficial Yaiza Exp. VPO-2026/02 · BOP Las Palmas',
       summary: 'El Ayuntamiento de Yaiza (Lanzarote) aprueba la convocatoria pública de adjudicación y apertura de solicitudes para la promoción de nuevas viviendas de protección oficial y parcelas residenciales públicas para familias y personas empadronadas en el término municipal de Yaiza (Playa Blanca, Yaiza, Uga y Femés).',
       aiAnalysis: '🤖 Resumen IA: Convocatoria municipal de vivienda protegida para empadronados en Yaiza. Subvención directa al alquiler asequible y adjudicación por baremo de arraigo y necesidad social.',
-      url: 'https://yaiza.es/',
+      url: 'https://yaiza.es/yaiza-avisa-que-vivienda-inicia-el-procedimiento-de-adjudicacion-de-las-42-casas-de-los-ajaches-para-alquiler-asequible-en-playa-blanca/',
       island: 'Lanzarote (Yaiza)',
       relevance: 'Alta (Lanzarote)',
       isRead: false,
@@ -115,7 +115,7 @@ function getBaselineNotices() {
       bulletinNumber: 'BOC Núm. 194 · Anuncio 3218',
       summary: 'Publicación de la convocatoria anual de subvenciones destinadas al alquiler de vivienda habitual para familias y jóvenes con residencia en Lanzarote (municipios de Arrecife, Yaiza, Teguise, Tías y San Bartolomé). Subvención de hasta el 50% de la renta mensual.',
       aiAnalysis: '🤖 Resumen IA: Dirigido a residentes en Lanzarote con ingresos no superiores a 3 veces el IPREM. Plazo de presentación: 30 días hábiles. Cuantía máxima subvencionable: 600€/mes.',
-      url: 'https://www.gobiernodecanarias.org/boc/',
+      url: 'https://www.gobiernodecanarias.org/vivienda/destacados/AYUDA_ALQUILER_2024_V2.html',
       island: 'Lanzarote',
       relevance: 'Alta (Lanzarote)',
       isRead: false,
@@ -130,7 +130,7 @@ function getBaselineNotices() {
       bulletinNumber: 'Expediente ICV-LZT-2026/04',
       summary: 'Apertura de la lista de reserva para adjudicación de nueva promoción de viviendas protegidas energéticamente eficientes en Maneje (Arrecife, Lanzarote), en el marco del Plan de Vivienda de Canarias.',
       aiAnalysis: '🤖 Resumen IA: Promoción pública directa para demandantes inscritos en el Registro Público de Vivienda Protegida de Canarias con arraigo en Lanzarote.',
-      url: 'https://www.gobiernodecanarias.org/vivienda/',
+      url: 'https://www3.gobiernodecanarias.org/noticias/vivienda-adjudica-la-construccion-de-134-viviendas-de-proteccion-oficial-de-promocion-publica-en-arrecife/',
       island: 'Lanzarote',
       relevance: 'Alta (Lanzarote)',
       isRead: false,
@@ -145,7 +145,7 @@ function getBaselineNotices() {
       bulletinNumber: 'BOE-A-2026-1892',
       summary: 'Transferencia de fondos estatales extraordinarios para programas de fomento de vivienda en alquiler asequible y rehabilitación residencial en islas no capitalinas, incluyendo Lanzarote y Fuerteventura.',
       aiAnalysis: '🤖 Resumen IA: Fondos transferidos para financiar el bono alquiler joven y compra de suelo para VPO en Lanzarote.',
-      url: 'https://www.boe.es/diario_boe/',
+      url: 'https://www.boe.es/buscar/doc.php?id=BOE-A-2022-4405',
       island: 'Canarias (Lanzarote)',
       relevance: 'Media',
       isRead: true,
@@ -156,12 +156,47 @@ function getBaselineNotices() {
 }
 
 /**
- * Attempts live network search/fetch on official portals
+ * Attempts live network search/fetch on official portals with exact article/convocatoria URLs
  */
 async function fetchLiveOfficialBulletins() {
   const liveItems = [];
 
-  // 1. Fetch BOE search / Open API
+  // 1. Fetch ICAVI / Vivienda Canarias Portal (Live specific news)
+  try {
+    const icvController = new AbortController();
+    const icvTimeout = setTimeout(() => icvController.abort(), 4500);
+    const icvRes = await fetch('https://www3.gobiernodecanarias.org/noticias/category/vivienda/', {
+      signal: icvController.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Sanctuary-Sentinel/1.0' },
+    });
+    clearTimeout(icvTimeout);
+    if (icvRes.ok) {
+      const html = await icvRes.text();
+      const regex = /<h[1234][^>]*>\s*<a\s+href=["']([^"']+)["'][^>]*>([^<]+)<\/a>/gi;
+      let m;
+      let count = 0;
+      while ((m = regex.exec(html)) !== null && count < 6) {
+        const articleUrl = m[1];
+        const articleTitle = m[2].trim();
+        if (articleUrl.startsWith('http') && articleTitle.length > 10) {
+          liveItems.push({
+            id: 'icv-live-' + Date.now() + '-' + count,
+            title: `Instituto Canario de la Vivienda: ${articleTitle}`,
+            source: 'ICV',
+            date: new Date().toISOString().split('T')[0],
+            bulletinNumber: 'Portal Oficial de Vivienda GobCan',
+            summary: `Publicación oficial del Instituto Canario de la Vivienda: "${articleTitle}". Consulta la convocatoria y plazos completos en el enlace oficial.`,
+            url: articleUrl,
+            island: articleTitle.toLowerCase().includes('lanzarote') ? 'Lanzarote' : 'Canarias',
+            relevance: articleTitle.toLowerCase().includes('lanzarote') ? 'Alta (Lanzarote)' : 'Media',
+          });
+          count++;
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 2. Fetch BOE search / Open API
   try {
     const boeController = new AbortController();
     const boeTimeout = setTimeout(() => boeController.abort(), 4000);
@@ -175,6 +210,7 @@ async function fetchLiveOfficialBulletins() {
       const data = await res.json().catch(() => null);
       if (data && data.data && Array.isArray(data.data.seccion1)) {
         for (const item of data.data.seccion1.slice(0, 10)) {
+          const exactDocUrl = item.url_pdf || (item.identificador ? `https://www.boe.es/buscar/doc.php?id=${encodeURIComponent(item.identificador)}` : 'https://www.boe.es/diario_boe/');
           liveItems.push({
             id: 'boe-live-' + (item.identificador || crypto.randomUUID().slice(0, 8)),
             title: item.titulo || 'Publicación oficial en BOE',
@@ -182,51 +218,16 @@ async function fetchLiveOfficialBulletins() {
             date: new Date().toISOString().split('T')[0],
             bulletinNumber: item.identificador || 'BOE',
             summary: item.titulo || '',
-            url: item.url_pdf || 'https://www.boe.es/diario_boe/',
+            url: exactDocUrl,
             island: 'Nacional / Canarias',
             relevance: 'Media',
           });
         }
       }
     }
-  } catch (_) {
-    // Graceful fallback if BOE api is unreachable
-  }
+  } catch (_) {}
 
-  // 2. Fetch BOC (Gobierno de Canarias)
-  try {
-    const bocController = new AbortController();
-    const bocTimeout = setTimeout(() => bocController.abort(), 4000);
-    const bocRes = await fetch('https://www.gobiernodecanarias.org/boc/', {
-      signal: bocController.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    clearTimeout(bocTimeout);
-    if (bocRes.ok) {
-      const html = await bocRes.text();
-      // Basic extraction of BOC issue and titles if present
-      const matchIssue = html.match(/BOC\s+(?:N[uú]m\.\s*)?(\d+)/i);
-      const issueNum = matchIssue ? matchIssue[0] : 'BOC Actual';
-      // Search for any mention of vivienda/alquiler
-      if (html.toLowerCase().includes('vivienda') || html.toLowerCase().includes('alquiler')) {
-        liveItems.push({
-          id: 'boc-live-' + Date.now(),
-          title: `Boletín Oficial de Canarias (${issueNum}) con convocatorias de vivienda`,
-          source: 'BOC',
-          date: new Date().toISOString().split('T')[0],
-          bulletinNumber: issueNum,
-          summary: 'Se detectaron menciones a materias de vivienda en la edición reciente del BOC.',
-          url: 'https://www.gobiernodecanarias.org/boc/',
-          island: 'Canarias / Lanzarote',
-          relevance: 'Media',
-        });
-      }
-    }
-  } catch (_) {
-    // Graceful fallback
-  }
-
-  // 3. Fetch Ayuntamiento de Yaiza (Lanzarote)
+  // 3. Fetch Ayuntamiento de Yaiza (Lanzarote - Exact article URLs)
   try {
     const yaizaController = new AbortController();
     const yaizaTimeout = setTimeout(() => yaizaController.abort(), 4500);
@@ -237,24 +238,60 @@ async function fetchLiveOfficialBulletins() {
     clearTimeout(yaizaTimeout);
     if (yaizaRes.ok) {
       const html = await yaizaRes.text();
-      const lower = html.toLowerCase();
-      if (lower.includes('vivienda') || lower.includes('alquiler') || lower.includes('vpo') || lower.includes('ayuda')) {
+      const regex = /<h[1234][^>]*>\s*<a\s+href=["'](https:\/\/yaiza\.es\/[^"']+)["'][^>]*>([^<]+)<\/a>/gi;
+      let m;
+      while ((m = regex.exec(html)) !== null) {
+        const articleUrl = m[1];
+        const articleTitle = m[2].trim();
+        const lower = (articleTitle + ' ' + articleUrl).toLowerCase();
+        if (lower.includes('vivienda') || lower.includes('alquiler') || lower.includes('vpo') || lower.includes('ajaches') || lower.includes('ayuda') || lower.includes('social')) {
+          liveItems.push({
+            id: 'yaiza-live-' + Date.now(),
+            title: `Ayuntamiento de Yaiza: ${articleTitle}`,
+            source: 'Ayuntamiento de Yaiza',
+            date: new Date().toISOString().split('T')[0],
+            bulletinNumber: 'Tablón Oficial Yaiza',
+            summary: `Publicación oficial del Ayuntamiento de Yaiza (Lanzarote): "${articleTitle}". Acceso directo a la convocatoria y bases en el portal municipal.`,
+            url: articleUrl,
+            island: 'Lanzarote (Yaiza)',
+            relevance: 'Alta (Lanzarote)',
+          });
+          break; // Keep the most relevant
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 4. Fetch BOC (Gobierno de Canarias - Latest Issue)
+  try {
+    const bocController = new AbortController();
+    const bocTimeout = setTimeout(() => bocController.abort(), 4000);
+    const bocRes = await fetch('https://www.gobiernodecanarias.org/boc/', {
+      signal: bocController.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+    clearTimeout(bocTimeout);
+    if (bocRes.ok) {
+      const html = await bocRes.text();
+      const matchIssue = html.match(/\/boc\/(\d{4})\/(\d+)/i);
+      if (matchIssue) {
+        const year = matchIssue[1];
+        const num = matchIssue[2];
+        const issueUrl = `https://www.gobiernodecanarias.org/boc/${year}/${num}/`;
         liveItems.push({
-          id: 'yaiza-live-' + Date.now(),
-          title: 'Ayuntamiento de Yaiza: Actualización oficial de vivienda y ayudas en el municipio',
-          source: 'Ayuntamiento de Yaiza',
+          id: 'boc-live-' + year + '-' + num,
+          title: `Boletín Oficial de Canarias: BOC Núm. ${num} (${year})`,
+          source: 'BOC',
           date: new Date().toISOString().split('T')[0],
-          bulletinNumber: 'Tablón Oficial Yaiza',
-          summary: 'Detección de publicaciones en materia de vivienda, subvenciones y servicios públicos en el portal oficial del Ayuntamiento de Yaiza (Lanzarote).',
-          url: 'https://yaiza.es/',
-          island: 'Lanzarote (Yaiza)',
-          relevance: 'Alta (Lanzarote)',
+          bulletinNumber: `BOC Núm. ${num}`,
+          summary: 'Edición oficial del Boletín Oficial de Canarias con las resoluciones, órdenes y convocatorias públicas de la Comunidad Autónoma.',
+          url: issueUrl,
+          island: 'Canarias',
+          relevance: 'Media',
         });
       }
     }
-  } catch (_) {
-    // Graceful fallback
-  }
+  } catch (_) {}
 
   return liveItems;
 }

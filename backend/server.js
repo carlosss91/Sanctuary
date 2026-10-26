@@ -3795,8 +3795,13 @@ app.post('/api/ai-watchdog/scan', async (req, res) => {
         knownKeys.add(key);
       } else {
         const existing = updatedNotifs.find(n => n.title.toLowerCase().trim() === key);
-        if (existing && config.geminiApiKey && (!existing.aiAnalysis || !existing.aiAnalysis.includes('🤖'))) {
-          existing.aiAnalysis = await aiWatchdogService.analyzeWithGemini(existing, config);
+        if (existing) {
+          if (notice.url && (!existing.url || existing.url.endsWith('/vivienda/') || existing.url.endsWith('yaiza.es/') || existing.url.endsWith('/boc/') || existing.url !== notice.url)) {
+            existing.url = notice.url;
+          }
+          if (config.geminiApiKey && (!existing.aiAnalysis || !existing.aiAnalysis.includes('🤖'))) {
+            existing.aiAnalysis = await aiWatchdogService.analyzeWithGemini(existing, config);
+          }
         }
       }
     }
@@ -3924,6 +3929,11 @@ async function runScheduledWatchdogScan() {
         updatedNotifs.unshift(notice);
         brandNewAlerts.push(notice);
         knownKeys.add(key);
+      } else {
+        const existing = updatedNotifs.find(n => n.title.toLowerCase().trim() === key);
+        if (existing && notice.url && (!existing.url || existing.url.endsWith('/vivienda/') || existing.url.endsWith('yaiza.es/') || existing.url.endsWith('/boc/') || existing.url !== notice.url)) {
+          existing.url = notice.url;
+        }
       }
     }
 
