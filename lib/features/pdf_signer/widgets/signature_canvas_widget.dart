@@ -11,6 +11,8 @@ import 'signer_identification_dialog.dart';
 class SignatureCanvasWidget extends StatefulWidget {
   final SignerIdentity? initialIdentity;
   final String? initialSignerName;
+  final List<SignatureStroke>? initialStrokes;
+  final Uint8List? initialImageBytes;
   final void Function({
     List<SignatureStroke>? strokes,
     Uint8List? imageBytes,
@@ -23,6 +25,8 @@ class SignatureCanvasWidget extends StatefulWidget {
     required this.onSaveSignature,
     this.initialIdentity,
     this.initialSignerName,
+    this.initialStrokes,
+    this.initialImageBytes,
     this.onCancel,
   });
 
@@ -55,6 +59,14 @@ class _SignatureCanvasWidgetState extends State<SignatureCanvasWidget> {
     _dniController = TextEditingController(text: widget.initialIdentity?.nationalId.trim() ?? '');
     _signerNameController.addListener(_onFieldChanged);
     _dniController.addListener(_onFieldChanged);
+
+    if (widget.initialStrokes != null && widget.initialStrokes!.isNotEmpty) {
+      _strokes.addAll(widget.initialStrokes!);
+    }
+    if (widget.initialImageBytes != null) {
+      _croppedSignatureBytes = widget.initialImageBytes;
+      _activeMode = 'image';
+    }
   }
 
   void _onFieldChanged() {

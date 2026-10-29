@@ -167,16 +167,16 @@ void main() {
     test('Draggable signature box coordinate constraints prevent out-of-bounds positioning', () {
       const pageW = 595.0;
       const pageH = 842.0;
-      const cardW = 185.0;
-      const cardH = 78.0;
+      const cardW = 220.0;
+      const cardH = 112.0;
 
       const maxNormX = (pageW - cardW) / pageW;
       const maxNormY = (pageH - cardH) / pageH;
 
-      expect(maxNormX, greaterThan(0.68));
-      expect(maxNormX, lessThan(0.70));
-      expect(maxNormY, greaterThan(0.90));
-      expect(maxNormY, lessThan(0.92));
+      expect(maxNormX, greaterThan(0.60));
+      expect(maxNormX, lessThan(0.65));
+      expect(maxNormY, greaterThan(0.85));
+      expect(maxNormY, lessThan(0.88));
 
       // Test extreme dragging deltas
       final clampedMinX = (-0.5).clamp(0.0, maxNormX);
@@ -261,6 +261,36 @@ void main() {
 
       // Verify live baseline reflects the updated name
       expect(find.text('Firma de: María Gómez'), findsOneWidget);
+    });
+
+    test('PlacedSignature userId and copyWith prevent duplicate signatures on modification', () {
+      final original = PlacedSignature(
+        id: 'sig-user-1',
+        signerName: 'Carlos',
+        signerSurname: 'Sánchez',
+        nationalId: '12345678Z',
+        signedAt: DateTime.utc(2026, 10, 1, 10, 0),
+        userId: 'user-42',
+      );
+
+      final json = original.toJson();
+      expect(json['userId'], equals('user-42'));
+
+      final restored = PlacedSignature.fromJson(json);
+      expect(restored.userId, equals('user-42'));
+
+      // Modifying signature in place
+      final modified = original.copyWith(
+        signerName: 'Carlos Alberto',
+        signerSurname: 'Sánchez García',
+        nationalId: '87654321A',
+      );
+
+      expect(modified.id, equals('sig-user-1'));
+      expect(modified.userId, equals('user-42'));
+      expect(modified.fullName, equals('Carlos Alberto Sánchez García'));
+      expect(modified.nationalId, equals('87654321A'));
+      expect(modified.verificationHash, isNot(equals(original.verificationHash)));
     });
   });
 }

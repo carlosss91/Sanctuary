@@ -666,6 +666,18 @@ class StorageService {
     } catch (_) {}
   }
 
+  String? getMySignatureForDoc(String docId) {
+    return _prefs.getString('sanctuary_my_sig:$docId');
+  }
+
+  Future<void> saveMySignatureForDoc(String docId, String sigId) async {
+    await _prefs.setString('sanctuary_my_sig:$docId', sigId);
+  }
+
+  Future<void> removeMySignatureForDoc(String docId) async {
+    await _prefs.remove('sanctuary_my_sig:$docId');
+  }
+
   // --- AI Sentinel & Watchdogs Persistent Cache ---
   static const String _keyAiWatchdogConfig = 'sanctuary_ai_watchdog_config';
   static const String _keyAiWatchdogNotifs = 'sanctuary_ai_watchdog_notifications';

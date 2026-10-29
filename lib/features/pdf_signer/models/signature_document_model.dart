@@ -46,6 +46,8 @@ class PlacedSignature {
   int pageNumber;
   final String verificationHash;
 
+  final String? userId;
+
   PlacedSignature({
     required this.id,
     required this.signerName,
@@ -59,9 +61,45 @@ class PlacedSignature {
     this.scale = 1.0,
     this.pageNumber = 1,
     String? verificationHash,
+    this.userId,
   }) : verificationHash = verificationHash ?? _generateHash(signerName, signerSurname, signedAt);
 
   String get fullName => '$signerName $signerSurname'.trim();
+
+  PlacedSignature copyWith({
+    String? id,
+    String? signerName,
+    String? signerSurname,
+    String? nationalId,
+    DateTime? signedAt,
+    List<SignatureStroke>? strokes,
+    Uint8List? imageBytes,
+    double? normalizedX,
+    double? normalizedY,
+    double? scale,
+    int? pageNumber,
+    String? verificationHash,
+    String? userId,
+  }) {
+    return PlacedSignature(
+      id: id ?? this.id,
+      signerName: signerName ?? this.signerName,
+      signerSurname: signerSurname ?? this.signerSurname,
+      nationalId: nationalId ?? this.nationalId,
+      signedAt: signedAt ?? this.signedAt,
+      strokes: strokes ?? this.strokes,
+      imageBytes: imageBytes ?? this.imageBytes,
+      normalizedX: normalizedX ?? this.normalizedX,
+      normalizedY: normalizedY ?? this.normalizedY,
+      scale: scale ?? this.scale,
+      pageNumber: pageNumber ?? this.pageNumber,
+      verificationHash: verificationHash ??
+          (signerName != null || signerSurname != null || signedAt != null
+              ? _generateHash(signerName ?? this.signerName, signerSurname ?? this.signerSurname, signedAt ?? this.signedAt)
+              : this.verificationHash),
+      userId: userId ?? this.userId,
+    );
+  }
 
   static String _generateHash(String name, String surname, DateTime dt) {
     final raw = '$name-$surname-${dt.millisecondsSinceEpoch}-sanctuary-sig';
@@ -88,6 +126,7 @@ class PlacedSignature {
       'scale': scale,
       'pageNumber': pageNumber,
       'verificationHash': verificationHash,
+      if (userId != null) 'userId': userId,
     };
   }
 
@@ -107,6 +146,7 @@ class PlacedSignature {
       scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
       pageNumber: (json['pageNumber'] as num?)?.toInt() ?? 1,
       verificationHash: json['verificationHash'] as String?,
+      userId: json['userId'] as String?,
     );
   }
 }

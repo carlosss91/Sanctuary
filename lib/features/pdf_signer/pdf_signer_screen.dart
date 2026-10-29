@@ -75,8 +75,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
 
   static const double pageA4Width = 595.0;
   static const double pageA4Height = 842.0;
-  static const double sigCardWidth = 185.0;
-  static const double sigCardHeight = 78.0;
+  static const double sigCardWidth = 220.0;
+  static const double sigCardHeight = 112.0;
+
+  String? _mySignatureId;
+  final Set<String> _locallyDeletedSigIds = {};
 
   SignerIdentity _identityFromUser(UserModel user) {
     final rawFullName = (user.fullName != null && user.fullName!.trim().isNotEmpty)
@@ -126,6 +129,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       }
     } catch (_) {}
 
+    _mySignatureId = widget.apiService.storage.getMySignatureForDoc(docId);
+
     _document = PdfSignerDocument(
       id: docId,
       shareToken: token,
@@ -137,8 +142,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           signerName: 'Dirección Técnica',
           signerSurname: 'Sanctuary Platform',
           signedAt: DateTime.now().subtract(const Duration(hours: 2)),
-          normalizedX: 0.113,
-          normalizedY: 0.863,
+          normalizedX: 0.08,
+          normalizedY: 0.82,
           pageNumber: 1,
           strokes: _createDefaultStampStrokes(),
         ),
@@ -169,6 +174,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         setState(() {
           _document = remote;
         });
+        _mySignatureId ??= widget.apiService.storage.getMySignatureForDoc(docId);
         if (remote.pdfBytes != null && remote.pdfBytes!.isNotEmpty && _pdfPageImages.isEmpty) {
           await _rasterizePdfBytes(remote.pdfBytes!);
         }
@@ -195,7 +201,9 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       if (remoteDoc == null || !mounted) return;
 
       final currentSigIds = _document.signatures.map((s) => s.id).toSet();
-      final newSignatures = remoteDoc.signatures.where((s) => !currentSigIds.contains(s.id)).toList();
+      final newSignatures = remoteDoc.signatures
+          .where((s) => !currentSigIds.contains(s.id) && !_locallyDeletedSigIds.contains(s.id))
+          .toList();
 
       if (newSignatures.isNotEmpty) {
         for (final sig in newSignatures) {
@@ -223,6 +231,16 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         }
 
         setState(() {
+          if (_isDraggingSig && _activeDraggingSigId != null) {
+            final active = _document.signatures.where((s) => s.id == _activeDraggingSigId).firstOrNull;
+            if (active != null) {
+              final remoteActive = remoteDoc.signatures.where((s) => s.id == _activeDraggingSigId).firstOrNull;
+              if (remoteActive != null) {
+                remoteActive.normalizedX = active.normalizedX;
+                remoteActive.normalizedY = active.normalizedY;
+              }
+            }
+          }
           _document = remoteDoc;
         });
 
@@ -231,6 +249,16 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
         }
       } else if (remoteDoc.updatedAt.isAfter(_document.updatedAt)) {
         setState(() {
+          if (_isDraggingSig && _activeDraggingSigId != null) {
+            final active = _document.signatures.where((s) => s.id == _activeDraggingSigId).firstOrNull;
+            if (active != null) {
+              final remoteActive = remoteDoc.signatures.where((s) => s.id == _activeDraggingSigId).firstOrNull;
+              if (remoteActive != null) {
+                remoteActive.normalizedX = active.normalizedX;
+                remoteActive.normalizedY = active.normalizedY;
+              }
+            }
+          }
           _document = remoteDoc;
         });
       }
@@ -372,6 +400,65 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     }
   }
 
+  PlacedSignature? _getCurrentUserSignature() {
+    if (_mySignatureId != null) {
+      final match = _document.signatures.where((s) => s.id == _mySignatureId).firstOrNull;
+      if (match != null) return match;
+    }
+    if (_currentUser != null) {
+      final uid = _currentUser!.id.toString();
+      final matchByUid = _document.signatures.where((s) => s.userId != null && s.userId == uid).firstOrNull;
+      if (matchByUid != null) return matchByUid;
+
+      final uName = (_currentUser!.fullName ?? '').trim().toLowerCase();
+      final uUser = _currentUser!.username.trim().toLowerCase();
+      if (uName.isNotEmpty) {
+        final matchByName = _document.signatures.where((s) => s.fullName.trim().toLowerCase() == uName).firstOrNull;
+        if (matchByName != null) return matchByName;
+      }
+      if (uUser.isNotEmpty) {
+        final matchByUsername = _document.signatures.where((s) => s.fullName.trim().toLowerCase() == uUser).firstOrNull;
+        if (matchByUsername != null) return matchByUsername;
+      }
+    }
+    if (_currentIdentity != null && _currentIdentity!.fullName.trim().isNotEmpty) {
+      final idFull = _currentIdentity!.fullName.trim().toLowerCase();
+      final match = _document.signatures.where((s) => s.fullName.trim().toLowerCase() == idFull).firstOrNull;
+      if (match != null) return match;
+    }
+    return null;
+  }
+
+  Future<void> _deleteSignature(String sigId) async {
+    _locallyDeletedSigIds.add(sigId);
+    if (_activeDraggingSigId == sigId) {
+      _activeDraggingSigId = null;
+      _isDraggingSig = false;
+      _dragStartGlobalPointer = null;
+    }
+    if (_mySignatureId == sigId) {
+      _mySignatureId = null;
+      await widget.apiService.storage.removeMySignatureForDoc(_document.id);
+    }
+
+    final now = DateTime.now();
+    setState(() {
+      _document.signatures.removeWhere((s) => s.id == sigId);
+      _document.updatedAt = now;
+    });
+
+    await widget.apiService.saveSignerDocument(_document);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Firma eliminada del documento.'),
+          backgroundColor: Colors.blueGrey,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   Future<void> _openSignModal() async {
     // Si no hay identidad inicial, intentar obtenerla del usuario autenticado
     if (_currentIdentity == null || _currentIdentity!.name.isEmpty) {
@@ -383,7 +470,154 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
 
     if (!mounted) return;
 
-    // Abrir modal de firma interactivo con edicion directa de nombre del firmante
+    final existingSig = _getCurrentUserSignature();
+    if (existingSig != null) {
+      _showExistingSignaturePrompt(existingSig);
+      return;
+    }
+
+    _showSignatureCanvasModal();
+  }
+
+  Future<void> _showExistingSignaturePrompt(PlacedSignature existingSig) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.verified_user_rounded, color: AppTheme.emerald, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Firma ya registrada',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Un firmante por documento',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                    ),
+                    children: [
+                      const TextSpan(text: 'Ya has firmado este documento a nombre de '),
+                      TextSpan(
+                        text: existingSig.fullName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                      ),
+                      if (existingSig.nationalId != null && existingSig.nationalId!.isNotEmpty) ...[
+                        const TextSpan(text: ' ('),
+                        TextSpan(
+                          text: 'DNI: ${existingSig.nationalId}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const TextSpan(text: ')'),
+                      ],
+                      const TextSpan(text: '.\n\nPara evitar firmas duplicadas y asegurar la coherencia legal, cada firmante solo puede tener una rúbrica activa.'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: Color(0xFF0284C7)),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Puedes modificar tu firma actual (cambiando tu nombre o rúbrica) o borrarla para firmar desde cero.',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _deleteSignature(existingSig.id);
+              },
+              icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
+              label: const Text('Eliminar Firma', style: TextStyle(color: Colors.redAccent)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.redAccent),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _showSignatureCanvasModal(existingSig: existingSig);
+              },
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Modificar / Sustituir'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showSignatureCanvasModal({PlacedSignature? existingSig}) async {
+    final initialId = existingSig != null
+        ? SignerIdentity(
+            name: existingSig.signerName,
+            surname: existingSig.signerSurname,
+            nationalId: existingSig.nationalId ?? '',
+          )
+        : _currentIdentity;
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -392,23 +626,89 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: SignatureCanvasWidget(
-            initialIdentity: _currentIdentity,
+            initialIdentity: initialId,
+            initialStrokes: existingSig?.strokes,
+            initialImageBytes: existingSig?.imageBytes,
             onCancel: () => Navigator.of(ctx).pop(),
             onSaveSignature: ({strokes, imageBytes, updatedIdentity}) {
               Navigator.of(ctx).pop();
               if (updatedIdentity != null && updatedIdentity.name.isNotEmpty) {
                 setState(() => _currentIdentity = updatedIdentity);
               }
-              final effectiveIdentity = updatedIdentity ?? _currentIdentity ?? const SignerIdentity(name: 'Usuario', surname: '');
-              _registerNewSignature(
-                strokes ?? const [],
-                effectiveIdentity,
-                imageBytes: imageBytes,
-              );
+              final effectiveIdentity = updatedIdentity ?? initialId ?? const SignerIdentity(name: 'Usuario', surname: '');
+              if (existingSig != null) {
+                _updateExistingSignature(
+                  existingSig,
+                  strokes ?? const [],
+                  effectiveIdentity,
+                  imageBytes: imageBytes,
+                );
+              } else {
+                _registerNewSignature(
+                  strokes ?? const [],
+                  effectiveIdentity,
+                  imageBytes: imageBytes,
+                );
+              }
             },
           ),
         );
       },
+    );
+  }
+
+  Future<void> _updateExistingSignature(
+    PlacedSignature existingSig,
+    List<SignatureStroke> strokes,
+    SignerIdentity identity, {
+    Uint8List? imageBytes,
+  }) async {
+    final now = DateTime.now();
+    final updatedSig = existingSig.copyWith(
+      signerName: identity.name,
+      signerSurname: identity.surname,
+      nationalId: identity.nationalId.isNotEmpty ? identity.nationalId : null,
+      signedAt: now,
+      strokes: strokes.isNotEmpty ? strokes : existingSig.strokes,
+      imageBytes: imageBytes ?? existingSig.imageBytes,
+      userId: _currentUser?.id?.toString() ?? existingSig.userId ?? 'user-local',
+    );
+
+    final notif = SignerNotification(
+      id: 'notif-${DateTime.now().millisecondsSinceEpoch}',
+      signerName: identity.fullName,
+      timestamp: now,
+      message: 'Firma actualizada de ${identity.fullName}.',
+    );
+
+    final idx = _document.signatures.indexWhere((s) => s.id == existingSig.id);
+    if (idx != -1) {
+      setState(() {
+        _document.signatures[idx] = updatedSig;
+        _document.notifications.insert(0, notif);
+        _document.updatedAt = now;
+      });
+    }
+
+    _mySignatureId = updatedSig.id;
+    await widget.apiService.storage.saveMySignatureForDoc(_document.id, updatedSig.id);
+    await widget.apiService.saveSignerDocument(_document);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.verified, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('¡Firma de ${identity.fullName} actualizada correctamente!'),
+            ),
+          ],
+        ),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
@@ -418,27 +718,36 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
     Uint8List? imageBytes,
   }) async {
     final now = DateTime.now();
+    final targetPage = _pdfPageImages.isNotEmpty ? _currentPageIndex + 1 : 1;
+    final countOnThisPage = _document.signatures.where((s) => s.pageNumber == targetPage).length;
+
     double startX;
     double startY;
 
     if (_pdfPageImages.isNotEmpty) {
-      startX = 0.55;
-      startY = 0.80;
+      if (countOnThisPage == 0) {
+        startX = 0.55;
+        startY = 0.78;
+      } else if (countOnThisPage == 1) {
+        startX = 0.08;
+        startY = 0.78;
+      } else {
+        startX = (0.08 + (countOnThisPage % 2) * 0.47).clamp(0.04, 0.58);
+        startY = (0.55 + (countOnThisPage ~/ 2) * 0.16).clamp(0.10, 0.80);
+      }
     } else {
       if (_document.signatures.isEmpty) {
-        startX = 0.113;
-        startY = 0.863;
+        startX = 0.08;
+        startY = 0.82;
       } else if (_document.signatures.length == 1) {
-        startX = 0.576;
-        startY = 0.863;
+        startX = 0.55;
+        startY = 0.82;
       } else {
         final idx = _document.signatures.length;
-        startX = (0.10 + (idx % 2) * 0.45).clamp(0.05, 0.65);
-        startY = (0.60 + (idx ~/ 2) * 0.12).clamp(0.15, 0.86);
+        startX = (0.08 + (idx % 2) * 0.47).clamp(0.04, 0.58);
+        startY = (0.55 + (idx ~/ 2) * 0.16).clamp(0.10, 0.80);
       }
     }
-
-    final targetPage = _pdfPageImages.isNotEmpty ? _currentPageIndex + 1 : 1;
 
     final newSig = PlacedSignature(
       id: 'sig-${DateTime.now().millisecondsSinceEpoch}',
@@ -451,6 +760,7 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       normalizedX: startX,
       normalizedY: startY,
       pageNumber: targetPage,
+      userId: _currentUser?.id?.toString() ?? _currentUser?.username ?? 'user-local',
     );
 
     final notif = SignerNotification(
@@ -464,7 +774,10 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
       _document.signatures.add(newSig);
       _document.notifications.insert(0, notif);
       _document.updatedAt = now;
+      _mySignatureId = newSig.id;
     });
+
+    await widget.apiService.storage.saveMySignatureForDoc(_document.id, newSig.id);
 
     // Guardar y sincronizar firma en tiempo real en la nube y en almacenamiento local
     await widget.apiService.addSignatureToDocument(
@@ -613,12 +926,12 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                               children: [
                                 pw.Text('FIRMA DIGITAL', style: pw.TextStyle(fontSize: 7.0, fontWeight: pw.FontWeight.bold, color: PdfColors.teal)),
-                                pw.Text(sig.verificationHash, style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColors.teal)),
+                                pw.Text('PÁG. ${sig.pageNumber}', style: const pw.TextStyle(fontSize: 6.0, color: PdfColors.grey600)),
                               ],
                             ),
                             pw.SizedBox(height: 2),
                             pw.Container(
-                              height: 36,
+                              height: 42,
                               width: sigCardWidth - 10,
                               alignment: pw.Alignment.center,
                               child: strokePng != null
@@ -629,10 +942,13 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                                     ),
                             ),
                             pw.Divider(thickness: 0.5, color: PdfColors.grey300),
+                            pw.SizedBox(height: 1),
                             pw.Text(sig.fullName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
-                            if (sig.nationalId != null)
-                              pw.Text('DNI: ${sig.nationalId}', style: const pw.TextStyle(fontSize: 7.0, color: PdfColors.grey700)),
-                            pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(sig.signedAt), style: const pw.TextStyle(fontSize: 7.0, color: PdfColors.grey600)),
+                            if (sig.nationalId != null && sig.nationalId!.trim().isNotEmpty)
+                              pw.Text('DNI: ${sig.nationalId}', style: const pw.TextStyle(fontSize: 7.0, color: PdfColors.grey800))
+                            else
+                              pw.Text('DNI: No especificado', style: const pw.TextStyle(fontSize: 7.0, color: PdfColors.grey600)),
+                            pw.Text('Firma: ${sig.verificationHash} · ${DateFormat('dd/MM/yyyy HH:mm').format(sig.signedAt)}', style: pw.TextStyle(fontSize: 6.5, color: PdfColors.teal, fontWeight: pw.FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -726,9 +1042,11 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                           ),
                           pw.Divider(thickness: 0.5),
                           pw.Text(sig.fullName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                          if (sig.nationalId != null) pw.Text('DNI/NIF: ${sig.nationalId}', style: const pw.TextStyle(fontSize: 8.5)),
-                          pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm').format(sig.signedAt)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                          pw.Text('Sello: ${sig.verificationHash}', style: pw.TextStyle(fontSize: 8, color: PdfColors.teal, fontWeight: pw.FontWeight.bold)),
+                          if (sig.nationalId != null && sig.nationalId!.trim().isNotEmpty)
+                            pw.Text('DNI/NIF: ${sig.nationalId}', style: const pw.TextStyle(fontSize: 8.5))
+                          else
+                            pw.Text('DNI/NIF: No especificado', style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600)),
+                          pw.Text('Firma: ${sig.verificationHash} · ${DateFormat('dd/MM/yyyy HH:mm').format(sig.signedAt)}', style: pw.TextStyle(fontSize: 8, color: PdfColors.teal, fontWeight: pw.FontWeight.bold)),
                         ],
                       ),
                     );
@@ -903,6 +1221,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   _activeDraggingSigId = null;
                   _dragStartGlobalPointer = null;
                 });
+                _document.updatedAt = DateTime.now();
+                widget.apiService.saveSignerDocument(_document);
               }
             },
             onPointerCancel: (_) {
@@ -912,6 +1232,8 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                   _activeDraggingSigId = null;
                   _dragStartGlobalPointer = null;
                 });
+                _document.updatedAt = DateTime.now();
+                widget.apiService.saveSignerDocument(_document);
               }
             },
             child: LayoutBuilder(
@@ -1773,16 +2095,20 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    GestureDetector(
+                    Listener(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        setState(() {
-                          _document.signatures.removeWhere((s) => s.id == sig.id);
-                        });
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.all(2.0),
-                        child: Icon(Icons.close, size: 12, color: Colors.grey),
+                      onPointerDown: (_) {},
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _deleteSignature(sig.id),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(Icons.close, size: 12, color: Colors.grey),
+                        ),
                       ),
                     ),
                   ],
@@ -1815,24 +2141,57 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
                 Container(height: 0.6, color: const Color(0xFF059669).withOpacity(0.4)),
                 const SizedBox(height: 2),
 
-                // Signer name and verification badge
+                // Structured metadata arranged vertically downwards:
+                // 1) Nombre completo
                 Row(
                   children: [
-                    const Icon(Icons.verified, size: 10, color: Color(0xFF059669)),
-                    const SizedBox(width: 3),
+                    const Icon(Icons.verified, size: 11, color: Color(0xFF059669)),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         sig.fullName,
-                        style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        style: const TextStyle(
+                          fontSize: 8.8,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      sig.verificationHash,
-                      style: const TextStyle(fontSize: 7.0, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
-                    ),
                   ],
+                ),
+
+                // 2) DNI / Documento de identidad (debajo del nombre)
+                Padding(
+                  padding: const EdgeInsets.only(left: 15.0),
+                  child: Text(
+                    sig.nationalId != null && sig.nationalId!.trim().isNotEmpty
+                        ? 'DNI: ${sig.nationalId}'
+                        : 'DNI: No especificado',
+                    style: const TextStyle(
+                      fontSize: 7.2,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                // 3) Número de la firma / Sello (debajo del DNI)
+                Padding(
+                  padding: const EdgeInsets.only(left: 15.0),
+                  child: Text(
+                    'Firma: ${sig.verificationHash} · ${DateFormat('dd/MM/yy HH:mm').format(sig.signedAt)}',
+                    style: const TextStyle(
+                      fontSize: 6.8,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF059669),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -2038,13 +2397,19 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
   }
 
   Widget _buildSignatureListItem(BuildContext context, PlacedSignature sig, bool isDark, DateFormat dateFormat) {
+    final isMySig = _mySignatureId == sig.id ||
+        (sig.userId != null && _currentUser != null && sig.userId == _currentUser!.id.toString());
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF161F30) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+        border: Border.all(
+          color: isMySig ? AppTheme.emerald.withOpacity(0.5) : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+          width: isMySig ? 1.4 : 1.0,
+        ),
       ),
       child: Row(
         children: [
@@ -2061,9 +2426,35 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${sig.fullName} (Pág. ${sig.pageNumber})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                if (sig.nationalId != null)
-                  Text('DNI/NIF: ${sig.nationalId}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${sig.fullName} (Pág. ${sig.pageNumber})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isMySig) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emerald.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('Mi firma', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  sig.nationalId != null && sig.nationalId!.trim().isNotEmpty
+                      ? 'DNI/NIF: ${sig.nationalId}'
+                      : 'DNI/NIF: No especificado',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   dateFormat.format(sig.signedAt),
@@ -2072,16 +2463,33 @@ class _PdfSignerScreenState extends State<PdfSignerScreen> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.emerald.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              sig.verificationHash,
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-            ),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  sig.verificationHash,
+                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                ),
+              ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () => _deleteSignature(sig.id),
+                child: const Tooltip(
+                  message: 'Eliminar firma',
+                  child: Padding(
+                    padding: EdgeInsets.all(2.0),
+                    child: Icon(Icons.delete_outline, size: 15, color: Colors.redAccent),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
